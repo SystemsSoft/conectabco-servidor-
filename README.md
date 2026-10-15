@@ -3,8 +3,12 @@
 API em **Python + FastAPI** que alimenta o front-end Flutter (`marceloimob_gestao`).
 Banco: **MySQL 8.4 no AWS Lightsail** (SQLAlchemy 2 + migrações Alembic).
 
-Módulos prontos: **Cadastros e CRM** (imóveis, contatos com perfil de interesse,
-cruzamento de perfil e Central de Relacionamento).
+Módulos prontos:
+- **Cadastros e CRM** — imóveis, contatos com perfil de interesse, cruzamento
+  de perfil e Central de Relacionamento.
+- **Administração de Locação** — contratos, despesas, cobranças (boletos e
+  recibos) e repasses.
+- **Manutenção** — pauta e diário de manutenção (usada na Locação e nas Vendas).
 
 ## Instalação
 
@@ -47,7 +51,8 @@ O app usa `http://localhost:8000` por padrão. Para outro endereço:
 flutter run -d chrome --dart-define=API_URL=https://api.seudominio.com.br
 ```
 
-Hoje o CRM do app usa a API; os demais módulos ainda guardam em memória.
+Hoje o CRM, a Administração de Locação e a Manutenção usam a API; os demais
+módulos ainda guardam em memória.
 
 ## Testes
 
@@ -93,6 +98,30 @@ Os testes usam um SQLite em memória descartável; não tocam no MySQL.
 | GET | `/api/v1/crm/cruzamento/resumo` | Total de sugestões (dashboard) |
 | GET | `/api/v1/crm/catalogos` | Opções dos formulários (enums, comodidades, UFs...) |
 
+## Rotas – Administração de Locação
+
+| Método | Rota | Descrição |
+|---|---|---|
+| GET | `/api/v1/locacao/contratos` | Lista (`status`, `imovelId`, `locatarioId`, `busca`) |
+| GET / PUT / DELETE | `/api/v1/locacao/contratos/{id}` | Detalhe, gravação (numera `LOC-0001`...), exclusão com despesas, cobranças e repasses |
+| GET | `/api/v1/locacao/despesas` | Lista (`contratoId`) |
+| PUT / DELETE | `/api/v1/locacao/despesas/{id}` | Gravação e exclusão |
+| GET | `/api/v1/locacao/cobrancas` | Lista (`contratoId`, `competencia`, `status`) |
+| GET / PUT / DELETE | `/api/v1/locacao/cobrancas/{id}` | Cobrança com itens, pagamento e encargos (uma por contrato/mês) |
+| GET | `/api/v1/locacao/repasses` | Repasses feitos (`cobrancaId`) |
+| PUT / DELETE | `/api/v1/locacao/repasses/{cobrancaId}/{contatoId}` | Marca (`{"data": ...}`) ou desmarca o repasse |
+
+A geração das cobranças do mês, encargos, valores de repasse e IR são
+calculados no app; o servidor valida e guarda. Imóveis e contatos usados em
+contratos não podem ser excluídos (HTTP 409).
+
+## Rotas – Manutenção
+
+| Método | Rota | Descrição |
+|---|---|---|
+| GET | `/api/v1/manutencoes` | Pauta (`contexto` = locacao/venda, `imovelId`, `status`) |
+| GET / PUT / DELETE | `/api/v1/manutencoes/{id}` | Pauta com o diário completo (cada registro com `id`) |
+
 ## Estrutura
 
 ```
@@ -133,5 +162,5 @@ tests/                       pytest, um diretório por módulo
    ```
 4. Escreva os testes em `tests/locacao/`.
 
-Ordem sugerida: locação → vendas → temporada → manutenção → financeiro →
+Ordem sugerida: vendas → temporada → financeiro →
 fiscal → contratos/relatórios → equipe (usuários, permissões e login com JWT).

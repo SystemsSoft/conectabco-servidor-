@@ -24,3 +24,7 @@ class Opcao(Esquema):
 
     valor: str
     rotulo: str
+
+
+def pagina[T](itens: list[T], total: int, limite: int, deslocamento: int) -> Pagina[T]:
+    return Pagina[T](itens=itens, total=total, limite=limite, deslocamento=deslocamento)

@@ -5,6 +5,7 @@ import uuid
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from sqlalchemy.exc import IntegrityError
 
 
 class RegraNegocio(Exception):
@@ -40,6 +41,17 @@ def registrar_tratadores(app: FastAPI) -> None:
     @app.exception_handler(RegraNegocio)
     async def _regra(_: Request, exc: RegraNegocio) -> JSONResponse:
         return JSONResponse({"detail": exc.mensagem}, status_code=exc.status_code)
+
+    @app.exception_handler(IntegrityError)
+    async def _integridade(_: Request, exc: IntegrityError) -> JSONResponse:
+        # Ex.: excluir imóvel ou contato usado em um contrato.
+        return JSONResponse(
+            {
+                "detail": "Este registro está vinculado a outros cadastros "
+                "(ex.: um contrato) e não pode ser excluído ou alterado assim."
+            },
+            status_code=409,
+        )
 
     @app.exception_handler(RequestValidationError)
     async def _validacao(_: Request, exc: RequestValidationError) -> JSONResponse:
