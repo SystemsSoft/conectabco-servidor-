@@ -24,6 +24,10 @@ class Settings(BaseSettings):
     # Sobrescreve a URL montada a partir de DB_* (usado nos testes).
     database_url: str = ""
 
+    # Assinatura dos tokens de acesso: troque por um valor longo e secreto.
+    jwt_secret: str = ""
+    token_horas: int = 12
+
     cors_origins: str = ""
     host: str = "0.0.0.0"
     port: int = 8000

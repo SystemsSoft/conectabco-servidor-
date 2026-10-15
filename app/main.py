@@ -31,8 +31,8 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
     registrar_tratadores(app)
-    for r in roteadores():
-        app.include_router(r, prefix=PREFIXO_API)
+    for router, dependencias in roteadores():
+        app.include_router(router, prefix=PREFIXO_API, dependencies=dependencias)
 
     @app.get("/saude", tags=["Sistema"])
     def saude() -> dict:

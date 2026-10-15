@@ -1,0 +1,160 @@
+from datetime import timedelta
+
+import sqlalchemy as sa
+
+from app.core.tempo import agora
+from app.modules.equipe.enums import PerfilAcesso, permissoes_do_perfil
+from tests.apoio import novo_id
+from tests.conftest import ADMIN
+
+AUTH = "/api/v1/auth"
+EQ = "/api/v1/equipe"
+
+
+def _usuario(client, perfil="corretor", email="corretor@teste.com.br", **extra):
+    id = novo_id()
+    r = client.put(f"{EQ}/usuarios/{id}", json={
+        "nome": "Carlos Corretor", "email": email, "perfil": perfil,
+        "permissoes": permissoes_do_perfil(PerfilAcesso(perfil)),
+        "senha": "senha-do-corretor", **extra,
+    })  # fmt: skip
+    assert r.status_code == 201, r.text
+    return id
+
+
+def _entrar(cliente, email, senha="senha-do-corretor"):
+    r = cliente.post(f"{AUTH}/entrar", json={"email": email, "senha": senha})
+    return r
+
+
+def _com_token(cliente, token):
+    return {"Authorization": f"Bearer {token}"}
+
+
+def test_login_e_rotas_protegidas(cliente_anonimo):
+    assert cliente_anonimo.get("/api/v1/crm/imoveis").status_code == 401
+    r = _entrar(cliente_anonimo, ADMIN["email"], "errada")
+    assert r.json()["detail"] == "E-mail ou senha incorretos."
+    r = _entrar(cliente_anonimo, "ADMIN@teste.com.br", ADMIN["senha"])
+    assert r.status_code == 200
+    h = _com_token(cliente_anonimo, r.json()["token"])
+    assert cliente_anonimo.get("/api/v1/crm/imoveis", headers=h).status_code == 200
+    assert cliente_anonimo.get(f"{AUTH}/eu", headers=h).json()["perfil"] == "administrador"
+    assert cliente_anonimo.get("/saude").status_code == 200
+
+    # Sair encerra a sessão: o mesmo token deixa de valer.
+    assert cliente_anonimo.post(f"{AUTH}/sair", headers=h).status_code == 204
+    r = cliente_anonimo.get("/api/v1/crm/imoveis", headers=h)
+    assert (r.status_code, r.json()["detail"]) == (401, "Sua sessão foi encerrada. Entre novamente.")
+
+
+def test_permissoes_por_modulo(client):
+    _usuario(client)
+    r = _entrar(client, "corretor@teste.com.br")
+    h = _com_token(client, r.json()["token"])
+    assert client.get("/api/v1/crm/contatos", headers=h).status_code == 200
+    r = client.get("/api/v1/financeiro/lancamentos", headers=h)
+    assert (r.status_code, r.json()["detail"]) == (
+        403, "Você não tem permissão para ver em Financeiro.")
+    # Corretor cria e edita no CRM, mas não exclui.
+    cid = novo_id()
+    assert client.put(f"/api/v1/crm/contatos/{cid}", headers=h,
+                      json={"nome": "Cliente"}).status_code == 201  # fmt: skip
+    r = client.delete(f"/api/v1/crm/contatos/{cid}", headers=h)
+    assert r.json()["detail"] == "Você não tem permissão para excluir em Cadastros e CRM."
+    # Não gerencia usuários.
+    r = client.put(f"{EQ}/configuracao", headers=h,
+                   json={"limiteSessoes": 2, "inatividadeMinutos": 30})  # fmt: skip
+    assert r.status_code == 403
+
+
+def test_limite_de_sessoes_e_inatividade(client, banco):
+    client.put(f"{EQ}/configuracao", json={"limiteSessoes": 1, "inatividadeMinutos": 30})
+    _usuario(client)
+    r = _entrar(client, "corretor@teste.com.br")
+    assert r.json()["detail"].startswith("Limite de 1 usuário(s) simultâneo(s)")
+    # O próprio admin pode abrir outra sessão.
+    assert _entrar(client, ADMIN["email"], ADMIN["senha"]).status_code == 200
+
+    # Sessões paradas além do limite expiram.
+    from app.modules.equipe.models import Sessao
+
+    with banco() as db:
+        db.execute(sa.update(Sessao).values(ultima_atividade=agora() - timedelta(hours=1)))
+        db.commit()
+    r = client.get("/api/v1/crm/imoveis")
+    assert r.json()["detail"] == "Sua sessão expirou por inatividade. Entre novamente."
+    assert _entrar(client, "corretor@teste.com.br").status_code == 200
+
+
+def test_usuarios_regras(client):
+    eu = client.get(f"{AUTH}/eu").json()
+    uid = _usuario(client)
+    dados = {"nome": "Carlos", "email": "corretor@teste.com.br", "perfil": "corretor",
+             "permissoes": permissoes_do_perfil(PerfilAcesso.corretor)}  # fmt: skip
+    # E-mail repetido, senha curta, novo sem senha.
+    r = client.put(f"{EQ}/usuarios/{novo_id()}", json=dados | {"senha": "12345678"})
+    assert r.json()["detail"] == "Já existe um usuário com este e-mail."
+    r = client.put(f"{EQ}/usuarios/{uid}", json=dados | {"senha": "curta"})
+    assert r.json()["detail"] == "A senha precisa de ao menos 8 caracteres."
+    r = client.put(f"{EQ}/usuarios/{novo_id()}", json=dados | {"email": "x@y.com"})
+    assert r.json()["detail"] == "Defina uma senha para o novo usuário."
+    # Senha nunca sai na API.
+    assert "senha" not in str(client.get(f"{EQ}/usuarios").json()).lower().replace("senhaHash", "")
+
+    # Não se exclui, não fica sem administrador.
+    assert client.delete(f"{EQ}/usuarios/{eu['id']}").json()["detail"] == (
+        "Você não pode excluir o usuário que está em uso.")
+    r = client.put(f"{EQ}/usuarios/{eu['id']}", json={
+        "nome": eu["nome"], "email": eu["email"], "perfil": "administrador",
+        "permissoes": eu["permissoes"], "ativo": False})  # fmt: skip
+    assert r.json()["detail"] == "Mantenha ao menos um administrador ativo."
+
+    # Desativar encerra as sessões do usuário.
+    h = _com_token(client, _entrar(client, "corretor@teste.com.br").json()["token"])
+    client.put(f"{EQ}/usuarios/{uid}", json=dados | {"ativo": False})
+    assert client.get("/api/v1/crm/imoveis", headers=h).status_code == 401
+    assert _entrar(client, "corretor@teste.com.br").json()["detail"] == (
+        "Este usuário está desativado.")
+    assert client.delete(f"{EQ}/usuarios/{uid}").status_code == 204
+
+
+def test_alterar_senha(client):
+    r = client.post(f"{AUTH}/alterar-senha", json={"senhaAtual": "x", "novaSenha": "nova-senha-1"})
+    assert r.json()["detail"] == "A senha atual não confere."
+    r = client.post(f"{AUTH}/alterar-senha",
+                    json={"senhaAtual": ADMIN["senha"], "novaSenha": "nova-senha-1"})  # fmt: skip
+    assert r.status_code == 204
+    assert _entrar(client, ADMIN["email"], "nova-senha-1").status_code == 200
+
+
+def test_chat_privado_e_comissoes_proprias(client):
+    eu = client.get(f"{AUTH}/eu").json()["id"]
+    outro = _usuario(client)
+    terceiro = _usuario(client, email="terceiro@teste.com.br")
+    dm = f"dm:{min(eu, outro)}:{max(eu, outro)}"
+    msg = {"conversaId": dm, "remetenteId": eu, "texto": "Oi", "enviadaEm": "2026-10-15T10:00:00"}
+    assert client.put(f"{EQ}/mensagens/{novo_id()}", json=msg).status_code == 200
+    # Terceiro não vê a conversa direta.
+    h3 = _com_token(client, _entrar(client, "terceiro@teste.com.br").json()["token"])
+    assert client.get(f"{EQ}/mensagens", headers=h3).json() == []
+    assert len(client.get(f"{EQ}/mensagens").json()) == 1
+
+    # Comissões: corretor sem "ver de todos" só recebe as próprias.
+    for uid in (outro, terceiro):
+        client.put(f"{EQ}/comissoes/{novo_id()}", json={
+            "usuarioId": uid, "tipo": "venda", "competencia": "2026-10-15", "valor": 1000})  # fmt: skip
+    proprias = client.get(f"{EQ}/comissoes", headers=h3).json()
+    assert [c["usuarioId"] for c in proprias] == [terceiro]
+    assert proprias[0]["competencia"] == "2026-10-01"
+    assert len(client.get(f"{EQ}/comissoes").json()) == 2
+
+
+def test_fila_e_atividades(client):
+    eu = client.get(f"{AUTH}/eu").json()["id"]
+    fila = [{"usuarioId": eu, "status": "disponivel", "desde": "2026-10-15T09:00:00"}]
+    assert client.put(f"{EQ}/fila", json=fila).json() == fila
+    assert client.put(f"{EQ}/fila", json=fila * 2).status_code == 422
+    client.put(f"{EQ}/atividades/{novo_id()}", json={"tipo": "edicao", "descricao": "Teste"})
+    tipos = [a["tipo"] for a in client.get(f"{EQ}/atividades").json()]
+    assert "login" in tipos and "edicao" in tipos
