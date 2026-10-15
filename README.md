@@ -8,6 +8,16 @@ Módulos prontos:
   de perfil e Central de Relacionamento.
 - **Administração de Locação** — contratos, despesas, cobranças (boletos e
   recibos) e repasses.
+- **Administração de Vendas** — vendas, financiamento próprio (parcelas) e
+  comissões.
+- **Locação por Temporada** — reservas e bloqueios do calendário, com
+  checagem de datas sobrepostas no servidor.
+- **Financeiro** — contas a pagar e a receber, contas bancárias, extrato e
+  conciliação, boletos, índices de correção e configuração de multa/juros.
+- **Fiscal** — declarante da DIMOB (a DIMOB e o IR são montados no app com os
+  dados de Locação, Vendas e CRM).
+- **Contratos e Relatórios** — "Meus modelos" de contrato (o catálogo de
+  modelos prontos acompanha o app).
 - **Manutenção** — pauta e diário de manutenção (usada na Locação e nas Vendas).
 
 ## Instalação
@@ -51,8 +61,9 @@ O app usa `http://localhost:8000` por padrão. Para outro endereço:
 flutter run -d chrome --dart-define=API_URL=https://api.seudominio.com.br
 ```
 
-Hoje o CRM, a Administração de Locação e a Manutenção usam a API; os demais
-módulos ainda guardam em memória.
+Hoje o CRM, a Administração de Locação, a Administração de Vendas, a
+Locação por Temporada, o Financeiro, o Fiscal, Contratos e Relatórios e a
+Manutenção usam a API. Falta a Equipe e Segurança, que ainda guarda em memória.
 
 ## Testes
 
@@ -115,6 +126,68 @@ A geração das cobranças do mês, encargos, valores de repasse e IR são
 calculados no app; o servidor valida e guarda. Imóveis e contatos usados em
 contratos não podem ser excluídos (HTTP 409).
 
+## Rotas – Administração de Vendas
+
+| Método | Rota | Descrição |
+|---|---|---|
+| GET | `/api/v1/vendas` | Lista (`status`, `imovelId`, `busca`) |
+| GET / PUT / DELETE | `/api/v1/vendas/{id}` | Venda com compradores, vendedores, plano e divisão da comissão (numera `VEN-0001`...); exclusão leva as parcelas |
+| DELETE | `/api/v1/vendas/{id}/parcelas` | Apaga as parcelas (antes de gerar nova tabela) |
+| GET | `/api/v1/vendas/parcelas` | Parcelas (`vendaId`, `status`) |
+| PUT | `/api/v1/vendas/parcelas` | Grava a tabela inteira de uma vez (lista com `id`) |
+| PUT | `/api/v1/vendas/parcelas/{id}` | Grava uma parcela (ex.: pagamento) |
+
+A tabela Price/SAC e os encargos são calculados no app. Com parcela paga, o
+servidor recusa mudar as condições de pagamento da venda.
+
+## Rotas – Locação por Temporada
+
+| Método | Rota | Descrição |
+|---|---|---|
+| GET | `/api/v1/temporada/reservas` | Lista (`imovelId`, `situacao`, `de`, `ate`) |
+| GET / PUT / DELETE | `/api/v1/temporada/reservas/{id}` | Reserva ou bloqueio (numera `RES-0001`...) |
+| GET | `/api/v1/temporada/disponibilidade` | Reservas que impedem o período (`imovelId`, `checkIn`, `checkOut`, `ignorarId`) |
+
+O servidor recusa reserva sobreposta a outra ativa do mesmo imóvel, mesmo que
+o app de outro usuário ainda não a conheça. O período é [check-in, check-out):
+um hóspede pode entrar no dia em que o anterior sai.
+
+## Rotas – Financeiro
+
+| Método | Rota | Descrição |
+|---|---|---|
+| GET | `/api/v1/financeiro/contas-bancarias` | Contas bancárias |
+| PUT / DELETE | `/api/v1/financeiro/contas-bancarias/{id}` | Gravação; exclusão recusada se houver movimentação |
+| GET | `/api/v1/financeiro/lancamentos` | Contas a pagar/receber (`tipo`, `status`, `contatoId`, `de`, `ate`) |
+| PUT | `/api/v1/financeiro/lancamentos` | Grava várias de uma vez (repetição mensal) |
+| GET / PUT / DELETE | `/api/v1/financeiro/lancamentos/{id}` | Conta com baixa/estorno; exclusão recusada se baixada ou com boleto emitido |
+| GET | `/api/v1/financeiro/extrato` | Extrato (`contaId`, `de`, `ate`) |
+| PUT / DELETE | `/api/v1/financeiro/extrato/{id}` | Linha do extrato; com `lancamentoId`, concilia (valor deve bater) |
+| GET | `/api/v1/financeiro/boletos` | Boletos (`status`, `lancamentoId`) |
+| PUT | `/api/v1/financeiro/boletos/{id}` | Emite (nosso número vazio = próximo da conta) ou atualiza |
+| GET / PUT | `/api/v1/financeiro/indices` | Variações mensais dos índices (PUT substitui o mês) |
+| DELETE | `/api/v1/financeiro/indices/{indice}/{ano}/{mes}` | Remove a variação |
+| GET / PUT | `/api/v1/financeiro/configuracao` | Multa, juros e índice padrão |
+
+Encargos, atualização monetária, fluxo de caixa e leitura do arquivo de
+retorno são calculados no app; o servidor valida e guarda.
+
+## Rotas – Fiscal
+
+| Método | Rota | Descrição |
+|---|---|---|
+| GET / PUT | `/api/v1/fiscal/declarante` | Declarante da DIMOB (CNPJ/CPF validados pelos dígitos) |
+
+## Rotas – Contratos e Relatórios
+
+| Método | Rota | Descrição |
+|---|---|---|
+| GET | `/api/v1/contratos/modelos` | Meus modelos (`tipo`) |
+| GET / PUT / DELETE | `/api/v1/contratos/modelos/{id}` | Modelo com texto e parâmetros; mantém ao menos um de locação e um de venda |
+
+Se o servidor ainda não tem modelo de locação ou de venda, o app grava uma
+cópia do modelo pronto correspondente (usado na impressão dos contratos).
+
 ## Rotas – Manutenção
 
 | Método | Rota | Descrição |
@@ -162,5 +235,4 @@ tests/                       pytest, um diretório por módulo
    ```
 4. Escreva os testes em `tests/locacao/`.
 
-Ordem sugerida: vendas → temporada → financeiro →
-fiscal → contratos/relatórios → equipe (usuários, permissões e login com JWT).
+Próximo: equipe (usuários, permissões e login com JWT).
