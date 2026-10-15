@@ -1,0 +1,9 @@
+[project]
+name = "marceloimob-servidor"
+version = "1.0.0"
+description = "API do Sistema de Gestão Imobiliária Marcelo Bonifácio"
+requires-python = ">=3.12"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

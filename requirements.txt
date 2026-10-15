@@ -1,0 +1,7 @@
+# Dependências do servidor (pip install -r requirements.txt)
+fastapi[standard]>=0.143,<1
+SQLAlchemy>=2.1,<2.2
+alembic>=1.20,<2
+pydantic-settings>=2.16,<3
+PyMySQL>=1.1,<2
+cryptography>=46  # autenticação caching_sha2_password do MySQL 8
