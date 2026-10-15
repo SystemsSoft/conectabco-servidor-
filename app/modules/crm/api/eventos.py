@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Query, Response, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -61,8 +61,12 @@ def criar(dados: EventoEntrada, svc: Service):
 
 
 @router.put("/{id}", response_model=EventoSaida)
-def atualizar(id: str, dados: EventoEntrada, svc: Service):
-    return svc.atualizar(id, dados)
+def salvar(id: str, dados: EventoEntrada, svc: Service, response: Response):
+    """Atualiza; se o id (UUID gerado pelo app) ainda não existe, cria (201)."""
+    salvo, criado = svc.salvar(id, dados)
+    if criado:
+        response.status_code = status.HTTP_201_CREATED
+    return salvo
 
 
 @router.post("/{id}/alternar-conclusao", response_model=EventoSaida)

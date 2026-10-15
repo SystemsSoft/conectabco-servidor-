@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
-from app.core.errors import NaoEncontrado, RegraNegocio
+from app.core.errors import NaoEncontrado, RegraNegocio, validar_id
 from app.core.schemas import Pagina
 from app.core.sequencias import proximo_valor
 from app.core.tempo import agora
@@ -54,12 +54,18 @@ class ImovelService:
         self.db.commit()
         return mp.imovel_saida(imovel)
 
-    def atualizar(self, id: str, dados: s.ImovelEntrada) -> s.ImovelSaida:
-        imovel = self._buscar(id)
+    def salvar(self, id: str, dados: s.ImovelEntrada) -> tuple[s.ImovelSaida, bool]:
+        """Atualiza o imóvel ou o cria com o id informado pelo app.
+        Devolve (imóvel, criado)."""
+        imovel = self.repo.obter(validar_id(id))
         self._validar(dados)
+        criado = imovel is None
+        if criado:
+            imovel = m.Imovel(id=validar_id(id), codigo=self._proximo_codigo())
+            self.repo.adicionar(imovel)
         mp.aplicar_imovel(imovel, dados)
         self.db.commit()
-        return mp.imovel_saida(imovel)
+        return mp.imovel_saida(imovel), criado
 
     def remover(self, id: str) -> None:
         """Remove o imóvel e desvincula os itens da agenda que apontavam para ele."""
@@ -114,12 +120,17 @@ class ContatoService:
         self.db.commit()
         return mp.contato_saida(contato)
 
-    def atualizar(self, id: str, dados: s.ContatoEntrada) -> s.ContatoSaida:
-        contato = self._buscar(id)
+    def salvar(self, id: str, dados: s.ContatoEntrada) -> tuple[s.ContatoSaida, bool]:
+        """Atualiza o contato ou o cria com o id informado pelo app."""
+        contato = self.repo.obter(validar_id(id))
         self._validar(dados)
+        criado = contato is None
+        if criado:
+            contato = m.Contato(id=validar_id(id))
+            self.repo.adicionar(contato)
         mp.aplicar_contato(contato, dados)
         self.db.commit()
-        return mp.contato_saida(contato)
+        return mp.contato_saida(contato), criado
 
     def remover(self, id: str) -> None:
         """Remove o contato, desvincula a agenda e os imóveis de que era dono."""
@@ -186,12 +197,17 @@ class EventoService:
         self.db.commit()
         return mp.evento_saida(evento)
 
-    def atualizar(self, id: str, dados: s.EventoEntrada) -> s.EventoSaida:
-        evento = self._buscar(id)
+    def salvar(self, id: str, dados: s.EventoEntrada) -> tuple[s.EventoSaida, bool]:
+        """Atualiza o item da agenda ou o cria com o id informado pelo app."""
+        evento = self.repo.obter(validar_id(id))
         self._validar(dados)
+        criado = evento is None
+        if criado:
+            evento = m.Evento(id=validar_id(id))
+            self.repo.adicionar(evento)
         mp.aplicar_evento(evento, dados)
         self.db.commit()
-        return mp.evento_saida(evento)
+        return mp.evento_saida(evento), criado
 
     def alternar_conclusao(self, id: str) -> s.EventoSaida:
         evento = self._buscar(id)

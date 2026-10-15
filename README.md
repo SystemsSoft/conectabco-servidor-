@@ -39,6 +39,16 @@ Teste a conexão em `GET /saude/banco` com o servidor rodando.
 
 Documentação interativa (Swagger): **http://localhost:8000/docs**
 
+## App Flutter
+
+O app usa `http://localhost:8000` por padrão. Para outro endereço:
+
+```bash
+flutter run -d chrome --dart-define=API_URL=https://api.seudominio.com.br
+```
+
+Hoje o CRM do app usa a API; os demais módulos ainda guardam em memória.
+
 ## Testes
 
 ```bash
@@ -53,9 +63,10 @@ Os testes usam um SQLite em memória descartável; não tocam no MySQL.
 - JSON em **camelCase**, com os mesmos nomes de campos das entidades Dart.
 - Enums trafegam pelo **nome usado no Dart** (`"casaCondominio"`, `"locacao"`).
   `GET /api/v1/crm/catalogos` devolve todos com o rótulo em português.
-- `id` (UUID) e campos de controle (`codigo`, `criadoEm`, `atualizadoEm`) são
-  gerados pelo servidor. `POST` cria, `PUT /{id}` substitui o registro inteiro
-  (listas incluídas), `DELETE /{id}` remove.
+- O `id` é um UUID gerado pelo app. `PUT /{id}` grava o registro inteiro
+  (listas incluídas): atualiza se existe, cria (201) se não existe — repetir a
+  mesma gravação nunca duplica. `POST` também cria (id gerado pelo servidor).
+  `codigo`, `criadoEm` e `atualizadoEm` são sempre do servidor.
 - Listagens são paginadas: `?limite=100&deslocamento=0` →
   `{"itens": [...], "total": n, "limite": 100, "deslocamento": 0}`.
 - Erros: `{"detail": "mensagem"}` — 422 para regra de negócio/validação,
@@ -68,7 +79,7 @@ Os testes usam um SQLite em memória descartável; não tocam no MySQL.
 |---|---|---|
 | GET | `/api/v1/crm/imoveis` | Lista (`busca`, `finalidade`, `status`, `tipo`, `cidade`, `proprietarioId`) |
 | POST | `/api/v1/crm/imoveis` | Cadastra; gera o código `IM-0001`, `IM-0002`... |
-| GET / PUT / DELETE | `/api/v1/crm/imoveis/{id}` | Detalhe, edição, exclusão (desvincula a agenda) |
+| GET / PUT / DELETE | `/api/v1/crm/imoveis/{id}` | Detalhe, gravação (cria ou edita), exclusão (desvincula a agenda) |
 | GET | `/api/v1/crm/contatos` | Lista (`busca`, `papel`, `etapa`, `origem`, `comPerfil`) |
 | POST | `/api/v1/crm/contatos` | Cadastra (com perfil de interesse opcional) |
 | GET / PUT / DELETE | `/api/v1/crm/contatos/{id}` | Detalhe, edição, exclusão (desvincula imóveis e agenda) |

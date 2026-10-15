@@ -92,3 +92,22 @@ def test_remover_desvincula_agenda(client):
     assert client.delete(f"{URL}/{imovel['id']}").status_code == 204
     assert client.get(f"{URL}/{imovel['id']}").status_code == 404
     assert client.get(f"/api/v1/crm/eventos/{evento['id']}").json()["imovelId"] is None
+
+
+def test_put_com_id_novo_cria_e_repetir_nao_duplica(client):
+    id = "3f0e6f4e-8f1c-4c1a-9d7e-0a1b2c3d4e5f"
+    r = client.put(f"{URL}/{id}", json=_imovel())
+    assert r.status_code == 201
+    assert (r.json()["id"], r.json()["codigo"]) == (id, "IM-0001")
+    r = client.put(f"{URL}/{id}", json=_imovel(titulo="Editado"))
+    assert r.status_code == 200
+    assert r.json()["codigo"] == "IM-0001"
+    assert client.get(URL).json()["total"] == 1
+
+
+def test_id_invalido_e_mensagem_de_validacao_em_portugues(client):
+    r = client.put(f"{URL}/123", json=_imovel())
+    assert r.json()["detail"] == "Identificador inválido."
+    r = client.post(URL, json=_imovel(uf="RJX"))
+    assert r.status_code == 422
+    assert r.json()["detail"].startswith("Campo inválido: uf")

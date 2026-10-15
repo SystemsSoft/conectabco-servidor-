@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Query, Response, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -19,7 +19,7 @@ def _service(db: Annotated[Session, Depends(get_db)]) -> ImovelService:
 Service = Annotated[ImovelService, Depends(_service)]
 
 
-@router.get("", response_model=Pagina[ImovelSaida], response_model_by_alias=True)
+@router.get("", response_model=Pagina[ImovelSaida])
 def listar(
     svc: Service,
     busca: str | None = Query(None, description="Código, título, endereço ou condomínio"),
@@ -55,8 +55,12 @@ def criar(dados: ImovelEntrada, svc: Service):
 
 
 @router.put("/{id}", response_model=ImovelSaida)
-def atualizar(id: str, dados: ImovelEntrada, svc: Service):
-    return svc.atualizar(id, dados)
+def salvar(id: str, dados: ImovelEntrada, svc: Service, response: Response):
+    """Atualiza; se o id (UUID gerado pelo app) ainda não existe, cria (201)."""
+    salvo, criado = svc.salvar(id, dados)
+    if criado:
+        response.status_code = status.HTTP_201_CREATED
+    return salvo
 
 
 @router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
