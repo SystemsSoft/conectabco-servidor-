@@ -11,7 +11,7 @@ cruzamento de perfil e Central de Relacionamento).
 ```bash
 python3 -m venv .venv          # o PyCharm já criou a .venv
 .venv/bin/pip install -r requirements-dev.txt
-cp .env.example .env           # preencha usuário, senha e nome do banco
+cp .env .env           # preencha usuário, senha e nome do banco
 ```
 
 ### Banco no Lightsail
