@@ -28,6 +28,9 @@ class Settings(BaseSettings):
     jwt_secret: str = ""
     token_horas: int = 12
 
+    # Fotos, vídeos e arquivos enviados (pasta no servidor, fora do git).
+    arquivos_dir: str = "dados/arquivos"
+
     cors_origins: str = ""
     host: str = "0.0.0.0"
     port: int = 8000

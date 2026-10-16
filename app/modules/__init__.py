@@ -20,6 +20,7 @@ from fastapi import APIRouter
 def carregar_models() -> None:
     """Importa os models de todos os módulos para o metadata do SQLAlchemy."""
     import app.core.sequencias  # noqa: F401
+    import app.modules.arquivos.models  # noqa: F401
     import app.modules.contratos.models  # noqa: F401
     import app.modules.crm.models  # noqa: F401
     import app.modules.equipe.models  # noqa: F401
@@ -36,6 +37,7 @@ def roteadores() -> list[tuple[APIRouter, list]]:
     """Rotas de cada módulo com a permissão exigida (ação pelo método HTTP:
     GET = ver, PUT/POST = criar ou editar, DELETE = excluir)."""
     from app.core.auth import exigir_modulo
+    from app.modules.arquivos.api import router as arquivos
     from app.modules.contratos.api import router as contratos
     from app.modules.crm.api import router as crm
     from app.modules.equipe.api import auth
@@ -61,4 +63,6 @@ def roteadores() -> list[tuple[APIRouter, list]]:
         (contratos, [exigir_modulo("contratosRelatorios")]),
         # Leitura liberada a todos (documentos); gravar exige Personalização.
         (personalizacao, []),
+        # Enviar exige Cadastros e CRM; abrir usa link assinado.
+        (arquivos, []),
     ]

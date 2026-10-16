@@ -63,3 +63,13 @@ def ler_token(token: str) -> dict | None:
         return jwt.decode(token, _segredo(), algorithms=["HS256"])
     except jwt.PyJWTError:
         return None
+
+
+def assinar(texto: str) -> str:
+    """Assinatura HMAC (links de arquivos que o navegador abre sem token)."""
+    mac = hmac.new(_segredo().encode(), texto.encode(), hashlib.sha256).digest()
+    return base64.urlsafe_b64encode(mac).decode().rstrip("=")
+
+
+def assinatura_valida(texto: str, assinatura: str) -> bool:
+    return hmac.compare_digest(assinar(texto), assinatura)

@@ -246,6 +246,27 @@ gravar exige a permissão de Personalização. O app aplica esses dados no
 cabeçalho de contratos, boletos, recibos, repasses, carnês e relatórios, e nos
 campos `{{empresa_...}}` dos modelos de contrato.
 
+## Rotas – Arquivos (fotos, vídeos e documentos)
+
+| Método | Rota | Descrição |
+|---|---|---|
+| POST | `/api/v1/arquivos` | Envio multipart (`arquivo` + `categoria`: foto, video ou arquivo) |
+| POST | `/api/v1/arquivos/links` | Links assinados para vários ids de uma vez |
+| GET | `/api/v1/arquivos/{id}` | Dados do arquivo (nome, tipo, tamanho) e link |
+| GET | `/api/v1/arquivos/{id}/conteudo?expira=…&assinatura=…` | Abre/baixa pelo link assinado (sem token; vídeos com avanço) |
+
+Limites: fotos até 15 MB (JPG, PNG, WEBP, GIF), vídeos até 300 MB (MP4, MOV,
+WEBM) e arquivos até 30 MB (PDF, Office, TXT, CSV, ZIP, DWG e imagens). Enviar
+exige gravar em Cadastros e CRM. O conteúdo fica na pasta `ARQUIVOS_DIR`
+(padrão `dados/arquivos`, fora do git) — inclua essa pasta no backup do
+servidor. No imóvel, o anexo guarda `arquivo:<id>` no lugar do link; os links
+assinados valem pelo tempo do login (`TOKEN_HORAS`).
+
+Arquivos que nenhum imóvel usa mais (anexo removido ou imóvel excluído) são
+apagados com `.venv/bin/python gerenciar.py limpar-arquivos` (ex.: cron
+diário). Atrás de um proxy (nginx), libere uploads grandes:
+`client_max_body_size 300m;`.
+
 ## Rotas – Manutenção
 
 | Método | Rota | Descrição |
