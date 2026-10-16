@@ -4,14 +4,16 @@
 {% block titulo %}Imóveis {% if filtros.finalidade == "venda" %}à venda{% elif filtros.finalidade == "locacao" %}para alugar{% elif filtros.finalidade == "temporada" %}para temporada{% else %}disponíveis{% endif %} – {{ empresa.nome }}{% endblock %}
 
 {% block conteudo %}
-<div class="container">
-  <div class="titulo-secao" style="margin-top:40px">
-    <div><span class="sobretitulo">Imóveis</span>
-      <h2>{% if filtros.finalidade == "venda" %}À venda{% elif filtros.finalidade == "locacao" %}Para alugar{% elif filtros.finalidade == "temporada" %}Temporada{% else %}Todos os imóveis{% endif %}</h2>
-      <p>{{ total }} resultado{{ "s" if total != 1 }}</p></div>
+<header class="cabecalho-pagina">
+  <div class="container">
+    <span class="sobretitulo entra">Imóveis</span>
+    <h1 class="entra" style="--d:.08s">{% if filtros.finalidade == "venda" %}À venda{% elif filtros.finalidade == "locacao" %}Para alugar{% elif filtros.finalidade == "temporada" %}Temporada{% else %}Todos os imóveis{% endif %}</h1>
+    <p class="entra" style="--d:.16s">{{ total }} resultado{{ "s" if total != 1 }}{% if filtros.q %} para “{{ filtros.q }}”{% endif %}</p>
   </div>
+</header>
 
-  <form class="filtros" method="get" action="/imoveis">
+<div class="container">
+  <form class="filtros entra" style="--d:.22s" method="get" action="/imoveis">
     <select name="finalidade" aria-label="Finalidade">
       <option value="">Comprar ou alugar</option>
       {% for f in finalidades %}<option value="{{ f.value }}" {{ "selected" if filtros.finalidade == f.value }}>{{ f.rotulo }}</option>{% endfor %}
@@ -31,11 +33,11 @@
       <option value="menor" {{ "selected" if filtros.ordem == "menor" }}>Menor valor</option>
       <option value="maior" {{ "selected" if filtros.ordem == "maior" }}>Maior valor</option>
     </select>
-    <button class="btn btn-ouro" type="submit">Filtrar</button>
+    <button class="btn btn-ouro" type="submit">{{ c.icone("busca") }} Filtrar</button>
   </form>
 
   {% if imoveis %}
-  <div class="grade">{% for i in imoveis %}{{ c.cartao(i) }}{% endfor %}</div>
+  <div class="grade" data-cascata>{% for i in imoveis %}{{ c.cartao(i) }}{% endfor %}</div>
   {% if paginas > 1 %}
   <nav class="paginacao" aria-label="Páginas">
     {% if pagina > 1 %}<a href="{{ query_pagina(pagina - 1) }}">‹ Anterior</a>{% endif %}
@@ -46,13 +48,13 @@
   </nav>
   {% endif %}
   {% else %}
-  <div class="vazio">
+  <div class="vazio revelar">
     <img src="/estatico/icone.png" alt="">
     <h3>Nenhum imóvel encontrado</h3>
     <p>Tente outros filtros ou conte para a gente o que você procura — avisamos quando surgir algo.</p>
-    <a class="btn btn-ouro" href="/contato">Falar com um corretor</a>
+    <a class="btn btn-ouro" href="/contato">Falar com um corretor <span class="seta">→</span></a>
   </div>
   {% endif %}
-  <div style="height:56px"></div>
+  <div style="height:72px"></div>
 </div>
 {% endblock %}

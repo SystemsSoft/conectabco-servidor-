@@ -16,20 +16,24 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/estatico/site.css?v={{ versao_css }}">
+  {# Animações de entrada só com JavaScript ligado (sem ele, tudo aparece). #}
+  <script>document.documentElement.classList.add("js")</script>
+  <script src="/estatico/site.js?v={{ versao_css }}" defer></script>
   <script type="application/ld+json">
   {{ {"@context": "https://schema.org", "@type": "RealEstateAgent", "name": empresa.nome,
       "description": cfg.meta_descricao or cfg.subtitulo, "telephone": empresa.telefone,
       "email": empresa.email, "address": empresa.endereco, "image": "/logo"} | tojson }}
   </script>
 </head>
-<body>
+<body class="{% block classe_body %}{% endblock %}">
+  <div class="progresso" aria-hidden="true"></div>
   <header class="topo">
     <div class="container">
       <a class="marca" href="/">
         <img src="{{ '/logo' if empresa.tem_logo else '/estatico/icone.png' }}" alt="">
         <span><strong>{{ empresa.nome }}</strong><small>{{ empresa.atividade }}{% if empresa.creci %} · {{ empresa.creci }}{% endif %}</small></span>
       </a>
-      <button class="abrir-menu" aria-label="Abrir menu" aria-expanded="false" onclick="this.setAttribute('aria-expanded', document.querySelector('.menu').classList.toggle('aberto'))">☰</button>
+      <button class="abrir-menu" type="button" aria-label="Abrir menu" aria-expanded="false"><span></span><span></span><span></span></button>
       <nav class="menu">
         <a href="/" class="{{ 'ativo' if pagina_atual == 'inicio' }}">Início</a>
         <a href="/imoveis" class="{{ 'ativo' if pagina_atual == 'imoveis' }}">Imóveis</a>
@@ -45,12 +49,16 @@
   <footer class="rodape">
     <div class="container">
       <div class="colunas">
-        <div>
+        <div class="revelar">
           <h4>{{ empresa.nome }}</h4>
           <p>{{ empresa.atividade }}{% if empresa.creci %} · {{ empresa.creci }}{% endif %}</p>
           <p style="max-width:380px">{{ cfg.subtitulo }}</p>
+          <div class="redes">
+            {% if cfg.instagram %}<a href="{{ cfg.instagram }}" target="_blank" rel="noopener" aria-label="Instagram">{{ c.icone("instagram") }}</a>{% endif %}
+            {% if cfg.facebook %}<a href="{{ cfg.facebook }}" target="_blank" rel="noopener" aria-label="Facebook">{{ c.icone("facebook") }}</a>{% endif %}
+          </div>
         </div>
-        <div>
+        <div class="revelar" style="--i:1">
           <h4>Navegue</h4>
           <ul>
             <li><a href="/imoveis?finalidade=venda">Imóveis à venda</a></li>
@@ -59,17 +67,13 @@
             {% if cfg.mostrar_anuncie %}<li><a href="/anuncie">Anuncie seu imóvel</a></li>{% endif %}
           </ul>
         </div>
-        <div>
+        <div class="revelar" style="--i:2">
           <h4>Atendimento</h4>
           <ul>
             {% if empresa.telefone %}<li><a href="tel:{{ empresa.telefone }}">{{ empresa.telefone }}</a></li>{% endif %}
             {% if empresa.email %}<li><a href="mailto:{{ empresa.email }}">{{ empresa.email }}</a></li>{% endif %}
             {% if empresa.endereco %}<li>{{ empresa.endereco }}</li>{% endif %}
             {% if cfg.horario %}<li>{{ cfg.horario }}</li>{% endif %}
-            <li style="display:flex;gap:12px">
-              {% if cfg.instagram %}<a href="{{ cfg.instagram }}" target="_blank" rel="noopener" aria-label="Instagram">{{ c.icone("instagram") }}</a>{% endif %}
-              {% if cfg.facebook %}<a href="{{ cfg.facebook }}" target="_blank" rel="noopener" aria-label="Facebook">{{ c.icone("facebook") }}</a>{% endif %}
-            </li>
           </ul>
         </div>
       </div>
@@ -80,8 +84,11 @@
     </div>
   </footer>
 
+  <button class="ao-topo" type="button" aria-label="Voltar ao topo">{{ c.icone("subir") }}</button>
   {% if cfg.botao_whatsapp and whatsapp_link %}
-  <a class="whats-flutuante" href="{% block whatsapp_flutuante %}{{ whatsapp_link }}{% endblock %}" target="_blank" rel="noopener" aria-label="Conversar no WhatsApp">{{ c.whatsapp_svg() }}</a>
+  <a class="whats-flutuante" href="{% block whatsapp_flutuante %}{{ whatsapp_link }}{% endblock %}" target="_blank" rel="noopener" aria-label="Conversar no WhatsApp">
+    {{ c.whatsapp_svg() }}<span class="dica">Fale com a gente</span>
+  </a>
   {% endif %}
   {% block scripts %}{% endblock %}
 </body>

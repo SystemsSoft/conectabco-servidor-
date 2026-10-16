@@ -1,45 +1,87 @@
 {% extends "base.html" %}
 {% import "_componentes.html" as c with context %}
 
+{% block classe_body %}com-hero{% endblock %}
+
 {% block conteudo %}
 <section class="hero">
+  <span class="orbe o1"></span><span class="orbe o2"></span><span class="orbe o3"></span>
+  <span class="pontos"></span>
+  {% set predios = [(0,90,70),(85,60,112),(140,110,86),(245,70,132),(310,120,96),(425,80,122),(500,130,76),(625,90,140),(710,70,102),(775,140,82),(910,80,126),(985,110,92),(1090,70,136),(1155,120,86),(1270,90,116),(1355,90,76)] %}
+  <svg class="skyline" viewBox="0 0 1440 150" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
+    {% for x, w, h in predios %}
+      <rect x="{{ x }}" y="{{ 150 - h }}" width="{{ w }}" height="{{ h }}" fill="#010717" opacity=".88"/>
+      {% for r in range((h - 22) // 22) %}{% for col in range((w - 16) // 24) %}
+        {% if (x // 5 + r * 3 + col * 7) % 4 == 0 %}<rect class="janela" x="{{ x + 12 + col * 24 }}" y="{{ 150 - h + 14 + r * 22 }}" width="8" height="10" style="--j: {{ ((x + r * 17 + col * 29) % 60) / 10 }}s"/>{% endif %}
+      {% endfor %}{% endfor %}
+    {% endfor %}
+  </svg>
+
   <div class="container">
-    <span class="selo">{{ empresa.atividade }}{% if empresa.creci %} · {{ empresa.creci }}{% endif %}</span>
-    <h1>{{ cfg.titulo }}</h1>
-    <p>{{ cfg.subtitulo }}</p>
+    <span class="selo entra"><span class="ponto"></span>{{ empresa.atividade }}{% if empresa.creci %} · {{ empresa.creci }}{% endif %}</span>
+    <h1 class="entra" style="--d:.12s">{{ cfg.titulo }}<span class="traco"></span></h1>
+    <p class="lead entra" style="--d:.24s">{{ cfg.subtitulo }}</p>
     {% if cfg.mostrar_busca %}
-    <form class="busca" action="/imoveis" method="get" role="search">
-      <label><span>Quero</span>
-        <select name="finalidade">
-          <option value="">Comprar ou alugar</option>
-          {% for f in finalidades %}<option value="{{ f.value }}">{{ {"venda": "Comprar", "locacao": "Alugar", "temporada": "Temporada"}[f.value] }}</option>{% endfor %}
-        </select></label>
-      <label><span>Tipo</span>
-        <select name="tipo">
-          <option value="">Todos os tipos</option>
-          {% for t in tipos %}<option value="{{ t.value }}">{{ t.rotulo }}</option>{% endfor %}
-        </select></label>
-      <label><span>Onde</span><input name="q" placeholder="Bairro, cidade ou código"></label>
-      <label><span>Quartos</span>
-        <select name="quartos"><option value="">Qualquer</option>{% for n in [1,2,3,4] %}<option value="{{ n }}">{{ n }}+</option>{% endfor %}</select></label>
-      <button class="btn btn-ouro" type="submit">{{ c.icone("busca") }} Buscar</button>
+    <form class="busca entra" style="--d:.38s" action="/imoveis" method="get" role="search">
+      <div class="abas" role="radiogroup" aria-label="Finalidade">
+        <label><input type="radio" name="finalidade" value="" checked><span>Todos</span></label>
+        <label><input type="radio" name="finalidade" value="venda"><span>Comprar</span></label>
+        <label><input type="radio" name="finalidade" value="locacao"><span>Alugar</span></label>
+        <label><input type="radio" name="finalidade" value="temporada"><span>Temporada</span></label>
+      </div>
+      <div class="campos-busca">
+        <label><span>Tipo</span>
+          <select name="tipo">
+            <option value="">Todos os tipos</option>
+            {% for t in tipos %}<option value="{{ t.value }}">{{ t.rotulo }}</option>{% endfor %}
+          </select></label>
+        <label class="onde"><span>Onde</span><input type="search" name="q" placeholder="Bairro, cidade ou código"></label>
+        <label><span>Quartos</span>
+          <select name="quartos"><option value="">Qualquer</option>{% for n in [1,2,3,4] %}<option value="{{ n }}">{{ n }}+</option>{% endfor %}</select></label>
+        <button class="btn btn-ouro" type="submit">{{ c.icone("busca") }} Buscar</button>
+      </div>
     </form>
     {% endif %}
   </div>
 </section>
 
+<div class="container">
+  <nav class="atalhos" aria-label="Atalhos" data-cascata>
+    <a class="atalho" href="/imoveis?finalidade=venda">
+      <span class="ic">{{ c.icone("casa") }}</span><strong>Comprar</strong>
+      <small>{{ por_finalidade.venda }} imóve{{ "is" if por_finalidade.venda != 1 else "l" }} à venda</small>
+      <span class="seta">{{ c.icone("seta-diag") }}</span>
+    </a>
+    <a class="atalho" href="/imoveis?finalidade=locacao">
+      <span class="ic">{{ c.icone("alugar") }}</span><strong>Alugar</strong>
+      <small>{{ por_finalidade.locacao }} para locação</small>
+      <span class="seta">{{ c.icone("seta-diag") }}</span>
+    </a>
+    <a class="atalho" href="/imoveis?finalidade=temporada">
+      <span class="ic">{{ c.icone("sol") }}</span><strong>Temporada</strong>
+      <small>{{ por_finalidade.temporada }} para temporada</small>
+      <span class="seta">{{ c.icone("seta-diag") }}</span>
+    </a>
+    <a class="atalho" href="{{ '/anuncie' if cfg.mostrar_anuncie else '/contato' }}">
+      <span class="ic">{{ c.icone("megafone") }}</span><strong>{{ "Anunciar" if cfg.mostrar_anuncie else "Fale conosco" }}</strong>
+      <small>{{ "Venda ou alugue o seu" if cfg.mostrar_anuncie else "Tire suas dúvidas" }}</small>
+      <span class="seta">{{ c.icone("seta-diag") }}</span>
+    </a>
+  </nav>
+</div>
+
 {% if cfg.mostrar_destaques %}
-<section class="secao">
+<section class="secao compacta">
   <div class="container">
-    <div class="titulo-secao">
+    <div class="titulo-secao revelar">
       <div><span class="sobretitulo">Selecionados para você</span><h2>Imóveis em destaque</h2>
         <p>{{ total }} imóve{{ "is" if total != 1 else "l" }} disponíve{{ "is" if total != 1 else "l" }} agora.</p></div>
-      <a class="btn btn-contorno" href="/imoveis" style="color:var(--navy-800)!important">Ver todos os imóveis</a>
+      <a class="btn btn-contorno" href="/imoveis">Ver todos os imóveis <span class="seta">→</span></a>
     </div>
     {% if destaques %}
-    <div class="grade">{% for i in destaques %}{{ c.cartao(i) }}{% endfor %}</div>
+    <div class="grade" data-cascata>{% for i in destaques %}{{ c.cartao(i) }}{% endfor %}</div>
     {% else %}
-    <div class="vazio"><img src="/estatico/icone.png" alt=""><p>Em breve novos imóveis por aqui. Fale com a gente e conte o que você procura!</p></div>
+    <div class="vazio revelar"><img src="/estatico/icone.png" alt=""><p>Em breve novos imóveis por aqui. Fale com a gente e conte o que você procura!</p></div>
     {% endif %}
   </div>
 </section>
@@ -49,14 +91,19 @@
 <section class="secao secao-escura">
   <div class="container">
     <div class="sobre">
-      <img src="/logo" alt="{{ empresa.nome }}">
-      <div>
-        <span class="sobretitulo" style="color:var(--gold)">Quem somos</span>
+      <div class="moldura revelar zoom"><img src="/logo" alt="{{ empresa.nome }}"></div>
+      <div class="revelar da-direita">
+        <span class="sobretitulo">Quem somos</span>
         <h2>Atendimento de confiança, do começo ao fim</h2>
         <p>{{ cfg.texto_sobre }}</p>
+        <div class="numeros-faixa">
+          <div><strong data-contar="{{ total }}">{{ total }}</strong><span>imóve{{ "is" if total != 1 else "l" }} disponíve{{ "is" if total != 1 else "l" }}</span></div>
+          <div><strong data-contar="{{ bairros }}">{{ bairros }}</strong><span>bairro{{ "s" if bairros != 1 }} com ofertas</span></div>
+          <div><strong data-contar="3">3</strong><span>venda, locação e temporada</span></div>
+        </div>
       </div>
     </div>
-    <div class="diferenciais" style="margin-top:40px">
+    <div class="diferenciais" data-cascata>
       <div class="diferencial"><span class="icone">{{ c.icone("busca") }}</span><h3>Busca sob medida</h3><p>Entendemos o seu perfil e indicamos imóveis que realmente combinam com você.</p></div>
       <div class="diferencial"><span class="icone">{{ c.icone("escudo") }}</span><h3>Negócio seguro</h3><p>Documentação conferida e contratos claros, com acompanhamento em cada etapa.</p></div>
       <div class="diferencial"><span class="icone">{{ c.icone("chave") }}</span><h3>Até a entrega das chaves</h3><p>Visitas, propostas e negociação: cuidamos de tudo por você.</p></div>
@@ -68,9 +115,9 @@
 {% if cfg.mostrar_anuncie %}
 <section class="secao">
   <div class="container">
-    <div class="chamada">
+    <div class="chamada revelar zoom">
       <div><h2>Anuncie seu imóvel</h2><p>{{ cfg.chamada_anuncie }}</p></div>
-      <a class="btn btn-ouro" href="/anuncie">Quero anunciar</a>
+      <a class="btn btn-ouro" href="/anuncie">Quero anunciar <span class="seta">→</span></a>
     </div>
   </div>
 </section>
@@ -79,13 +126,13 @@
 {% if cfg.mostrar_contato %}
 <section class="secao" style="padding-top:0">
   <div class="container contato-grade">
-    <div>
+    <div class="revelar da-esquerda">
       <span class="sobretitulo">Fale com a gente</span>
       <h2>Como podemos ajudar?</h2>
       <p style="color:var(--muted)">Mande sua mensagem: um corretor retorna o quanto antes.</p>
       {% include "_lista_contato.html" %}
     </div>
-    {{ c.formulario("Envie sua mensagem", [tipos_lead.contato], "/") }}
+    <div class="revelar da-direita">{{ c.formulario("Envie sua mensagem", [tipos_lead.contato], "/") }}</div>
   </div>
 </section>
 {% endif %}

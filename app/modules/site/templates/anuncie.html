@@ -2,31 +2,37 @@
 {% import "_componentes.html" as c with context %}
 
 {% block titulo %}Anuncie seu imóvel – {{ empresa.nome }}{% endblock %}
+{% block classe_body %}com-hero{% endblock %}
 
 {% block conteudo %}
-<section class="hero" style="padding-bottom:110px">
+<section class="hero" style="padding-bottom:130px">
+  <span class="orbe o1"></span><span class="orbe o2"></span>
+  <span class="pontos"></span>
   <div class="container">
-    <span class="selo">Para proprietários</span>
-    <h1>Venda ou alugue seu imóvel com <em>quem entende</em></h1>
-    <p>{{ cfg.chamada_anuncie }}</p>
+    <span class="selo entra"><span class="ponto"></span>Para proprietários</span>
+    <h1 class="entra" style="--d:.12s">Venda ou alugue seu imóvel com quem entende<span class="traco"></span></h1>
+    <p class="lead entra" style="--d:.24s">{{ cfg.chamada_anuncie }}</p>
   </div>
 </section>
-<section class="secao" style="padding-top:24px">
+<section class="secao compacta">
   <div class="container contato-grade">
-    <div>
-      <h2>Como funciona</h2>
-      <ul class="lista-contato">
+    <div class="revelar da-esquerda">
+      <span class="sobretitulo">Como funciona</span>
+      <h2>Simples, do primeiro contato à negociação</h2>
+      <ul class="lista-contato" data-cascata>
         <li><span class="ic">{{ c.icone("casa") }}</span><span><b>1.</b> Você conta sobre o imóvel.</span></li>
         <li><span class="ic">{{ c.icone("telefone") }}</span><span><b>2.</b> Um corretor liga para avaliar e tirar dúvidas.</span></li>
         <li><span class="ic">{{ c.icone("check") }}</span><span><b>3.</b> Divulgamos, levamos interessados e cuidamos da negociação.</span></li>
       </ul>
     </div>
-    {% call c.formulario("Conte sobre o seu imóvel", [tipos_lead.anunciar], "/anuncie", botao="Quero anunciar") -%}
+    <div class="revelar da-direita">
+      {% call c.formulario("Conte sobre o seu imóvel", [tipos_lead.anunciar], "/anuncie", botao="Quero anunciar", texto="Avaliação sem compromisso.") -%}
 Tipo do imóvel:
 Bairro / cidade:
 Quero: vender / alugar
 Valor pretendido:
-    {%- endcall %}
+      {%- endcall %}
+    </div>
   </div>
 </section>
 {% endblock %}

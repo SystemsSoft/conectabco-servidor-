@@ -56,7 +56,9 @@ def numero(v: float | None) -> str:
 
 templates.env.filters["moeda"] = moeda
 # Muda a cada alteração do CSS: o navegador não usa a versão antiga do cache.
-templates.env.globals["versao_css"] = int((PASTA / "static" / "site.css").stat().st_mtime)
+templates.env.globals["versao_css"] = max(
+    int((PASTA / "static" / nome).stat().st_mtime) for nome in ("site.css", "site.js")
+)
 templates.env.filters["numero"] = numero
 
 
@@ -198,6 +200,11 @@ def inicio(request: Request, db: Db):
         "total": len(publicados),
         "tipos": _tipos_disponiveis(publicados),
         "finalidades": Finalidade,
+        "por_finalidade": {
+            f.value: sum(f in {x.finalidade for x in i.finalidades} for i in publicados)
+            for f in Finalidade
+        },
+        "bairros": len({(i.bairro, i.cidade) for i in publicados if i.bairro}),
         "pagina_atual": "inicio",
     }
     return _pagina("inicio.html", ctx)

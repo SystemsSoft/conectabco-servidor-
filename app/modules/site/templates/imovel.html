@@ -9,16 +9,20 @@
 
 {% block conteudo %}
 <div class="container">
-  <nav class="migalhas"><a href="/">Início</a> › <a href="/imoveis">Imóveis</a> › {{ i.codigo }}</nav>
+  <nav class="migalhas entra"><a href="/">Início</a> › <a href="/imoveis">Imóveis</a> › <span>{{ i.codigo }}</span></nav>
 
   {% if i.fotos %}
   <div class="galeria">
     {% for f in i.fotos[:5] %}
     <button type="button" class="{{ 'mais' if loop.index == 5 and i.fotos|length > 5 }}" data-foto="{{ loop.index0 }}" aria-label="Ampliar foto {{ loop.index }}">
-      <img src="{{ f.url }}" alt="{{ f.titulo or i.titulo }}" {{ 'loading="lazy"' if not loop.first }}>
+      <img src="{{ f.url }}" alt="{{ f.titulo or i.titulo }}" {{ 'loading="lazy"' if not loop.first }}
+           {% if loop.first %}style="view-transition-name: foto-{{ i.codigo }}"{% endif %}>
       {% if loop.index == 5 and i.fotos|length > 5 %}<span>+{{ i.fotos|length - 5 }} fotos</span>{% endif %}
     </button>
     {% endfor %}
+    {% if i.fotos|length > 1 %}
+    <button type="button" class="todas" data-foto="0">{{ c.icone("fotos") }} Ver as {{ i.fotos|length }} fotos</button>
+    {% endif %}
   </div>
   {% else %}
   <div class="galeria-vazia"><img src="/estatico/icone.png" alt="" style="width:90px;opacity:.5"></div>
@@ -26,32 +30,39 @@
 
   <div class="detalhe">
     <article>
-      <span class="sobretitulo">{{ i.codigo }} · {{ i.tipo }} · {{ i.finalidades|join(" e ") }}</span>
-      <h1>{{ i.titulo }}</h1>
-      {% if i.endereco %}<p class="local">{{ c.icone("local") }} {{ i.endereco }}</p>{% endif %}
-      {% if i.condominio %}<p class="local">{{ i.condominio }}</p>{% endif %}
+      <span class="sobretitulo entra" style="--d:.1s">{{ i.codigo }} · {{ i.tipo }} · {{ i.finalidades|join(" e ") }}</span>
+      <h1 class="entra" style="--d:.16s">{{ i.titulo }}</h1>
+      {% if i.endereco %}<p class="local entra" style="--d:.22s">{{ c.icone("local") }} {{ i.endereco }}</p>{% endif %}
+      {% if i.condominio %}<p class="local entra" style="--d:.26s">{{ i.condominio }}</p>{% endif %}
+
+      <div class="destaques-rapidos entra" style="--d:.3s">
+        {% if i.area %}<span>{{ c.icone("area") }} {{ i.area|numero }} m²</span>{% endif %}
+        {% if i.quartos %}<span>{{ c.icone("cama") }} {{ i.quartos }} quarto{{ "s" if i.quartos > 1 }}{% if i.suites %} ({{ i.suites }} suíte{{ "s" if i.suites > 1 }}){% endif %}</span>{% endif %}
+        {% if i.banheiros %}<span>{{ c.icone("banho") }} {{ i.banheiros }} banheiro{{ "s" if i.banheiros > 1 }}</span>{% endif %}
+        {% if i.vagas %}<span>{{ c.icone("carro") }} {{ i.vagas }} vaga{{ "s" if i.vagas > 1 }}</span>{% endif %}
+      </div>
+
+      {% if i.descricao %}
+      <section class="bloco revelar"><h2>Sobre o imóvel</h2><p>{{ i.descricao }}</p></section>
+      {% endif %}
 
       {% if i.caracteristicas %}
-      <section class="bloco">
+      <section class="bloco revelar">
         <h2>Características</h2>
-        <dl class="ficha">
+        <dl class="ficha" data-cascata>
           {% for rotulo, valor in i.caracteristicas %}<div><dt>{{ rotulo }}</dt><dd>{{ valor }}</dd></div>{% endfor %}
         </dl>
       </section>
       {% endif %}
 
-      {% if i.descricao %}
-      <section class="bloco"><h2>Sobre o imóvel</h2><p>{{ i.descricao }}</p></section>
-      {% endif %}
-
       {% if i.comodidades %}
-      <section class="bloco"><h2>Comodidades</h2>
+      <section class="bloco revelar"><h2>Comodidades</h2>
         <div class="chips">{% for x in i.comodidades %}<span class="chip">{{ x }}</span>{% endfor %}</div>
       </section>
       {% endif %}
 
       {% if i.videos %}
-      <section class="bloco"><h2>Vídeos</h2>
+      <section class="bloco revelar"><h2>Vídeos</h2>
         {% for v in i.videos %}
           {% if v.youtube %}
           <iframe class="video" src="https://www.youtube-nocookie.com/embed/{{ v.youtube }}" title="{{ v.titulo or 'Vídeo do imóvel' }}" loading="lazy" allowfullscreen></iframe>
@@ -64,57 +75,32 @@
     </article>
 
     <aside class="lateral">
-      <div class="formulario" style="margin-bottom:16px">
+      <div class="formulario valor entra" style="--d:.2s">
         <div class="precos">
           {% for p in i.precos %}<div class="preco"><span>{{ p.rotulo }}</span><strong>{{ p.valor }}</strong></div>{% endfor %}
         </div>
         {% if whatsapp_imovel %}<a class="btn btn-whats btn-bloco" href="{{ whatsapp_imovel }}" target="_blank" rel="noopener">Conversar no WhatsApp</a>{% endif %}
       </div>
-      {% set opcoes = [tipos_lead.interesse, tipos_lead.visita] if cfg.permitir_agendar_visita else [tipos_lead.interesse] %}
-      {% call c.formulario("Gostou deste imóvel?", opcoes, "/imovel/" ~ i.codigo, imovel=i.codigo, hoje=hoje if cfg.permitir_agendar_visita else None, botao="Quero ser contatado") -%}
+      <div class="entra" style="--d:.32s">
+        {% set opcoes = [tipos_lead.interesse, tipos_lead.visita] if cfg.permitir_agendar_visita else [tipos_lead.interesse] %}
+        {% call c.formulario("Gostou deste imóvel?", opcoes, "/imovel/" ~ i.codigo, imovel=i.codigo, hoje=hoje if cfg.permitir_agendar_visita else None, botao="Quero ser contatado", texto="Tire dúvidas ou agende uma visita sem compromisso.") -%}
 Olá! Tenho interesse no imóvel {{ i.codigo }} – {{ i.titulo }}.
-      {%- endcall %}
+        {%- endcall %}
+      </div>
     </aside>
   </div>
 </div>
 
 {% if i.fotos %}
-<div class="visor" role="dialog" aria-modal="true" aria-label="Fotos do imóvel">
-  <button class="fechar" type="button" aria-label="Fechar">×</button>
-  <button class="ant" type="button" aria-label="Foto anterior">‹</button>
-  <img alt="">
-  <button class="prox" type="button" aria-label="Próxima foto">›</button>
-  <span class="contador"></span>
+<div class="visor" role="dialog" aria-modal="true" aria-label="Fotos do imóvel" data-fotos="{{ i.fotos | map(attribute='url') | list | tojson | forceescape }}">
+  <button class="ctrl fechar" type="button" aria-label="Fechar">×</button>
+  <button class="ctrl ant" type="button" aria-label="Foto anterior">‹</button>
+  <figure>
+    <img alt="">
+    <span class="contador"></span>
+    <div class="miniaturas"></div>
+  </figure>
+  <button class="ctrl prox" type="button" aria-label="Próxima foto">›</button>
 </div>
-{% endif %}
-{% endblock %}
-
-{% block scripts %}
-{% if i.fotos %}
-<script>
-(() => {
-  const fotos = {{ i.fotos | map(attribute="url") | list | tojson }};
-  const visor = document.querySelector(".visor");
-  const img = visor.querySelector("img");
-  const contador = visor.querySelector(".contador");
-  let atual = 0;
-  const mostrar = (n) => {
-    atual = (n + fotos.length) % fotos.length;
-    img.src = fotos[atual];
-    contador.textContent = `${atual + 1} / ${fotos.length}`;
-  };
-  document.querySelectorAll("[data-foto]").forEach((b) =>
-    b.addEventListener("click", () => { mostrar(+b.dataset.foto); visor.classList.add("aberto"); }));
-  visor.querySelector(".fechar").onclick = () => visor.classList.remove("aberto");
-  visor.querySelector(".ant").onclick = () => mostrar(atual - 1);
-  visor.querySelector(".prox").onclick = () => mostrar(atual + 1);
-  document.addEventListener("keydown", (e) => {
-    if (!visor.classList.contains("aberto")) return;
-    if (e.key === "Escape") visor.classList.remove("aberto");
-    if (e.key === "ArrowLeft") mostrar(atual - 1);
-    if (e.key === "ArrowRight") mostrar(atual + 1);
-  });
-})();
-</script>
 {% endif %}
 {% endblock %}

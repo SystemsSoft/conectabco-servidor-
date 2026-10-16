@@ -1,15 +1,18 @@
 {% extends "base.html" %}
-{% import "_componentes.html" as c with context %}
 
 {% block titulo %}Mensagem enviada – {{ empresa.nome }}{% endblock %}
 
 {% block conteudo %}
 <div class="container mensagem-final">
-  <span class="icone">{{ c.icone("check") }}</span>
-  <h1>Obrigado!</h1>
-  <p>{{ cfg.mensagem_obrigado }}</p>
-  <p style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:24px">
-    <a class="btn btn-ouro" href="/imoveis">Ver mais imóveis</a>
+  <span class="selo-ok">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="10"/><path d="m7.5 12.5 3 3 6-7"/>
+    </svg>
+  </span>
+  <h1 class="entra" style="--d:.3s">Obrigado!</h1>
+  <p class="entra" style="--d:.4s">{{ cfg.mensagem_obrigado }}</p>
+  <p class="entra" style="--d:.5s;display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:28px">
+    <a class="btn btn-ouro" href="/imoveis">Ver mais imóveis <span class="seta">→</span></a>
     {% if whatsapp_link %}<a class="btn btn-whats" href="{{ whatsapp_link }}" target="_blank" rel="noopener">Falar agora no WhatsApp</a>{% endif %}
   </p>
 </div>

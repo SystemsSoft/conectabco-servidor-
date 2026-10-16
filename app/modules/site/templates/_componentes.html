@@ -11,6 +11,18 @@
 {%- elif nome == "check" -%}<circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/>
 {%- elif nome == "instagram" -%}<rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="4"/><path d="M17.5 6.5h.01"/>
 {%- elif nome == "facebook" -%}<path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/>
+{%- elif nome == "cama" -%}<path d="M2 20v-8a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v8M2 16h20M6 10V6a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v4"/>
+{%- elif nome == "banho" -%}<path d="M4 12h16v3a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5zM6 12V5a2 2 0 0 1 4 0M7 20l-1 2M17 20l1 2"/>
+{%- elif nome == "carro" -%}<path d="M5 17h14v-5l-2-5H7l-2 5zM3 12h18M7 17v2M17 17v2"/><circle cx="8" cy="14" r="1"/><circle cx="16" cy="14" r="1"/>
+{%- elif nome == "area" -%}<path d="M3 3h6M3 3v6M21 3h-6M21 3v6M3 21h6M3 21v-6M21 21h-6M21 21v-6"/>
+{%- elif nome == "seta" -%}<path d="M5 12h14M13 6l6 6-6 6"/>
+{%- elif nome == "seta-diag" -%}<path d="M7 17 17 7M8 7h9v9"/>
+{%- elif nome == "subir" -%}<path d="m6 15 6-6 6 6"/>
+{%- elif nome == "fotos" -%}<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/>
+{%- elif nome == "alugar" -%}<circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6M15.5 7.5l3 3L22 7l-3-3"/>
+{%- elif nome == "sol" -%}<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>
+{%- elif nome == "megafone" -%}<path d="m3 11 18-5v12L3 14v-3zM11.6 16.8a3 3 0 1 1-5.8-1.6"/>
+{%- elif nome == "ok" -%}<circle cx="12" cy="12" r="10"/><path d="m7.5 12.5 3 3 6-7"/>
 {%- endif -%}
 </svg>
 {%- endmacro %}
@@ -22,22 +34,23 @@
 {% macro cartao(i) -%}
 <a class="cartao" href="/imovel/{{ i.codigo }}">
   <div class="foto">
-    {% if i.foto %}<img src="{{ i.foto }}" alt="{{ i.titulo }}" loading="lazy">
+    {% if i.foto %}<img src="{{ i.foto }}" alt="{{ i.titulo }}" loading="lazy" data-suave style="view-transition-name: foto-{{ i.codigo }}">
     {% else %}<div class="sem-foto"><img src="/estatico/icone.png" alt=""></div>{% endif %}
     <div class="etiquetas">
       {% if i.destaque %}<span class="etiqueta ouro">Destaque</span>{% endif %}
       {% for f in i.finalidades %}<span class="etiqueta">{{ f }}</span>{% endfor %}
     </div>
+    <span class="ver">Ver detalhes →</span>
   </div>
   <div class="corpo">
     <span class="codigo">{{ i.codigo }} · {{ i.tipo }}</span>
     <h3>{{ i.titulo }}</h3>
-    {% if i.local %}<p class="local">{{ i.local }}</p>{% endif %}
+    {% if i.local %}<p class="local">{{ icone("local") }} {{ i.local }}</p>{% endif %}
     <div class="numeros">
-      {% if i.area %}<span><b>{{ i.area|numero }}</b> m²</span>{% endif %}
-      {% if i.quartos %}<span><b>{{ i.quartos }}</b> quarto{{ "s" if i.quartos > 1 }}</span>{% endif %}
-      {% if i.suites %}<span><b>{{ i.suites }}</b> suíte{{ "s" if i.suites > 1 }}</span>{% endif %}
-      {% if i.vagas %}<span><b>{{ i.vagas }}</b> vaga{{ "s" if i.vagas > 1 }}</span>{% endif %}
+      {% if i.area %}<span>{{ icone("area") }}<b>{{ i.area|numero }}</b> m²</span>{% endif %}
+      {% if i.quartos %}<span>{{ icone("cama") }}<b>{{ i.quartos }}</b> quarto{{ "s" if i.quartos > 1 }}</span>{% endif %}
+      {% if i.banheiros %}<span>{{ icone("banho") }}<b>{{ i.banheiros }}</b></span>{% endif %}
+      {% if i.vagas %}<span>{{ icone("carro") }}<b>{{ i.vagas }}</b> vaga{{ "s" if i.vagas > 1 }}</span>{% endif %}
     </div>
     <div class="precos">
       {% for p in i.precos %}<div class="preco"><span>{{ p.rotulo }}</span><strong>{{ p.valor }}</strong></div>{% endfor %}
@@ -50,7 +63,7 @@
 {% macro formulario(titulo, tipos, retorno, imovel=None, hoje=None, botao="Enviar mensagem", texto=None) -%}
 <form class="formulario" id="formulario" method="post" action="/enviar">
   <h3>{{ titulo }}</h3>
-  {% if texto %}<p style="color:var(--muted);margin-top:-4px">{{ texto }}</p>{% endif %}
+  {% if texto %}<p class="sub">{{ texto }}</p>{% endif %}
   {% if request.query_params.get("erro") %}
     <div class="aviso erro" role="alert">{{ request.query_params.get("erro") }}</div>
   {% endif %}
@@ -86,7 +99,7 @@
     <label class="aceite"><input type="checkbox" name="consentimento" required>
       <span>Autorizo o contato por telefone, WhatsApp ou e-mail sobre minha solicitação, conforme a LGPD.</span></label>
   </div>
-  <button class="btn btn-ouro btn-bloco" style="margin-top:18px" type="submit">{{ botao }}</button>
-  <p style="font-size:.8rem;color:var(--muted);margin:10px 0 0">Informe telefone ou e-mail para retornarmos.</p>
+  <button class="btn btn-ouro btn-bloco" style="margin-top:20px" type="submit">{{ botao }} <span class="seta">→</span></button>
+  <p class="nota">Informe telefone ou e-mail para retornarmos. Respondemos o quanto antes.</p>
 </form>
 {%- endmacro %}

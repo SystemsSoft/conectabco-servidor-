@@ -4,15 +4,21 @@
 {% block titulo %}Contato – {{ empresa.nome }}{% endblock %}
 
 {% block conteudo %}
-<section class="secao">
+<header class="cabecalho-pagina" style="padding-bottom:64px">
+  <div class="container">
+    <span class="sobretitulo entra">Contato</span>
+    <h1 class="entra" style="--d:.08s">Fale com {{ empresa.nome }}</h1>
+    <p class="entra" style="--d:.16s">Tire dúvidas, peça uma avaliação ou conte o que você procura.</p>
+  </div>
+</header>
+<section class="secao compacta">
   <div class="container contato-grade">
-    <div>
-      <span class="sobretitulo">Contato</span>
-      <h2>Fale com {{ empresa.nome }}</h2>
-      <p style="color:var(--muted)">Tire dúvidas, peça uma avaliação ou conte o que você procura.</p>
+    <div class="revelar da-esquerda">
+      <h2>Estamos por aqui</h2>
+      <p style="color:var(--muted)">Escolha o canal que preferir.</p>
       {% include "_lista_contato.html" %}
     </div>
-    {{ c.formulario("Envie sua mensagem", [tipos_lead.contato], "/contato") }}
+    <div class="revelar da-direita">{{ c.formulario("Envie sua mensagem", [tipos_lead.contato], "/contato") }}</div>
   </div>
 </section>
 {% endblock %}
