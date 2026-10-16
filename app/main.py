@@ -4,6 +4,7 @@ import sqlalchemy as sa
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.core.config import get_settings
 from app.core.database import get_engine
@@ -33,6 +34,12 @@ def create_app() -> FastAPI:
     registrar_tratadores(app)
     for router, dependencias in roteadores():
         app.include_router(router, prefix=PREFIXO_API, dependencies=dependencias)
+
+    # Site público (/, /imoveis, /imovel/{codigo}...), sem login.
+    from app.modules.site.publico import PASTA, router as site_publico
+
+    app.include_router(site_publico)
+    app.mount("/estatico", StaticFiles(directory=PASTA / "static"), name="estatico")
 
     @app.get("/saude", tags=["Sistema"])
     def saude() -> dict:

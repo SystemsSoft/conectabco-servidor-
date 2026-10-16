@@ -31,6 +31,9 @@ class Settings(BaseSettings):
     # Fotos, vídeos e arquivos enviados (pasta no servidor, fora do git).
     arquivos_dir: str = "dados/arquivos"
 
+    # Endereço público do site (sitemap); vazio = o do próprio acesso.
+    site_url: str = ""
+
     cors_origins: str = ""
     host: str = "0.0.0.0"
     port: int = 8000

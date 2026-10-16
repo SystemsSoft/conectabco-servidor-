@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% import "_componentes.html" as c with context %}
+
+{% block titulo %}Contato – {{ empresa.nome }}{% endblock %}
+
+{% block conteudo %}
+<section class="secao">
+  <div class="container contato-grade">
+    <div>
+      <span class="sobretitulo">Contato</span>
+      <h2>Fale com {{ empresa.nome }}</h2>
+      <p style="color:var(--muted)">Tire dúvidas, peça uma avaliação ou conte o que você procura.</p>
+      {% include "_lista_contato.html" %}
+    </div>
+    {{ c.formulario("Envie sua mensagem", [tipos_lead.contato], "/contato") }}
+  </div>
+</section>
+{% endblock %}

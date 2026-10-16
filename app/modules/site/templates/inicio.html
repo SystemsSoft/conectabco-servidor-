@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% import "_componentes.html" as c with context %}
+
+{% block conteudo %}
+<section class="hero">
+  <div class="container">
+    <span class="selo">{{ empresa.atividade }}{% if empresa.creci %} · {{ empresa.creci }}{% endif %}</span>
+    <h1>{{ cfg.titulo }}</h1>
+    <p>{{ cfg.subtitulo }}</p>
+    {% if cfg.mostrar_busca %}
+    <form class="busca" action="/imoveis" method="get" role="search">
+      <label><span>Quero</span>
+        <select name="finalidade">
+          <option value="">Comprar ou alugar</option>
+          {% for f in finalidades %}<option value="{{ f.value }}">{{ {"venda": "Comprar", "locacao": "Alugar", "temporada": "Temporada"}[f.value] }}</option>{% endfor %}
+        </select></label>
+      <label><span>Tipo</span>
+        <select name="tipo">
+          <option value="">Todos os tipos</option>
+          {% for t in tipos %}<option value="{{ t.value }}">{{ t.rotulo }}</option>{% endfor %}
+        </select></label>
+      <label><span>Onde</span><input name="q" placeholder="Bairro, cidade ou código"></label>
+      <label><span>Quartos</span>
+        <select name="quartos"><option value="">Qualquer</option>{% for n in [1,2,3,4] %}<option value="{{ n }}">{{ n }}+</option>{% endfor %}</select></label>
+      <button class="btn btn-ouro" type="submit">{{ c.icone("busca") }} Buscar</button>
+    </form>
+    {% endif %}
+  </div>
+</section>
+
+{% if cfg.mostrar_destaques %}
+<section class="secao">
+  <div class="container">
+    <div class="titulo-secao">
+      <div><span class="sobretitulo">Selecionados para você</span><h2>Imóveis em destaque</h2>
+        <p>{{ total }} imóve{{ "is" if total != 1 else "l" }} disponíve{{ "is" if total != 1 else "l" }} agora.</p></div>
+      <a class="btn btn-contorno" href="/imoveis" style="color:var(--navy-800)!important">Ver todos os imóveis</a>
+    </div>
+    {% if destaques %}
+    <div class="grade">{% for i in destaques %}{{ c.cartao(i) }}{% endfor %}</div>
+    {% else %}
+    <div class="vazio"><img src="/estatico/icone.png" alt=""><p>Em breve novos imóveis por aqui. Fale com a gente e conte o que você procura!</p></div>
+    {% endif %}
+  </div>
+</section>
+{% endif %}
+
+{% if cfg.mostrar_sobre %}
+<section class="secao secao-escura">
+  <div class="container">
+    <div class="sobre">
+      <img src="/logo" alt="{{ empresa.nome }}">
+      <div>
+        <span class="sobretitulo" style="color:var(--gold)">Quem somos</span>
+        <h2>Atendimento de confiança, do começo ao fim</h2>
+        <p>{{ cfg.texto_sobre }}</p>
+      </div>
+    </div>
+    <div class="diferenciais" style="margin-top:40px">
+      <div class="diferencial"><span class="icone">{{ c.icone("busca") }}</span><h3>Busca sob medida</h3><p>Entendemos o seu perfil e indicamos imóveis que realmente combinam com você.</p></div>
+      <div class="diferencial"><span class="icone">{{ c.icone("escudo") }}</span><h3>Negócio seguro</h3><p>Documentação conferida e contratos claros, com acompanhamento em cada etapa.</p></div>
+      <div class="diferencial"><span class="icone">{{ c.icone("chave") }}</span><h3>Até a entrega das chaves</h3><p>Visitas, propostas e negociação: cuidamos de tudo por você.</p></div>
+    </div>
+  </div>
+</section>
+{% endif %}
+
+{% if cfg.mostrar_anuncie %}
+<section class="secao">
+  <div class="container">
+    <div class="chamada">
+      <div><h2>Anuncie seu imóvel</h2><p>{{ cfg.chamada_anuncie }}</p></div>
+      <a class="btn btn-ouro" href="/anuncie">Quero anunciar</a>
+    </div>
+  </div>
+</section>
+{% endif %}
+
+{% if cfg.mostrar_contato %}
+<section class="secao" style="padding-top:0">
+  <div class="container contato-grade">
+    <div>
+      <span class="sobretitulo">Fale com a gente</span>
+      <h2>Como podemos ajudar?</h2>
+      <p style="color:var(--muted)">Mande sua mensagem: um corretor retorna o quanto antes.</p>
+      {% include "_lista_contato.html" %}
+    </div>
+    {{ c.formulario("Envie sua mensagem", [tipos_lead.contato], "/") }}
+  </div>
+</section>
+{% endif %}
+{% endblock %}

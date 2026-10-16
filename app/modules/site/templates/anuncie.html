@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% import "_componentes.html" as c with context %}
+
+{% block titulo %}Anuncie seu imóvel – {{ empresa.nome }}{% endblock %}
+
+{% block conteudo %}
+<section class="hero" style="padding-bottom:110px">
+  <div class="container">
+    <span class="selo">Para proprietários</span>
+    <h1>Venda ou alugue seu imóvel com <em>quem entende</em></h1>
+    <p>{{ cfg.chamada_anuncie }}</p>
+  </div>
+</section>
+<section class="secao" style="padding-top:24px">
+  <div class="container contato-grade">
+    <div>
+      <h2>Como funciona</h2>
+      <ul class="lista-contato">
+        <li><span class="ic">{{ c.icone("casa") }}</span><span><b>1.</b> Você conta sobre o imóvel.</span></li>
+        <li><span class="ic">{{ c.icone("telefone") }}</span><span><b>2.</b> Um corretor liga para avaliar e tirar dúvidas.</span></li>
+        <li><span class="ic">{{ c.icone("check") }}</span><span><b>3.</b> Divulgamos, levamos interessados e cuidamos da negociação.</span></li>
+      </ul>
+    </div>
+    {% call c.formulario("Conte sobre o seu imóvel", [tipos_lead.anunciar], "/anuncie", botao="Quero anunciar") -%}
+Tipo do imóvel:
+Bairro / cidade:
+Quero: vender / alugar
+Valor pretendido:
+    {%- endcall %}
+  </div>
+</section>
+{% endblock %}

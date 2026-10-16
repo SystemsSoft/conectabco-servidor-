@@ -1,0 +1,9 @@
+{% import "_componentes.html" as c with context %}
+<ul class="lista-contato">
+  {% if whatsapp_link %}<li><span class="ic ic-whats">{{ c.whatsapp_svg() }}</span>
+    <a href="{{ whatsapp_link }}" target="_blank" rel="noopener">Conversar no WhatsApp</a></li>{% endif %}
+  {% if empresa.telefone %}<li><span class="ic">{{ c.icone("telefone") }}</span><a href="tel:{{ empresa.telefone }}">{{ empresa.telefone }}</a></li>{% endif %}
+  {% if empresa.email %}<li><span class="ic">{{ c.icone("email") }}</span><a href="mailto:{{ empresa.email }}">{{ empresa.email }}</a></li>{% endif %}
+  {% if empresa.endereco %}<li><span class="ic">{{ c.icone("local") }}</span><span>{{ empresa.endereco }}</span></li>{% endif %}
+  {% if cfg.horario %}<li><span class="ic">{{ c.icone("relogio") }}</span><span>{{ cfg.horario }}</span></li>{% endif %}
+</ul>

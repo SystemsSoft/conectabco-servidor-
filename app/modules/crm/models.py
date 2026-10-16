@@ -152,6 +152,9 @@ class Imovel(_Endereco, _Auditoria, Base):
     referencia: Mapped[str] = mapped_column(sa.String(200), default="")
     condominio_nome: Mapped[str] = mapped_column(sa.String(150), default="")
     exibir_endereco_site: Mapped[bool] = mapped_column(sa.Boolean, default=True)
+    # Site: só aparecem os publicados e disponíveis; destaques vão na home.
+    publicar_site: Mapped[bool] = mapped_column(sa.Boolean, default=False)
+    destaque_site: Mapped[bool] = mapped_column(sa.Boolean, default=False)
 
     valor_venda: Mapped[float | None] = mapped_column(_Dinheiro)
     valor_locacao: Mapped[float | None] = mapped_column(_Dinheiro)

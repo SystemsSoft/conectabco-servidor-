@@ -72,6 +72,8 @@ class ImovelEntrada(_Endereco):
     referencia: Texto(200) = ""
     condominio_nome: Texto(150) = ""
     exibir_endereco_site: bool = True
+    publicar_site: bool = False
+    destaque_site: bool = False
 
     valor_venda: Valor | None = None
     valor_locacao: Valor | None = None

@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>{{ empresa.nome }} – Em breve</title>
+  <link rel="icon" href="/estatico/icone.png">
+  <link rel="stylesheet" href="/estatico/site.css?v={{ versao_css }}">
+</head>
+<body class="hero" style="min-height:100vh;display:grid;place-items:center;text-align:center;padding:24px">
+  <div>
+    <img src="/logo" alt="{{ empresa.nome }}" style="width:min(280px,70vw);margin:0 auto 24px">
+    <h1>Estamos preparando novidades</h1>
+    <p style="margin:0 auto">Nosso site volta em breve.{% if empresa.telefone %} Enquanto isso, fale com a gente: {{ empresa.telefone }}{% endif %}</p>
+    {% if whatsapp_link %}<p style="margin-top:24px"><a class="btn btn-whats" href="{{ whatsapp_link }}" target="_blank" rel="noopener">Falar no WhatsApp</a></p>{% endif %}
+  </div>
+</body>
+</html>

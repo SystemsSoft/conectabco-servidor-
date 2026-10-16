@@ -18,6 +18,7 @@ class ModuloSistema(EnumRotulado):
     contratosRelatorios = "contratosRelatorios", "Contratos e Relatórios"
     equipeSeguranca = "equipeSeguranca", "Equipe e Segurança"
     personalizacao = "personalizacao", "Personalização"
+    site = "site", "Site e Leads"
 
 
 class AcaoPermissao(EnumRotulado):
@@ -95,12 +96,14 @@ def permissoes_do_perfil(perfil: PerfilAcesso) -> dict:
             }
         case PerfilAcesso.corretor:
             return {"modulos": {"cadastrosCrm": operar, "vendas": operar,
-                                "locacao": operar, "contratosRelatorios": leitura},
+                                "locacao": operar, "contratosRelatorios": leitura,
+                                "site": leitura},
                     "especiais": []}  # fmt: skip
         case PerfilAcesso.financeiro:
             return {"modulos": {"financeiro": todas, "fiscal": todas, "vendas": leitura,
                                 "locacao": leitura, "cadastrosCrm": leitura},
                     "especiais": ["verValoresFinanceiros", "exportarDados"]}  # fmt: skip
         case PerfilAcesso.atendente:
-            return {"modulos": {"cadastrosCrm": operar, "locacao": leitura},
+            return {"modulos": {"cadastrosCrm": operar, "locacao": leitura,
+                                "site": operar},
                     "especiais": []}  # fmt: skip

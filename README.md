@@ -267,6 +267,41 @@ apagados com `.venv/bin/python gerenciar.py limpar-arquivos` (ex.: cron
 diário). Atrás de um proxy (nginx), libere uploads grandes:
 `client_max_body_size 300m;`.
 
+## Site público (leads e atendimento)
+
+O próprio servidor hospeda o site da imobiliária, sem login:
+
+| Página | O que mostra |
+|---|---|
+| `/` | Busca, imóveis em destaque, "Quem somos", anuncie e contato |
+| `/imoveis` | Listagem com filtros (finalidade, tipo, bairro/cidade/código, quartos, valor) |
+| `/imovel/{codigo}` | Fotos, vídeos, características e formulário de interesse/visita + WhatsApp |
+| `/anuncie`, `/contato` | Formulários de captação e de contato |
+| `/sitemap.xml`, `/robots.txt` | Para o Google |
+
+Aparecem só os imóveis marcados como **Publicar no site** e com status
+disponível; nunca dados internos (proprietário, observações, matrícula,
+chaves, complemento). Endereço completo só se "Exibir endereço" estiver ligado.
+Fotos e vídeos enviados ficam públicos apenas enquanto o imóvel estiver
+publicado (`/midia/{id}`); documentos nunca.
+
+Cada formulário enviado vira um **lead**: cria (ou reaproveita, pelo e-mail
+ou telefone) o contato no CRM com origem "Site", cria tarefa de retorno na
+Central de Relacionamento e entrega ao próximo corretor disponível da fila
+(atendimento com origem "Site"). Proteções: consentimento LGPD obrigatório,
+campo-isca contra robôs e limite de 5 envios a cada 10 minutos por endereço.
+
+Textos, contatos, redes, funcionalidades (busca, destaques, valores, visita,
+WhatsApp...) e a distribuição dos leads são editados no app em **Site e
+Leads**. Em produção, defina `SITE_URL` (ex.: `https://www.seudominio.com.br`)
+para o sitemap e aponte o domínio para este servidor.
+
+| Método | Rota | Descrição |
+|---|---|---|
+| GET / PUT | `/api/v1/site/configuracao` | Configuração do site |
+| GET | `/api/v1/site/leads?status=` | Leads recebidos (mais recentes primeiro) |
+| PUT / DELETE | `/api/v1/site/leads/{id}` | Status, responsável e anotação / excluir |
+
 ## Rotas – Manutenção
 
 | Método | Rota | Descrição |

@@ -1,0 +1,88 @@
+{% import "_componentes.html" as c with context %}
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block titulo %}{{ empresa.nome }} – {{ empresa.atividade }}{% endblock %}</title>
+  <meta name="description" content="{% block descricao %}{{ cfg.meta_descricao or cfg.subtitulo }}{% endblock %}">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="{{ self.titulo() }}">
+  <meta property="og:description" content="{{ self.descricao() }}">
+  <meta property="og:image" content="{% block og_imagem %}/logo{% endblock %}">
+  <meta name="theme-color" content="#020b22">
+  <link rel="icon" href="/estatico/icone.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/estatico/site.css?v={{ versao_css }}">
+  <script type="application/ld+json">
+  {{ {"@context": "https://schema.org", "@type": "RealEstateAgent", "name": empresa.nome,
+      "description": cfg.meta_descricao or cfg.subtitulo, "telephone": empresa.telefone,
+      "email": empresa.email, "address": empresa.endereco, "image": "/logo"} | tojson }}
+  </script>
+</head>
+<body>
+  <header class="topo">
+    <div class="container">
+      <a class="marca" href="/">
+        <img src="{{ '/logo' if empresa.tem_logo else '/estatico/icone.png' }}" alt="">
+        <span><strong>{{ empresa.nome }}</strong><small>{{ empresa.atividade }}{% if empresa.creci %} · {{ empresa.creci }}{% endif %}</small></span>
+      </a>
+      <button class="abrir-menu" aria-label="Abrir menu" aria-expanded="false" onclick="this.setAttribute('aria-expanded', document.querySelector('.menu').classList.toggle('aberto'))">☰</button>
+      <nav class="menu">
+        <a href="/" class="{{ 'ativo' if pagina_atual == 'inicio' }}">Início</a>
+        <a href="/imoveis" class="{{ 'ativo' if pagina_atual == 'imoveis' }}">Imóveis</a>
+        {% if cfg.mostrar_anuncie %}<a href="/anuncie" class="{{ 'ativo' if pagina_atual == 'anuncie' }}">Anuncie seu imóvel</a>{% endif %}
+        <a href="/contato" class="{{ 'ativo' if pagina_atual == 'contato' }}">Contato</a>
+        {% if whatsapp_link %}<a class="btn btn-ouro" href="{{ whatsapp_link }}" target="_blank" rel="noopener">Fale no WhatsApp</a>{% endif %}
+      </nav>
+    </div>
+  </header>
+
+  <main>{% block conteudo %}{% endblock %}</main>
+
+  <footer class="rodape">
+    <div class="container">
+      <div class="colunas">
+        <div>
+          <h4>{{ empresa.nome }}</h4>
+          <p>{{ empresa.atividade }}{% if empresa.creci %} · {{ empresa.creci }}{% endif %}</p>
+          <p style="max-width:380px">{{ cfg.subtitulo }}</p>
+        </div>
+        <div>
+          <h4>Navegue</h4>
+          <ul>
+            <li><a href="/imoveis?finalidade=venda">Imóveis à venda</a></li>
+            <li><a href="/imoveis?finalidade=locacao">Imóveis para alugar</a></li>
+            <li><a href="/imoveis?finalidade=temporada">Temporada</a></li>
+            {% if cfg.mostrar_anuncie %}<li><a href="/anuncie">Anuncie seu imóvel</a></li>{% endif %}
+          </ul>
+        </div>
+        <div>
+          <h4>Atendimento</h4>
+          <ul>
+            {% if empresa.telefone %}<li><a href="tel:{{ empresa.telefone }}">{{ empresa.telefone }}</a></li>{% endif %}
+            {% if empresa.email %}<li><a href="mailto:{{ empresa.email }}">{{ empresa.email }}</a></li>{% endif %}
+            {% if empresa.endereco %}<li>{{ empresa.endereco }}</li>{% endif %}
+            {% if cfg.horario %}<li>{{ cfg.horario }}</li>{% endif %}
+            <li style="display:flex;gap:12px">
+              {% if cfg.instagram %}<a href="{{ cfg.instagram }}" target="_blank" rel="noopener" aria-label="Instagram">{{ c.icone("instagram") }}</a>{% endif %}
+              {% if cfg.facebook %}<a href="{{ cfg.facebook }}" target="_blank" rel="noopener" aria-label="Facebook">{{ c.icone("facebook") }}</a>{% endif %}
+            </li>
+          </ul>
+        </div>
+      </div>
+      <div class="final">
+        <span>© {{ ano }} {{ empresa.nome }}{% if empresa.documento %} · {{ empresa.documento }}{% endif %}</span>
+        <span>{{ empresa.creci }}</span>
+      </div>
+    </div>
+  </footer>
+
+  {% if cfg.botao_whatsapp and whatsapp_link %}
+  <a class="whats-flutuante" href="{% block whatsapp_flutuante %}{{ whatsapp_link }}{% endblock %}" target="_blank" rel="noopener" aria-label="Conversar no WhatsApp">{{ c.whatsapp_svg() }}</a>
+  {% endif %}
+  {% block scripts %}{% endblock %}
+</body>
+</html>

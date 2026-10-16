@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% import "_componentes.html" as c with context %}
+
+{% block titulo %}Mensagem enviada – {{ empresa.nome }}{% endblock %}
+
+{% block conteudo %}
+<div class="container mensagem-final">
+  <span class="icone">{{ c.icone("check") }}</span>
+  <h1>Obrigado!</h1>
+  <p>{{ cfg.mensagem_obrigado }}</p>
+  <p style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:24px">
+    <a class="btn btn-ouro" href="/imoveis">Ver mais imóveis</a>
+    {% if whatsapp_link %}<a class="btn btn-whats" href="{{ whatsapp_link }}" target="_blank" rel="noopener">Falar agora no WhatsApp</a>{% endif %}
+  </p>
+</div>
+{% endblock %}

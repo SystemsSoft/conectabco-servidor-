@@ -29,6 +29,7 @@ def carregar_models() -> None:
     import app.modules.locacao.models  # noqa: F401
     import app.modules.manutencao.models  # noqa: F401
     import app.modules.personalizacao.models  # noqa: F401
+    import app.modules.site.models  # noqa: F401
     import app.modules.temporada.models  # noqa: F401
     import app.modules.vendas.models  # noqa: F401
 
@@ -47,6 +48,7 @@ def roteadores() -> list[tuple[APIRouter, list]]:
     from app.modules.locacao.api import router as locacao
     from app.modules.manutencao.api import router as manutencao
     from app.modules.personalizacao.api import router as personalizacao
+    from app.modules.site.api import router as site
     from app.modules.temporada.api import router as temporada
     from app.modules.vendas.api import router as vendas
 
@@ -65,4 +67,5 @@ def roteadores() -> list[tuple[APIRouter, list]]:
         (personalizacao, []),
         # Enviar exige Cadastros e CRM; abrir usa link assinado.
         (arquivos, []),
+        (site, [exigir_modulo("site")]),
     ]
