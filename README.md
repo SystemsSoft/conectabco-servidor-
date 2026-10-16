@@ -20,6 +20,7 @@ Módulos prontos:
   modelos prontos acompanha o app).
 - **Equipe e Segurança** — login, usuários e permissões, sessões, histórico de
   atividades, fila de atendimento, comissões da equipe e chat interno.
+- **Personalização** — logotipo e dados da imobiliária usados nos documentos.
 - **Manutenção** — pauta e diário de manutenção (usada na Locação e nas Vendas).
 
 ## Instalação
@@ -56,8 +57,8 @@ que assina os tokens; sem ela, todos precisam entrar de novo a cada reinício):
 python -c "import secrets;print(secrets.token_urlsafe(48))"
 ```
 
-Crie o administrador (você escolhe a senha; também serve para redefinir a
-senha dele se esquecer):
+Crie o administrador (pede nome, usuário de login — ex.: Marcelo — e senha;
+também serve para redefinir a senha dele se esquecer):
 
 ```bash
 .venv/bin/python gerenciar.py criar-admin
@@ -218,12 +219,12 @@ cópia do modelo pronto correspondente (usado na impressão dos contratos).
 
 | Método | Rota | Descrição |
 |---|---|---|
-| POST | `/api/v1/auth/entrar` | E-mail e senha → token (respeita o limite de usuários simultâneos) |
+| POST | `/api/v1/auth/entrar` | Usuário e senha (`{"usuario", "senha"}`) → token; o usuário não diferencia maiúsculas |
 | POST | `/api/v1/auth/sair` | Encerra a sessão atual |
 | GET | `/api/v1/auth/eu` | Usuário logado |
 | POST | `/api/v1/auth/alterar-senha` | Troca a própria senha |
 | GET | `/api/v1/equipe/usuarios` | Equipe (todos os logados; sem senha) |
-| PUT / DELETE | `/api/v1/equipe/usuarios/{id}` | Gerenciar usuários (permissão especial); senha mín. 8 caracteres |
+| PUT / DELETE | `/api/v1/equipe/usuarios/{id}` | Gerenciar usuários (permissão especial); `login` único, e-mail opcional, senha mín. 8 caracteres |
 | GET / DELETE | `/api/v1/equipe/sessoes[/{id}]` | Conexões ativas / desconectar |
 | GET / PUT | `/api/v1/equipe/configuracao` | Limite de simultâneos e inatividade |
 | GET / PUT | `/api/v1/equipe/atividades[/{id}]` | Histórico (o autor vem do login) |
@@ -232,6 +233,18 @@ cópia do modelo pronto correspondente (usado na impressão dos contratos).
 | GET / PUT | `/api/v1/equipe/comissoes/regras[/{usuarioId}]` | Percentuais e metas |
 | GET / PUT / DELETE | `/api/v1/equipe/comissoes[/{id}]` | Comissões (sem "ver de todos", só as próprias) |
 | GET / PUT / DELETE | `/api/v1/equipe/mensagens[/{id}]` | Chat (só as conversas de que o usuário participa) |
+
+## Rotas – Personalização
+
+| Método | Rota | Descrição |
+|---|---|---|
+| GET / PUT | `/api/v1/personalizacao/empresa` | Nome, atividade, CRECI, CNPJ/CPF, endereço, contatos e chave PIX |
+| GET / PUT / DELETE | `/api/v1/personalizacao/logo` | Logotipo em base64 (PNG ou JPG, até 2 MB); DELETE volta ao padrão |
+
+Leitura liberada a todos os usuários logados (qualquer um imprime documentos);
+gravar exige a permissão de Personalização. O app aplica esses dados no
+cabeçalho de contratos, boletos, recibos, repasses, carnês e relatórios, e nos
+campos `{{empresa_...}}` dos modelos de contrato.
 
 ## Rotas – Manutenção
 

@@ -26,7 +26,8 @@ class Permissoes(Esquema):
 
 class UsuarioEntrada(Esquema):
     nome: Texto(150)
-    email: Texto(200)
+    login: Texto(60) = Field(description="Nome de usuário para entrar")
+    email: Texto(200) = ""
     perfil: PerfilAcesso
     permissoes: Permissoes
     ativo: bool = True
@@ -41,6 +42,7 @@ class UsuarioEntrada(Esquema):
 class UsuarioSaida(Esquema):
     id: str
     nome: str
+    login: str
     email: str
     perfil: PerfilAcesso
     permissoes: Permissoes
@@ -52,7 +54,7 @@ class UsuarioSaida(Esquema):
 
 
 class Login(Esquema):
-    email: str
+    usuario: str = Field(description="Nome de usuário (login)")
     senha: str
 
 

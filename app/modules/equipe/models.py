@@ -27,7 +27,11 @@ class Usuario(_Auditoria, Base):
 
     id: Mapped[str] = mapped_column(sa.String(36), primary_key=True, default=_uuid)
     nome: Mapped[str] = mapped_column(sa.String(150))
-    email: Mapped[str] = mapped_column(sa.String(200), unique=True)
+    # Nome de usuário para entrar (ex.: "Marcelo"); comparado sem diferenciar
+    # maiúsculas de minúsculas.
+    login: Mapped[str] = mapped_column(sa.String(60), unique=True)
+    # Contato (opcional).
+    email: Mapped[str] = mapped_column(sa.String(200), default="")
     senha_hash: Mapped[str] = mapped_column(sa.String(200))
     perfil: Mapped[PerfilAcesso] = mapped_column(coluna_enum(PerfilAcesso))
     # {"modulos": {"cadastrosCrm": ["visualizar", ...]}, "especiais": [...]}

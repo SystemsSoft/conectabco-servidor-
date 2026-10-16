@@ -14,6 +14,8 @@ from app.modules.equipe import schemas as s
 from app.modules.equipe.enums import ModuloSistema, TipoAtividade
 
 _EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+# Letras (com acento), números, ponto, hífen e sublinhado; sem espaços.
+_LOGIN = re.compile(r"^[A-Za-zÀ-ÖØ-öø-ÿ0-9._-]{3,60}$")
 SENHA_MINIMA = 8
 
 
@@ -33,6 +35,20 @@ def registrar(
 
 def usuario_saida(u: m.Usuario) -> s.UsuarioSaida:
     return s.UsuarioSaida.model_validate(u)
+
+
+def _validar_login(login: str) -> None:
+    if not _LOGIN.match(login):
+        raise RegraNegocio(
+            "Usuário inválido: use de 3 a 60 letras, números, ponto, hífen "
+            "ou sublinhado, sem espaços."
+        )
+
+
+def _por_login(db: Session, login: str) -> m.Usuario | None:
+    return db.scalar(
+        sa.select(m.Usuario).where(sa.func.lower(m.Usuario.login) == login.strip().lower())
+    )
 
 
 def _validar_senha(senha: str) -> None:
@@ -72,10 +88,9 @@ def sessoes_ativas(db: Session) -> list[m.Sessao]:
 
 
 def entrar(db: Session, dados: s.Login, dispositivo: str) -> s.LoginSaida:
-    email = dados.email.strip().lower()
-    u = db.scalar(sa.select(m.Usuario).where(sa.func.lower(m.Usuario.email) == email))
+    u = _por_login(db, dados.usuario)
     if u is None or not verificar_senha(dados.senha, u.senha_hash):
-        raise RegraNegocio("E-mail ou senha incorretos.")
+        raise RegraNegocio("Usuário ou senha incorretos.")
     if not u.ativo:
         raise RegraNegocio("Este usuário está desativado.")
     ativas = sessoes_ativas(db)
@@ -127,16 +142,14 @@ def salvar_usuario(db: Session, id: str, d: s.UsuarioEntrada, autor: m.Usuario):
     id = validar_id(id)
     if not d.nome.strip():
         raise RegraNegocio("Informe o nome.")
+    login = d.login.strip()
+    _validar_login(login)
+    outro = _por_login(db, login)
+    if outro is not None and outro.id != id:
+        raise RegraNegocio("Já existe outro usuário com este login.")
     email = d.email.strip().lower()
-    if not _EMAIL.match(email):
+    if email and not _EMAIL.match(email):
         raise RegraNegocio("E-mail inválido.")
-    outro = db.scalar(
-        sa.select(m.Usuario.id).where(
-            sa.func.lower(m.Usuario.email) == email, m.Usuario.id != id
-        )
-    )
-    if outro:
-        raise RegraNegocio("Já existe um usuário com este e-mail.")
     u = db.get(m.Usuario, id)
     criado = u is None
     if criado:
@@ -157,6 +170,7 @@ def salvar_usuario(db: Session, id: str, d: s.UsuarioEntrada, autor: m.Usuario):
         u.senha_hash = hash_senha(d.senha)
     for campo, valor in d.model_dump(exclude={"senha", "permissoes"}).items():
         setattr(u, campo, valor)
+    u.login = login
     u.email = email
     u.permissoes = d.permissoes.model_dump()
     registrar(db, autor.id, TipoAtividade.criacao if criado else TipoAtividade.edicao,
@@ -193,18 +207,24 @@ def remover_usuario(db: Session, id: str, autor: m.Usuario) -> None:
     db.commit()
 
 
-def criar_administrador(db: Session, nome: str, email: str, senha: str) -> m.Usuario:
-    """Usado pelo gerenciar.py para o primeiro acesso."""
+def criar_administrador(
+    db: Session, nome: str, login: str, senha: str, email: str = ""
+) -> m.Usuario:
+    """Usado pelo gerenciar.py para o primeiro acesso (ou redefinir a senha)."""
     from app.modules.equipe.enums import PerfilAcesso, permissoes_do_perfil
 
+    login = login.strip()
+    _validar_login(login)
     _validar_senha(senha)
     email = email.strip().lower()
-    if not _EMAIL.match(email):
+    if email and not _EMAIL.match(email):
         raise RegraNegocio("E-mail inválido.")
-    u = db.scalar(sa.select(m.Usuario).where(sa.func.lower(m.Usuario.email) == email))
+    u = _por_login(db, login)
     if u is None:
-        u = m.Usuario(email=email, criado_em=agora())
+        u = m.Usuario(login=login, criado_em=agora())
         db.add(u)
+    if email:
+        u.email = email
     u.nome = nome
     u.perfil = PerfilAcesso.administrador
     u.permissoes = permissoes_do_perfil(PerfilAcesso.administrador)

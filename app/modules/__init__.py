@@ -27,6 +27,7 @@ def carregar_models() -> None:
     import app.modules.fiscal.models  # noqa: F401
     import app.modules.locacao.models  # noqa: F401
     import app.modules.manutencao.models  # noqa: F401
+    import app.modules.personalizacao.models  # noqa: F401
     import app.modules.temporada.models  # noqa: F401
     import app.modules.vendas.models  # noqa: F401
 
@@ -43,6 +44,7 @@ def roteadores() -> list[tuple[APIRouter, list]]:
     from app.modules.fiscal.api import router as fiscal
     from app.modules.locacao.api import router as locacao
     from app.modules.manutencao.api import router as manutencao
+    from app.modules.personalizacao.api import router as personalizacao
     from app.modules.temporada.api import router as temporada
     from app.modules.vendas.api import router as vendas
 
@@ -57,4 +59,6 @@ def roteadores() -> list[tuple[APIRouter, list]]:
         (financeiro, [exigir_modulo("financeiro")]),
         (fiscal, [exigir_modulo("fiscal")]),
         (contratos, [exigir_modulo("contratosRelatorios")]),
+        # Leitura liberada a todos (documentos); gravar exige Personalização.
+        (personalizacao, []),
     ]

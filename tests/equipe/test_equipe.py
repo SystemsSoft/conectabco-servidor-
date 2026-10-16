@@ -11,10 +11,10 @@ AUTH = "/api/v1/auth"
 EQ = "/api/v1/equipe"
 
 
-def _usuario(client, perfil="corretor", email="corretor@teste.com.br", **extra):
+def _usuario(client, perfil="corretor", login="corretor", **extra):
     id = novo_id()
     r = client.put(f"{EQ}/usuarios/{id}", json={
-        "nome": "Carlos Corretor", "email": email, "perfil": perfil,
+        "nome": "Carlos Corretor", "login": login, "perfil": perfil,
         "permissoes": permissoes_do_perfil(PerfilAcesso(perfil)),
         "senha": "senha-do-corretor", **extra,
     })  # fmt: skip
@@ -22,8 +22,8 @@ def _usuario(client, perfil="corretor", email="corretor@teste.com.br", **extra):
     return id
 
 
-def _entrar(cliente, email, senha="senha-do-corretor"):
-    r = cliente.post(f"{AUTH}/entrar", json={"email": email, "senha": senha})
+def _entrar(cliente, usuario, senha="senha-do-corretor"):
+    r = cliente.post(f"{AUTH}/entrar", json={"usuario": usuario, "senha": senha})
     return r
 
 
@@ -33,9 +33,9 @@ def _com_token(cliente, token):
 
 def test_login_e_rotas_protegidas(cliente_anonimo):
     assert cliente_anonimo.get("/api/v1/crm/imoveis").status_code == 401
-    r = _entrar(cliente_anonimo, ADMIN["email"], "errada")
-    assert r.json()["detail"] == "E-mail ou senha incorretos."
-    r = _entrar(cliente_anonimo, "ADMIN@teste.com.br", ADMIN["senha"])
+    r = _entrar(cliente_anonimo, ADMIN["usuario"], "errada")
+    assert r.json()["detail"] == "Usuário ou senha incorretos."
+    r = _entrar(cliente_anonimo, "admin", ADMIN["senha"])  # sem diferenciar caixa
     assert r.status_code == 200
     h = _com_token(cliente_anonimo, r.json()["token"])
     assert cliente_anonimo.get("/api/v1/crm/imoveis", headers=h).status_code == 200
@@ -50,7 +50,7 @@ def test_login_e_rotas_protegidas(cliente_anonimo):
 
 def test_permissoes_por_modulo(client):
     _usuario(client)
-    r = _entrar(client, "corretor@teste.com.br")
+    r = _entrar(client, "corretor")
     h = _com_token(client, r.json()["token"])
     assert client.get("/api/v1/crm/contatos", headers=h).status_code == 200
     r = client.get("/api/v1/financeiro/lancamentos", headers=h)
@@ -71,10 +71,10 @@ def test_permissoes_por_modulo(client):
 def test_limite_de_sessoes_e_inatividade(client, banco):
     client.put(f"{EQ}/configuracao", json={"limiteSessoes": 1, "inatividadeMinutos": 30})
     _usuario(client)
-    r = _entrar(client, "corretor@teste.com.br")
+    r = _entrar(client, "corretor")
     assert r.json()["detail"].startswith("Limite de 1 usuário(s) simultâneo(s)")
     # O próprio admin pode abrir outra sessão.
-    assert _entrar(client, ADMIN["email"], ADMIN["senha"]).status_code == 200
+    assert _entrar(client, ADMIN["usuario"], ADMIN["senha"]).status_code == 200
 
     # Sessões paradas além do limite expiram.
     from app.modules.equipe.models import Sessao
@@ -84,20 +84,24 @@ def test_limite_de_sessoes_e_inatividade(client, banco):
         db.commit()
     r = client.get("/api/v1/crm/imoveis")
     assert r.json()["detail"] == "Sua sessão expirou por inatividade. Entre novamente."
-    assert _entrar(client, "corretor@teste.com.br").status_code == 200
+    assert _entrar(client, "corretor").status_code == 200
 
 
 def test_usuarios_regras(client):
     eu = client.get(f"{AUTH}/eu").json()
     uid = _usuario(client)
-    dados = {"nome": "Carlos", "email": "corretor@teste.com.br", "perfil": "corretor",
+    dados = {"nome": "Carlos", "login": "corretor", "perfil": "corretor",
              "permissoes": permissoes_do_perfil(PerfilAcesso.corretor)}  # fmt: skip
     # E-mail repetido, senha curta, novo sem senha.
-    r = client.put(f"{EQ}/usuarios/{novo_id()}", json=dados | {"senha": "12345678"})
-    assert r.json()["detail"] == "Já existe um usuário com este e-mail."
+    r = client.put(f"{EQ}/usuarios/{novo_id()}", json=dados | {"login": "CORRETOR", "senha": "12345678"})
+    assert r.json()["detail"] == "Já existe outro usuário com este login."
+    r = client.put(f"{EQ}/usuarios/{novo_id()}", json=dados | {"login": "com espaço", "senha": "12345678"})
+    assert r.json()["detail"].startswith("Usuário inválido")
+    r = client.put(f"{EQ}/usuarios/{novo_id()}", json=dados | {"login": "outro", "email": "x@", "senha": "12345678"})
+    assert r.json()["detail"] == "E-mail inválido."
     r = client.put(f"{EQ}/usuarios/{uid}", json=dados | {"senha": "curta"})
     assert r.json()["detail"] == "A senha precisa de ao menos 8 caracteres."
-    r = client.put(f"{EQ}/usuarios/{novo_id()}", json=dados | {"email": "x@y.com"})
+    r = client.put(f"{EQ}/usuarios/{novo_id()}", json=dados | {"login": "novo"})
     assert r.json()["detail"] == "Defina uma senha para o novo usuário."
     # Senha nunca sai na API.
     assert "senha" not in str(client.get(f"{EQ}/usuarios").json()).lower().replace("senhaHash", "")
@@ -106,15 +110,15 @@ def test_usuarios_regras(client):
     assert client.delete(f"{EQ}/usuarios/{eu['id']}").json()["detail"] == (
         "Você não pode excluir o usuário que está em uso.")
     r = client.put(f"{EQ}/usuarios/{eu['id']}", json={
-        "nome": eu["nome"], "email": eu["email"], "perfil": "administrador",
+        "nome": eu["nome"], "login": eu["login"], "perfil": "administrador",
         "permissoes": eu["permissoes"], "ativo": False})  # fmt: skip
     assert r.json()["detail"] == "Mantenha ao menos um administrador ativo."
 
     # Desativar encerra as sessões do usuário.
-    h = _com_token(client, _entrar(client, "corretor@teste.com.br").json()["token"])
+    h = _com_token(client, _entrar(client, "corretor").json()["token"])
     client.put(f"{EQ}/usuarios/{uid}", json=dados | {"ativo": False})
     assert client.get("/api/v1/crm/imoveis", headers=h).status_code == 401
-    assert _entrar(client, "corretor@teste.com.br").json()["detail"] == (
+    assert _entrar(client, "corretor").json()["detail"] == (
         "Este usuário está desativado.")
     assert client.delete(f"{EQ}/usuarios/{uid}").status_code == 204
 
@@ -125,18 +129,18 @@ def test_alterar_senha(client):
     r = client.post(f"{AUTH}/alterar-senha",
                     json={"senhaAtual": ADMIN["senha"], "novaSenha": "nova-senha-1"})  # fmt: skip
     assert r.status_code == 204
-    assert _entrar(client, ADMIN["email"], "nova-senha-1").status_code == 200
+    assert _entrar(client, ADMIN["usuario"], "nova-senha-1").status_code == 200
 
 
 def test_chat_privado_e_comissoes_proprias(client):
     eu = client.get(f"{AUTH}/eu").json()["id"]
     outro = _usuario(client)
-    terceiro = _usuario(client, email="terceiro@teste.com.br")
+    terceiro = _usuario(client, login="terceiro")
     dm = f"dm:{min(eu, outro)}:{max(eu, outro)}"
     msg = {"conversaId": dm, "remetenteId": eu, "texto": "Oi", "enviadaEm": "2026-10-15T10:00:00"}
     assert client.put(f"{EQ}/mensagens/{novo_id()}", json=msg).status_code == 200
     # Terceiro não vê a conversa direta.
-    h3 = _com_token(client, _entrar(client, "terceiro@teste.com.br").json()["token"])
+    h3 = _com_token(client, _entrar(client, "terceiro").json()["token"])
     assert client.get(f"{EQ}/mensagens", headers=h3).json() == []
     assert len(client.get(f"{EQ}/mensagens").json()) == 1
 
@@ -174,7 +178,7 @@ def test_resumo_do_dispositivo():
 def test_corretor_usa_chat_e_fila_e_ve_quem_esta_online(client):
     eu = client.get(f"{AUTH}/eu").json()["id"]
     _usuario(client)
-    h = _com_token(client, _entrar(client, "corretor@teste.com.br").json()["token"])
+    h = _com_token(client, _entrar(client, "corretor").json()["token"])
     online = client.get(f"{EQ}/sessoes", headers=h).json()
     assert {x["usuarioId"] for x in online} >= {eu}
     assert all(x["dispositivo"] == "" for x in online)

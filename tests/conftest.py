@@ -13,7 +13,7 @@ from sqlalchemy.pool import StaticPool
 from app.core.database import Base, get_db
 from app.main import create_app
 
-ADMIN = {"email": "admin@teste.com.br", "senha": "senha-forte-123"}
+ADMIN = {"usuario": "Admin", "senha": "senha-forte-123"}
 
 
 @pytest.fixture
@@ -33,7 +33,7 @@ def banco():
     with fabrica() as db:
         from app.modules.equipe.services import criar_administrador
 
-        criar_administrador(db, "Administrador", ADMIN["email"], ADMIN["senha"])
+        criar_administrador(db, "Administrador", ADMIN["usuario"], ADMIN["senha"])
     yield fabrica
     engine.dispose()
 
