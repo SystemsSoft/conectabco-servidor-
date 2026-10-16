@@ -5,3 +5,4 @@ __pycache__/
 .env
 .DS_Store
 .idea/workspace.xml
+.senha-inicial-admin.txt
