@@ -158,3 +158,28 @@ def test_fila_e_atividades(client):
     client.put(f"{EQ}/atividades/{novo_id()}", json={"tipo": "edicao", "descricao": "Teste"})
     tipos = [a["tipo"] for a in client.get(f"{EQ}/atividades").json()]
     assert "login" in tipos and "edicao" in tipos
+
+
+def test_resumo_do_dispositivo():
+    from app.modules.equipe.services import resumir_dispositivo
+
+    mac_chrome = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+                  "(KHTML, like Gecko) Chrome/152.0 Safari/537.36")  # fmt: skip
+    assert resumir_dispositivo(mac_chrome) == "Chrome no macOS"
+    win_edge = "Mozilla/5.0 (Windows NT 10.0) Chrome/150 Safari/537.36 Edg/150"
+    assert resumir_dispositivo(win_edge) == "Edge no Windows"
+    assert resumir_dispositivo("") == "Navegador"
+
+
+def test_corretor_usa_chat_e_fila_e_ve_quem_esta_online(client):
+    eu = client.get(f"{AUTH}/eu").json()["id"]
+    _usuario(client)
+    h = _com_token(client, _entrar(client, "corretor@teste.com.br").json()["token"])
+    online = client.get(f"{EQ}/sessoes", headers=h).json()
+    assert {x["usuarioId"] for x in online} >= {eu}
+    assert all(x["dispositivo"] == "" for x in online)
+    assert any(x["dispositivo"] for x in client.get(f"{EQ}/sessoes").json())
+    # Fila e chat liberados; histórico de atividades, não.
+    assert client.get(f"{EQ}/fila", headers=h).status_code == 200
+    assert client.get(f"{EQ}/mensagens", headers=h).status_code == 200
+    assert client.get(f"{EQ}/atividades", headers=h).status_code == 403

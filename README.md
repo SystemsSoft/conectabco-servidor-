@@ -18,6 +18,8 @@ Módulos prontos:
   dados de Locação, Vendas e CRM).
 - **Contratos e Relatórios** — "Meus modelos" de contrato (o catálogo de
   modelos prontos acompanha o app).
+- **Equipe e Segurança** — login, usuários e permissões, sessões, histórico de
+  atividades, fila de atendimento, comissões da equipe e chat interno.
 - **Manutenção** — pauta e diário de manutenção (usada na Locação e nas Vendas).
 
 ## Instalação
@@ -45,6 +47,24 @@ cp .env .env           # preencha usuário, senha e nome do banco
 
 Teste a conexão em `GET /saude/banco` com o servidor rodando.
 
+## Primeiro acesso (login)
+
+Toda a API exige login. No `.env`, defina `JWT_SECRET` (chave longa e secreta
+que assina os tokens; sem ela, todos precisam entrar de novo a cada reinício):
+
+```bash
+python -c "import secrets;print(secrets.token_urlsafe(48))"
+```
+
+Crie o administrador (você escolhe a senha; também serve para redefinir a
+senha dele se esquecer):
+
+```bash
+.venv/bin/python gerenciar.py criar-admin
+```
+
+Os demais usuários são criados no app, em Equipe e Segurança > Usuários.
+
 ## Rodando
 
 ```bash
@@ -62,8 +82,8 @@ flutter run -d chrome --dart-define=API_URL=https://api.seudominio.com.br
 ```
 
 Hoje o CRM, a Administração de Locação, a Administração de Vendas, a
-Locação por Temporada, o Financeiro, o Fiscal, Contratos e Relatórios e a
-Manutenção usam a API. Falta a Equipe e Segurança, que ainda guarda em memória.
+Todos os módulos do app usam a API. Sem `--dart-define=API_URL`, o app usa
+`http://localhost:8000`.
 
 ## Testes
 
@@ -85,6 +105,12 @@ Os testes usam um SQLite em memória descartável; não tocam no MySQL.
   `codigo`, `criadoEm` e `atualizadoEm` são sempre do servidor.
 - Listagens são paginadas: `?limite=100&deslocamento=0` →
   `{"itens": [...], "total": n, "limite": 100, "deslocamento": 0}`.
+- Autenticação: `POST /api/v1/auth/entrar` devolve um token; envie
+  `Authorization: Bearer <token>` nas demais rotas. Sair, desativar o usuário,
+  encerrar a sessão ou ficar inativo além do configurado invalida o token (401).
+- Permissões por módulo, conforme o perfil do usuário: GET exige "ver",
+  PUT/POST "criar" ou "editar", DELETE "excluir" (403 quando falta).
+  Temporada usa a permissão de Locação; Manutenção, a de Locação ou Vendas.
 - Erros: `{"detail": "mensagem"}` — 422 para regra de negócio/validação,
   404 para registro inexistente.
 - Datas e horas sem fuso, no horário de Brasília (`2026-10-20T09:30:00`).
@@ -188,6 +214,25 @@ retorno são calculados no app; o servidor valida e guarda.
 Se o servidor ainda não tem modelo de locação ou de venda, o app grava uma
 cópia do modelo pronto correspondente (usado na impressão dos contratos).
 
+## Rotas – Login e Equipe e Segurança
+
+| Método | Rota | Descrição |
+|---|---|---|
+| POST | `/api/v1/auth/entrar` | E-mail e senha → token (respeita o limite de usuários simultâneos) |
+| POST | `/api/v1/auth/sair` | Encerra a sessão atual |
+| GET | `/api/v1/auth/eu` | Usuário logado |
+| POST | `/api/v1/auth/alterar-senha` | Troca a própria senha |
+| GET | `/api/v1/equipe/usuarios` | Equipe (todos os logados; sem senha) |
+| PUT / DELETE | `/api/v1/equipe/usuarios/{id}` | Gerenciar usuários (permissão especial); senha mín. 8 caracteres |
+| GET / DELETE | `/api/v1/equipe/sessoes[/{id}]` | Conexões ativas / desconectar |
+| GET / PUT | `/api/v1/equipe/configuracao` | Limite de simultâneos e inatividade |
+| GET / PUT | `/api/v1/equipe/atividades[/{id}]` | Histórico (o autor vem do login) |
+| GET / PUT | `/api/v1/equipe/fila` | Fila de atendimento (substitui a lista) |
+| GET / PUT | `/api/v1/equipe/atendimentos[/{id}]` | Atendimentos |
+| GET / PUT | `/api/v1/equipe/comissoes/regras[/{usuarioId}]` | Percentuais e metas |
+| GET / PUT / DELETE | `/api/v1/equipe/comissoes[/{id}]` | Comissões (sem "ver de todos", só as próprias) |
+| GET / PUT / DELETE | `/api/v1/equipe/mensagens[/{id}]` | Chat (só as conversas de que o usuário participa) |
+
 ## Rotas – Manutenção
 
 | Método | Rota | Descrição |
@@ -235,4 +280,4 @@ tests/                       pytest, um diretório por módulo
    ```
 4. Escreva os testes em `tests/locacao/`.
 
-Próximo: equipe (usuários, permissões e login com JWT).
+Todos os módulos do app já estão integrados.

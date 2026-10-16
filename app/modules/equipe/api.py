@@ -78,10 +78,17 @@ def remover_usuario(id: str, db: Db, usuario: UsuarioLogado) -> None:
     svc.remover_usuario(db, id, usuario)
 
 
-@router.get("/sessoes", tags=_t, response_model=list[s.SessaoSaida],
-            dependencies=[exigir_modulo("equipeSeguranca")])  # fmt: skip
-def listar_sessoes(db: Db):
-    return [s.SessaoSaida.model_validate(x) for x in svc.sessoes_ativas(db)]
+@router.get("/sessoes", tags=_t, response_model=list[s.SessaoSaida])
+def listar_sessoes(db: Db, usuario: UsuarioLogado):
+    """Quem está conectado (presença no chat e na fila). O dispositivo só
+    aparece para quem pode ver Equipe e Segurança."""
+    completo = usuario.pode("equipeSeguranca", "visualizar")
+    sessoes = [s.SessaoSaida.model_validate(x) for x in svc.sessoes_ativas(db)]
+    db.commit()  # limpeza das sessões expiradas
+    if not completo:
+        for x in sessoes:
+            x.dispositivo = ""
+    return sessoes
 
 
 @router.delete("/sessoes/{id}", tags=_t, status_code=204)

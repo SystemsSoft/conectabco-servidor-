@@ -31,7 +31,7 @@ def criar_admin(args: argparse.Namespace) -> None:
             u = criar_administrador(db, nome, email, senha)
         except RegraNegocio as e:
             sys.exit(e.mensagem)
-    print(f"Administrador pronto: {u.nome} <{u.email}>")
+        print(f"Administrador pronto: {u.nome} <{u.email}>")
 
 
 def main() -> None:

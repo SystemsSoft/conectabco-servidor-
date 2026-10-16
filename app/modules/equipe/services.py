@@ -43,6 +43,26 @@ def _validar_senha(senha: str) -> None:
 # ------------------------------------------------------------------- Login
 
 
+def resumir_dispositivo(user_agent: str) -> str:
+    """Ex.: "Chrome no macOS" a partir do cabeçalho User-Agent."""
+    ua = user_agent or ""
+    navegador = next(
+        (nome for chave, nome in (
+            ("Edg/", "Edge"), ("OPR/", "Opera"), ("Firefox/", "Firefox"),
+            ("Chrome/", "Chrome"), ("Safari/", "Safari"),
+        ) if chave in ua),
+        "Navegador",
+    )  # fmt: skip
+    sistema = next(
+        (nome for chave, nome in (
+            ("Android", "Android"), ("iPhone", "iPhone"), ("iPad", "iPad"),
+            ("Windows", "Windows"), ("Mac OS X", "macOS"), ("Linux", "Linux"),
+        ) if chave in ua),
+        "",
+    )  # fmt: skip
+    return f"{navegador} no {sistema}" if sistema else navegador
+
+
 def sessoes_ativas(db: Session) -> list[m.Sessao]:
     cfg = configuracao(db)
     limite = agora() - timedelta(minutes=cfg.inatividade_minutos)
@@ -66,7 +86,7 @@ def entrar(db: Session, dados: s.Login, dispositivo: str) -> s.LoginSaida:
             f"Limite de {cfg.limite_sessoes} usuário(s) simultâneo(s) atingido. "
             "Peça a um administrador para encerrar uma sessão."
         )
-    sessao = m.Sessao(usuario_id=u.id, dispositivo=dispositivo[:200],
+    sessao = m.Sessao(usuario_id=u.id, dispositivo=resumir_dispositivo(dispositivo),
                       inicio=agora(), ultima_atividade=agora())  # fmt: skip
     db.add(sessao)
     registrar(db, u.id, TipoAtividade.login, "Entrou no sistema")
