@@ -39,6 +39,7 @@
         <a href="/imoveis" class="{{ 'ativo' if pagina_atual == 'imoveis' }}">Imóveis</a>
         {% if cfg.mostrar_anuncie %}<a href="/anuncie" class="{{ 'ativo' if pagina_atual == 'anuncie' }}">Anuncie seu imóvel</a>{% endif %}
         <a href="/contato" class="{{ 'ativo' if pagina_atual == 'contato' }}">Contato</a>
+        {% if cfg.mostrar_area_inquilino %}<a href="/inquilino" class="{{ 'ativo' if pagina_atual == 'inquilino' }}">Área do inquilino</a>{% endif %}
         {% if whatsapp_link %}<a class="btn btn-ouro" href="{{ whatsapp_link }}" target="_blank" rel="noopener">Fale no WhatsApp</a>{% endif %}
       </nav>
     </div>
@@ -65,6 +66,7 @@
             <li><a href="/imoveis?finalidade=locacao">Imóveis para alugar</a></li>
             <li><a href="/imoveis?finalidade=temporada">Temporada</a></li>
             {% if cfg.mostrar_anuncie %}<li><a href="/anuncie">Anuncie seu imóvel</a></li>{% endif %}
+            {% if cfg.mostrar_area_inquilino %}<li><a href="/inquilino">Área do inquilino</a></li>{% endif %}
           </ul>
         </div>
         <div class="revelar" style="--i:2">

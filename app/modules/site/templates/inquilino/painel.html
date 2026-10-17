@@ -1,0 +1,67 @@
+{% extends "inquilino/_layout.html" %}
+{% import "_componentes.html" as c with context %}
+{% import "inquilino/_macros.html" as x %}
+{% block portal %}
+<div class="grade-resumo" data-cascata>
+  <div class="resumo-cartao {{ 'alerta' if resumo.vencidas }}"><span>Em aberto</span><strong>{{ resumo.em_aberto|moeda or "R$ 0" }}</strong>
+    <small>{{ resumo.vencidas }} vencida{{ "s" if resumo.vencidas != 1 }}</small></div>
+  <div class="resumo-cartao"><span>Próximo vencimento</span>
+    <strong>{{ x.data(resumo.proxima.cobranca.vencimento) if resumo.proxima else "—" }}</strong>
+    <small>{{ resumo.proxima.total|moeda if resumo.proxima else "Nada a vencer" }}</small></div>
+  <div class="resumo-cartao"><span>Pago em {{ hoje.year }}</span><strong>{{ resumo.pago_no_ano|moeda or "R$ 0" }}</strong>
+    <small>{{ resumo.qtd_pagas }} pagamento{{ "s" if resumo.qtd_pagas != 1 }} no total</small></div>
+  <div class="resumo-cartao"><span>Aluguel</span><strong>{{ contrato.valor_aluguel|moeda }}</strong>
+    <small>vence todo dia {{ contrato.dia_vencimento }}</small></div>
+</div>
+
+<div class="duas">
+  <div>
+    <div class="painel revelar">
+      <h2>Boletos em aberto <a href="/inquilino/pagamentos{{ sufixo }}">Ver todos →</a></h2>
+      {% if abertas %}
+      <ul class="lista">
+        {% for p in abertas %}
+        <li class="item"><span class="ic">{{ c.icone("dinheiro") }}</span>
+          <div class="txt"><strong>{{ x.competencia(p.cobranca.competencia) }} · {{ p.total|moeda }}</strong>
+            <small>Vence em {{ x.data(p.cobranca.vencimento) }} {{ x.situacao_parcela(p) }}</small></div>
+          <div class="acoes"><a class="btn btn-ouro btn-p" href="/inquilino/boleto/{{ p.cobranca.id }}{{ sufixo }}" target="_blank" rel="noopener">Ver boleto</a></div>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}<p class="vazio-p">Tudo em dia. Nenhum boleto em aberto. 🎉</p>{% endif %}
+    </div>
+    <div class="painel revelar">
+      <h2>Chamados em andamento <a href="/inquilino/chamados{{ sufixo }}">Abrir chamado →</a></h2>
+      {% if chamados_abertos %}
+      <ul class="lista">{% for ch in chamados_abertos %}
+        <li class="item"><span class="ic">{{ c.icone("ferramenta") }}</span>
+          <div class="txt"><strong>{{ ch.tipo.rotulo }}</strong><small>{{ ch.descricao[:90] }}</small></div>
+          <span class="situacao {{ ch.status.value }}">{{ ch.status.rotulo }}</span></li>{% endfor %}
+      </ul>
+      {% else %}<p class="vazio-p">Nenhum chamado aberto.</p>{% endif %}
+    </div>
+  </div>
+  <div>
+    <div class="painel revelar">
+      <h2>Avisos <a href="/inquilino/avisos{{ sufixo }}">Ver todos →</a></h2>
+      {% if ultimos_avisos %}
+      <div class="lista">{% for a, lido in ultimos_avisos %}
+        <div class="aviso-item {{ 'novo' if not lido }}"><h3>{% if not lido %}<span class="ponto-novo"></span>{% endif %}{{ a.titulo }}</h3>
+          <p>{{ a.mensagem[:160] }}{{ "…" if a.mensagem|length > 160 }}</p><small>{{ x.data(a.criado_em) }}</small></div>{% endfor %}
+      </div>
+      {% else %}<p class="vazio-p">Nenhum aviso por enquanto.</p>{% endif %}
+    </div>
+    <div class="painel revelar">
+      <h2>Seu contrato</h2>
+      <ul class="lista">
+        <li class="item"><span class="ic">{{ c.icone("casa") }}</span><div class="txt"><strong>{{ imovel.titulo if imovel else contrato.numero }}</strong>
+          <small>{% if imovel %}{{ [imovel.logradouro ~ (", " ~ imovel.numero if imovel.numero else ""), imovel.complemento, imovel.bairro, imovel.cidade]|select|join(" · ") }}{% endif %}</small></div></li>
+        <li class="item"><span class="ic">{{ c.icone("calendario") }}</span><div class="txt"><strong>Início em {{ x.data(contrato.data_inicio) }}</strong>
+          <small>Prazo de {{ contrato.prazo_meses }} meses · reajuste pelo {{ contrato.indice_reajuste.rotulo }}</small></div></li>
+        <li class="item"><span class="ic">{{ c.icone("doc") }}</span><div class="txt"><strong>Contrato e vistoria</strong><small>Vias digitais e documentos</small></div>
+          <div class="acoes"><a class="btn btn-contorno btn-p" href="/inquilino/documentos{{ sufixo }}">Abrir</a></div></li>
+      </ul>
+    </div>
+  </div>
+</div>
+{% endblock %}

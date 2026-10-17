@@ -8,6 +8,7 @@ from app.core.enums import coluna_enum
 from app.modules.crm.models import _Auditoria, _Dinheiro, _uuid
 from app.modules.manutencao.enums import (
     ContextoManutencao,
+    OrigemManutencao,
     StatusManutencao,
     TipoManutencao,
 )
@@ -32,6 +33,13 @@ class Manutencao(_Auditoria, Base):
         coluna_enum(StatusManutencao), default=StatusManutencao.pendente, index=True
     )
     data_prevista: Mapped[date | None] = mapped_column(sa.Date)
+    # Chamados abertos pelo inquilino no portal ficam ligados ao contrato.
+    contrato_id: Mapped[str | None] = mapped_column(
+        sa.ForeignKey("contratos_locacao.id", ondelete="SET NULL"), index=True
+    )
+    origem: Mapped[OrigemManutencao] = mapped_column(
+        coluna_enum(OrigemManutencao), default=OrigemManutencao.equipe
+    )
 
     diario: Mapped[list["RegistroDiario"]] = relationship(
         cascade="all, delete-orphan", lazy="selectin", order_by="RegistroDiario.data"

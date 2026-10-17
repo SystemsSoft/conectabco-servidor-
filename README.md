@@ -325,6 +325,36 @@ para o sitemap e aponte o domínio para este servidor.
 | GET | `/api/v1/site/leads?status=` | Leads recebidos (mais recentes primeiro) |
 | PUT / DELETE | `/api/v1/site/leads/{id}` | Status, responsável e anotação / excluir |
 
+## Área do inquilino (`/inquilino`)
+
+Portal do locatário dentro do site, com login pelo CPF/CNPJ do contrato e
+senha liberada pela equipe (Locação › Portal do inquilino no app; senha
+provisória com troca obrigatória no 1º acesso; bloqueio de 15 min após 5
+tentativas erradas; sessão em cookie HttpOnly de 8 h; formulários com CSRF).
+
+| Página | O que mostra (sempre do contrato do próprio inquilino) |
+|---|---|
+| `/inquilino` | Resumo: em aberto, próximo vencimento, pago no ano, boletos, chamados e avisos |
+| `/inquilino/pagamentos` | Valores em aberto, vencimentos (com estimativa de multa/juros) e histórico por ano |
+| `/inquilino/boleto/{id}` | Boleto imprimível com PIX copia e cola; recibo quando pago |
+| `/inquilino/documentos` | Via digital do contrato, laudo de vistoria e documentos; envio de fotos/vídeos do imóvel |
+| `/inquilino/chamados` | Abertura de chamados de manutenção com fotos/vídeos e acompanhamento |
+| `/inquilino/avisos` | Comunicados da imobiliária e avisos automáticos |
+
+Sincronização com o sistema principal: boletos e pagamentos vêm das
+cobranças da Locação; chamados viram itens da pauta de Manutenção ligados
+ao contrato (origem "Inquilino"), com tarefa na Central de Relacionamento;
+mudar o status na gestão avisa o inquilino; publicar um documento também.
+
+| Método | Rota (app, permissão Locação) | Descrição |
+|---|---|---|
+| GET | `/api/v1/portal-inquilino/acessos` | Acessos dos inquilinos |
+| POST / DELETE | `/api/v1/portal-inquilino/acessos/{contatoId}` | Libera (devolve a senha provisória uma vez) / revoga |
+| GET | `/api/v1/portal-inquilino/arquivos?contratoId=&manutencaoId=` | Documentos e mídias do contrato/chamado |
+| PUT / DELETE | `/api/v1/portal-inquilino/arquivos/{id}` | Publica/edita (visível ou não) / remove documento |
+| GET / POST | `/api/v1/portal-inquilino/comunicados` | Avisos (sem contrato = todos os inquilinos) |
+| DELETE | `/api/v1/portal-inquilino/comunicados/{id}` | Remove aviso |
+
 ## Rotas – Manutenção
 
 | Método | Rota | Descrição |

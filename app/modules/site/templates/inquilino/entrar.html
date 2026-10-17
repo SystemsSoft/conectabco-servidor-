@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% import "_componentes.html" as c with context %}
+{% block titulo %}Área do inquilino – {{ empresa.nome }}{% endblock %}
+
+{% block conteudo %}
+<header class="portal-topo" style="padding-bottom:96px">
+  <div class="container">
+    <span class="sobretitulo entra" style="color:var(--gold)">Área do inquilino</span>
+    <h1 class="entra" style="--d:.08s">Seu aluguel, sem complicação</h1>
+    <p class="entra" style="--d:.16s">Boletos, pagamentos, contrato, vistoria, chamados de manutenção e avisos da imobiliária em um só lugar.</p>
+  </div>
+</header>
+<div class="container">
+  <form class="formulario login-caixa entra" style="--d:.22s" method="post" action="/inquilino/entrar" data-enviando>
+    <h3>Entrar</h3>
+    <p class="sub">Use o CPF ou CNPJ do contrato e a senha enviada pela imobiliária.</p>
+    {% if request.query_params.get("erro") %}<div class="aviso erro" role="alert">{{ request.query_params.get("erro") }}</div>{% endif %}
+    <div class="campos" style="grid-template-columns:1fr">
+      <div class="campo"><label for="doc">CPF ou CNPJ</label>
+        <input id="doc" name="documento" required inputmode="numeric" autocomplete="username" placeholder="000.000.000-00"></div>
+      <div class="campo"><label for="senha">Senha</label>
+        <input id="senha" name="senha" type="password" required autocomplete="current-password"></div>
+    </div>
+    <button class="btn btn-ouro btn-bloco" style="margin-top:20px" type="submit">Entrar <span class="seta">→</span></button>
+    <p class="nota">Ainda não tem acesso ou esqueceu a senha? Fale com a imobiliária{% if whatsapp_link %} pelo <a href="{{ whatsapp_link }}" target="_blank" rel="noopener">WhatsApp</a>{% endif %}.</p>
+  </form>
+</div>
+{% endblock %}

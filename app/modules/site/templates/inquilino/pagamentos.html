@@ -1,0 +1,57 @@
+{% extends "inquilino/_layout.html" %}
+{% import "_componentes.html" as c with context %}
+{% import "inquilino/_macros.html" as x %}
+{% block portal %}
+<div class="grade-resumo" data-cascata>
+  <div class="resumo-cartao {{ 'alerta' if resumo.vencidas }}"><span>Valores em aberto</span><strong>{{ resumo.em_aberto|moeda or "R$ 0" }}</strong><small>{{ resumo.vencidas }} vencida{{ "s" if resumo.vencidas != 1 }}</small></div>
+  <div class="resumo-cartao"><span>Próximo vencimento</span><strong>{{ x.data(resumo.proxima.cobranca.vencimento) if resumo.proxima else "—" }}</strong><small>{{ resumo.proxima.total|moeda if resumo.proxima else "Nada a vencer" }}</small></div>
+  <div class="resumo-cartao"><span>Pago em {{ hoje.year }}</span><strong>{{ resumo.pago_no_ano|moeda or "R$ 0" }}</strong><small>no ano</small></div>
+  <div class="resumo-cartao"><span>Pagamentos</span><strong>{{ resumo.qtd_pagas }}</strong><small>desde o início do contrato</small></div>
+</div>
+
+<div class="painel revelar">
+  <h2>Em aberto e vencimentos</h2>
+  {% if abertas %}
+  <table class="tabela">
+    <thead><tr><th>Competência</th><th>Vencimento</th><th>Situação</th><th class="num">Valor</th><th></th></tr></thead>
+    <tbody>
+    {% for p in abertas %}
+      <tr>
+        <td><strong>{{ x.competencia(p.cobranca.competencia) }}</strong></td>
+        <td>{{ x.data(p.cobranca.vencimento) }}</td>
+        <td>{{ x.situacao_parcela(p) }}{% if p.situacao == "vencida" %}<br><small style="color:var(--muted)">{{ p.dias_atraso }} dia{{ "s" if p.dias_atraso != 1 }} de atraso · com encargos ≈ {{ p.estimativa|moeda }}</small>{% endif %}</td>
+        <td class="num"><strong>{{ p.total|moeda }}</strong></td>
+        <td class="num"><a class="btn btn-ouro btn-p" href="/inquilino/boleto/{{ p.cobranca.id }}{{ sufixo }}" target="_blank" rel="noopener">Boleto</a></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <p class="nota" style="text-align:left">Após o vencimento: multa de {{ contrato.multa_atraso|numero }}% e juros de {{ contrato.juros_mes|numero }}% ao mês{% if contrato.desconto_pontualidade %} · desconto de {{ contrato.desconto_pontualidade|moeda }} pagando até o vencimento{% endif %}.</p>
+  {% else %}<p class="vazio-p">Nenhum valor em aberto. Tudo em dia!</p>{% endif %}
+</div>
+
+<div class="painel revelar">
+  <h2>Histórico de pagamentos
+    {% if anos %}<form method="get" style="display:flex;gap:8px">{% if sufixo %}<input type="hidden" name="c" value="{{ contrato.id }}">{% endif %}
+      <select name="ano" onchange="this.form.submit()" style="font:500 .9rem var(--sans);padding:8px 10px;border-radius:10px;border:1px solid var(--line)">
+        <option value="">Todos os anos</option>{% for a in anos %}<option {{ "selected" if ano == a|string }}>{{ a }}</option>{% endfor %}
+      </select></form>{% endif %}
+  </h2>
+  {% if pagas %}
+  <table class="tabela">
+    <thead><tr><th>Competência</th><th>Vencimento</th><th>Pago em</th><th class="num">Valor pago</th><th></th></tr></thead>
+    <tbody>
+    {% for p in pagas %}
+      <tr>
+        <td><strong>{{ x.competencia(p.cobranca.competencia) }}</strong></td>
+        <td>{{ x.data(p.cobranca.vencimento) }}</td>
+        <td>{{ x.data(p.cobranca.data_pagamento) }}</td>
+        <td class="num">{{ (p.cobranca.valor_pago or p.total)|moeda }}</td>
+        <td class="num"><a class="btn btn-contorno btn-p" href="/inquilino/boleto/{{ p.cobranca.id }}{{ sufixo }}" target="_blank" rel="noopener">Recibo</a></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<p class="vazio-p">Nenhum pagamento registrado{{ " em " ~ ano if ano }}.</p>{% endif %}
+</div>
+{% endblock %}

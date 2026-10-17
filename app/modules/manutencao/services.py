@@ -56,7 +56,11 @@ class ManutencaoService:
         if criado:
             mt = m.Manutencao(id=id)
             self.db.add(mt)
-        for campo, valor in dados.model_dump(exclude={"diario"}).items():
+        status_antes = None if criado else mt.status
+        # Contrato e origem só mudam se vierem no corpo (versões antigas do
+        # app não os enviam e não podem desligar o chamado do contrato).
+        fixos = {"diario"} | ({"contrato_id", "origem"} - dados.model_fields_set)
+        for campo, valor in dados.model_dump(exclude=fixos).items():
             setattr(mt, campo, valor)
         existentes = {r.id: r for r in mt.diario}
         novos = []
@@ -66,6 +70,10 @@ class ManutencaoService:
                 setattr(registro, campo, valor)
             novos.append(registro)
         mt.diario = novos
+        if status_antes is not None and status_antes != mt.status and mt.contrato_id:
+            from app.modules.inquilino.services import avisar_andamento_chamado
+
+            avisar_andamento_chamado(self.db, mt)
         self.db.commit()
         return _saida(mt), criado
 

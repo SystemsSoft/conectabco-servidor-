@@ -1,0 +1,14 @@
+{% extends "inquilino/_layout.html" %}
+{% block portal %}
+<div class="painel" style="max-width:560px">
+  <h2>{{ "Crie sua senha" if acesso.trocar_senha else "Alterar senha" }}</h2>
+  {% if acesso.trocar_senha %}<p class="sub" style="color:var(--muted)">Por segurança, troque a senha provisória enviada pela imobiliária antes de continuar.</p>{% endif %}
+  <form method="post" action="/inquilino/senha" class="campos" style="grid-template-columns:1fr" data-enviando>
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <div class="campo"><label for="atual">Senha atual</label><input id="atual" name="atual" type="password" required autocomplete="current-password"></div>
+    <div class="campo"><label for="nova">Nova senha (mínimo 8 caracteres)</label><input id="nova" name="nova" type="password" minlength="8" required autocomplete="new-password"></div>
+    <div class="campo"><label for="rep">Repita a nova senha</label><input id="rep" name="repetida" type="password" minlength="8" required autocomplete="new-password"></div>
+    <button class="btn btn-ouro" type="submit">Salvar senha</button>
+  </form>
+</div>
+{% endblock %}

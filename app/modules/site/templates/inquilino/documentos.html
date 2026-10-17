@@ -1,0 +1,43 @@
+{% extends "inquilino/_layout.html" %}
+{% import "_componentes.html" as c with context %}
+{% import "inquilino/_macros.html" as x %}
+{% macro lista_docs(itens, vazio) -%}
+  {% if itens %}
+  <ul class="lista">{% for a in itens %}
+    <li class="item"><span class="ic">{{ c.icone("doc") }}</span>
+      <div class="txt"><strong>{{ a.titulo }}</strong><small>Publicado em {{ x.data(a.criado_em) }}{% if a.observacao %} · {{ a.observacao }}{% endif %}</small></div>
+      <div class="acoes">
+        <a class="btn btn-contorno btn-p" href="/inquilino/arquivo/{{ a.id }}" target="_blank" rel="noopener">Abrir</a>
+      </div></li>{% endfor %}
+  </ul>
+  {% else %}<p class="vazio-p">{{ vazio }}</p>{% endif %}
+{%- endmacro %}
+{% block portal %}
+<div class="duas">
+  <div>
+    <div class="painel revelar"><h2>Contrato de locação</h2>{{ lista_docs(grupos.contrato, "A via digital do contrato ainda não foi publicada pela imobiliária.") }}</div>
+    <div class="painel revelar"><h2>Laudo de vistoria</h2>{{ lista_docs(grupos.vistoria, "O laudo de vistoria ainda não foi publicado.") }}</div>
+    <div class="painel revelar"><h2>Outros documentos</h2>{{ lista_docs(grupos.documento, "Nenhum outro documento.") }}</div>
+  </div>
+  <div>
+    <div class="painel revelar">
+      <h2>Fotos e vídeos do imóvel</h2>
+      <p style="color:var(--muted);margin-top:-6px">Registre o estado do imóvel (na entrada, ao identificar um problema ou na saída). Fica guardado no seu contrato.</p>
+      {% if contrato.status.value == "ativo" %}
+      <form class="envio" method="post" action="/inquilino/documentos" enctype="multipart/form-data" data-enviando>
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        {% if sufixo %}<input type="hidden" name="c" value="{{ contrato.id }}">{% endif %}
+        {{ x.envio("Toque para escolher ou arraste fotos e vídeos") }}
+        <div class="campo"><label for="desc">Descrição (opcional)</label>
+          <textarea id="desc" name="descricao" maxlength="2000" placeholder="Ex.: estado da cozinha na entrada"></textarea></div>
+        <button class="btn btn-ouro" type="submit">Enviar à imobiliária</button>
+      </form>
+      {% endif %}
+      {% if grupos.enviados %}
+      <h3 style="font-family:var(--sans);font-size:1rem;margin:22px 0 10px">Enviados por você</h3>
+      {{ x.galeria(grupos.enviados, categorias) }}
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,28 @@
+{% macro situacao_parcela(p) -%}
+<span class="situacao {{ p.situacao }}">{{ {"aberta": "Em aberto", "vencida": "Vencida", "paga": "Paga", "cancelada": "Cancelada"}[p.situacao] }}</span>
+{%- endmacro %}
+
+{% macro competencia(d) -%}{{ "%02d/%d"|format(d.month, d.year) }}{%- endmacro %}
+
+{% macro data(d) -%}{{ d.strftime("%d/%m/%Y") if d else "" }}{%- endmacro %}
+
+{% macro galeria(itens, categorias) -%}
+<div class="galeria-mini">
+  {% for a in itens %}
+  <a href="/inquilino/arquivo/{{ a.id }}" target="_blank" rel="noopener" title="{{ a.titulo }}">
+    {% if categorias.get(a.id) == "video" %}<span class="video-ic" aria-label="Vídeo">▶</span>
+    {% else %}<img src="/inquilino/arquivo/{{ a.id }}" alt="{{ a.titulo }}" loading="lazy">{% endif %}
+  </a>
+  {% endfor %}
+</div>
+{%- endmacro %}
+
+{% macro envio(rotulo) -%}
+<label class="soltar">
+  <input type="file" name="arquivos" multiple accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/quicktime,video/webm,.m4v,.mov" data-envio>
+  <span class="ic"><svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></span>
+  <span>{{ rotulo }}</span>
+  <small>Fotos (até 15 MB) e vídeos (até 300 MB) · até 10 arquivos</small>
+  <span class="escolhidos"></span>
+</label>
+{%- endmacro %}

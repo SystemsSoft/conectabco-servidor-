@@ -6,6 +6,7 @@ from pydantic import Field
 from app.core.schemas import Esquema
 from app.modules.manutencao.enums import (
     ContextoManutencao,
+    OrigemManutencao,
     StatusManutencao,
     TipoManutencao,
 )
@@ -32,6 +33,8 @@ class ManutencaoEntrada(Esquema):
     descricao: str
     status: StatusManutencao = StatusManutencao.pendente
     data_prevista: date | None = None
+    contrato_id: str | None = None
+    origem: OrigemManutencao = OrigemManutencao.equipe
     diario: list[RegistroDiario] = []
 
 

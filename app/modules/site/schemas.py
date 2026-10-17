@@ -55,6 +55,7 @@ class ConfiguracaoSite(Esquema):
     permitir_agendar_visita: bool = True
     botao_whatsapp: bool = True
     mostrar_valores: bool = True
+    mostrar_area_inquilino: bool = True
 
     # Atendimento dos leads
     distribuir_na_fila: bool = True

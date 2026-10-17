@@ -85,8 +85,29 @@
     else { img.addEventListener("load", pronta); img.addEventListener("error", pronta); }
   });
 
+  // Campo de envio de fotos/vídeos: mostra o que foi escolhido.
+  document.querySelectorAll("input[data-envio]").forEach((input) => {
+    const caixa = input.closest(".soltar");
+    const nomes = caixa.querySelector(".escolhidos");
+    input.addEventListener("change", () => {
+      const n = input.files.length;
+      nomes.textContent = n === 0 ? "" : n === 1 ? input.files[0].name : `${n} arquivos escolhidos`;
+    });
+    ["dragenter", "dragover"].forEach((ev) => input.addEventListener(ev, () => caixa.classList.add("sobre")));
+    ["dragleave", "drop"].forEach((ev) => input.addEventListener(ev, () => caixa.classList.remove("sobre")));
+  });
+
+  // Copiar (ex.: PIX copia e cola).
+  document.querySelectorAll("[data-copiar]").forEach((b) => b.addEventListener("click", async () => {
+    const alvo = document.querySelector(b.dataset.copiar);
+    try { await navigator.clipboard.writeText(alvo.value); } catch { alvo.select(); document.execCommand("copy"); }
+    const texto = b.textContent;
+    b.textContent = "Copiado!";
+    setTimeout(() => { b.textContent = texto; }, 2000);
+  }));
+
   // Formulários: botão mostra "enviando" (e volta ao usar o "voltar").
-  document.querySelectorAll("form.formulario").forEach((f) =>
+  document.querySelectorAll("form.formulario, form[data-enviando]").forEach((f) =>
     f.addEventListener("submit", () => f.querySelector("button[type=submit]")?.classList.add("enviando")));
   addEventListener("pageshow", () =>
     document.querySelectorAll(".enviando").forEach((b) => b.classList.remove("enviando")));

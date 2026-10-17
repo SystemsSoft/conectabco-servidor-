@@ -1,0 +1,85 @@
+{% import "inquilino/_macros.html" as x %}
+{% set k = contrato %}{% set cb = p.cobranca %}{% set paga = p.situacao == "paga" %}
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>{{ "Recibo" if paga else "Boleto" }} {{ k.numero }} {{ x.competencia(cb.competencia) }}</title>
+  <link rel="stylesheet" href="/estatico/site.css?v={{ versao_css }}">
+  <script src="/estatico/site.js?v={{ versao_css }}" defer></script>
+  <style>
+    body { background: #e9ecf3; }
+    .folha { max-width: 820px; margin: 24px auto; background: #fff; border-radius: 16px; padding: 40px; box-shadow: var(--sombra-forte); }
+    .cab { display: flex; align-items: center; gap: 16px; border-bottom: 2px solid var(--navy-800); padding-bottom: 16px; margin-bottom: 18px; }
+    .cab img { width: 64px; height: 64px; object-fit: contain; }
+    .cab h1 { font-size: 1.3rem; margin: 0; }
+    .cab .titulo-doc { margin-left: auto; text-align: right; font-weight: 800; color: var(--navy-800); letter-spacing: .06em; }
+    .caixa { border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; margin-bottom: 12px; display: flex; gap: 24px; flex-wrap: wrap; }
+    .rv span { display: block; font-size: .72rem; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+    .rv strong { font-size: 1rem; }
+    .rv.grande strong { font-size: 1.5rem; color: var(--navy-800); }
+    .acoes-folha { display: flex; gap: 10px; justify-content: center; margin: 16px 0 32px; }
+    ul.instr { font-size: .88rem; color: #2b3550; padding-left: 18px; }
+    .rodape-doc { margin-top: 24px; padding-top: 12px; border-top: 1px dashed #c9cfdc; font-size: .78rem; color: var(--muted); }
+    @media print { body { background: #fff; } .folha { box-shadow: none; margin: 0; max-width: none; padding: 0; } .acoes-folha, .pix button { display: none; } }
+  </style>
+</head>
+<body>
+  <div class="folha">
+    <div class="cab">
+      <img src="/logo" alt="">
+      <div><h1>{{ empresa.nome }}</h1><small>{{ empresa.atividade }}{% if empresa.creci %} · {{ empresa.creci }}{% endif %}{% if empresa.documento %} · {{ empresa.documento }}{% endif %}</small></div>
+      <div class="titulo-doc">{{ "RECIBO DE PAGAMENTO" if paga else "BOLETO DE ALUGUEL" }}</div>
+    </div>
+    <div class="caixa">
+      <div class="rv"><span>Beneficiário</span><strong>{{ empresa.nome }}</strong></div>
+      <div class="rv"><span>Contrato</span><strong>{{ k.numero }}</strong></div>
+      <div class="rv"><span>Competência</span><strong>{{ x.competencia(cb.competencia) }}</strong></div>
+    </div>
+    <div class="caixa">
+      <div class="rv"><span>Pagador</span><strong>{{ contato.nome }}{% if contato.documento %} · {{ contato.documento }}{% endif %}</strong></div>
+      {% if imovel %}<div class="rv"><span>Imóvel</span><strong>{{ [imovel.logradouro ~ (", " ~ imovel.numero if imovel.numero else ""), imovel.complemento, imovel.bairro, imovel.cidade]|select|join(" · ") }}</strong></div>{% endif %}
+    </div>
+    <table class="tabela">
+      <thead><tr><th>Discriminação</th><th class="num">Valor</th></tr></thead>
+      <tbody>{% for i in cb.itens %}<tr><td>{{ i.descricao }}</td><td class="num">{{ i.valor|moeda }}</td></tr>{% endfor %}</tbody>
+    </table>
+    <div class="caixa" style="margin-top:14px;justify-content:space-between">
+      {% if paga %}
+      <div class="rv"><span>Pago em</span><strong>{{ x.data(cb.data_pagamento) }}</strong></div>
+      {% if cb.multa or cb.juros %}<div class="rv"><span>Multa + juros</span><strong>{{ (cb.multa + cb.juros)|moeda }}</strong></div>{% endif %}
+      {% if cb.desconto %}<div class="rv"><span>Desconto</span><strong>{{ cb.desconto|moeda }}</strong></div>{% endif %}
+      <div class="rv grande"><span>Valor pago</span><strong>{{ (cb.valor_pago or p.total)|moeda }}</strong></div>
+      {% else %}
+      <div class="rv grande"><span>Vencimento</span><strong>{{ x.data(cb.vencimento) }}</strong></div>
+      <div class="rv grande"><span>Valor do documento</span><strong>{{ p.total|moeda }}</strong></div>
+      {% if p.situacao == "vencida" %}<div class="rv"><span>Com encargos até hoje (estimativa)</span><strong style="color:var(--erro)">{{ p.estimativa|moeda }}</strong></div>{% endif %}
+      {% endif %}
+    </div>
+    {% if paga %}
+    <p>Recebemos de <strong>{{ contato.nome }}</strong> a importância acima, referente ao aluguel e encargos da competência {{ x.competencia(cb.competencia) }} do contrato {{ k.numero }}, dando plena quitação deste valor.</p>
+    {% else %}
+    <strong>Instruções</strong>
+    <ul class="instr">
+      <li>{% if k.desconto_pontualidade %}Até o vencimento, conceder desconto de {{ k.desconto_pontualidade|moeda }}.{% else %}Pagável até o vencimento sem acréscimos.{% endif %}</li>
+      <li>Após o vencimento, multa de {{ k.multa_atraso|numero }}% e juros de {{ k.juros_mes|numero }}% ao mês (pro rata die).</li>
+      {% if chave_pix %}<li>Pagamento também por PIX: <strong>{{ chave_pix }}</strong></li>{% endif %}
+    </ul>
+    {% if pix %}
+    <div class="pix">
+      <strong>PIX copia e cola</strong> <small style="color:var(--muted)">(valor {{ (p.estimativa or p.total)|moeda }})</small>
+      <textarea id="pix" readonly>{{ pix }}</textarea>
+      <button class="btn btn-ouro btn-p" type="button" data-copiar="#pix">Copiar código PIX</button>
+    </div>
+    {% endif %}
+    <p class="rodape-doc">Documento de cobrança emitido pela administradora, sem registro bancário e sem código de barras. Após pagar, a baixa é feita pela imobiliária e aparece no seu histórico.</p>
+    {% endif %}
+  </div>
+  <div class="acoes-folha">
+    <button class="btn btn-ouro" type="button" onclick="print()">Imprimir / salvar PDF</button>
+    <a class="btn btn-contorno" href="/inquilino/pagamentos{{ sufixo }}">Voltar</a>
+  </div>
+</body>
+</html>

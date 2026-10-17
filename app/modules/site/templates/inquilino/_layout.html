@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% import "_componentes.html" as c with context %}
+{% block titulo %}Área do inquilino – {{ empresa.nome }}{% endblock %}
+
+{% block conteudo %}
+<header class="portal-topo">
+  <div class="container linha">
+    <div class="entra">
+      <span class="sobretitulo" style="color:var(--gold)">Área do inquilino</span>
+      <h1>Olá, {{ contato.nome.split(' ')[0] if contato else '' }}!</h1>
+      {% if contrato %}<p>Contrato {{ contrato.numero }}{% if imovel %} · {{ imovel.titulo }}{% endif %}{% if contrato.status.value != 'ativo' %} · {{ contrato.status.rotulo }}{% endif %}</p>{% endif %}
+    </div>
+    {% if contratos|length > 1 %}
+    <form method="get" class="entra" style="--d:.1s">
+      <label class="sr-only" for="c">Contrato</label>
+      <select id="c" name="c" onchange="this.form.submit()">
+        {% for k in contratos %}<option value="{{ k.id }}" {{ "selected" if contrato and k.id == contrato.id }}>{{ k.numero }} · {{ imoveis[k.imovel_id].titulo if imoveis[k.imovel_id] else '' }} ({{ k.status.rotulo }})</option>{% endfor %}
+      </select>
+    </form>
+    {% endif %}
+  </div>
+</header>
+<div class="container">
+  <nav class="portal-abas entra" style="--d:.15s" aria-label="Área do inquilino">
+    <a href="/inquilino{{ sufixo }}" class="{{ 'ativo' if aba == 'inicio' }}">{{ c.icone("casa") }} Início</a>
+    <a href="/inquilino/pagamentos{{ sufixo }}" class="{{ 'ativo' if aba == 'pagamentos' }}">{{ c.icone("dinheiro") }} Pagamentos</a>
+    <a href="/inquilino/documentos{{ sufixo }}" class="{{ 'ativo' if aba == 'documentos' }}">{{ c.icone("doc") }} Documentos</a>
+    <a href="/inquilino/chamados{{ sufixo }}" class="{{ 'ativo' if aba == 'chamados' }}">{{ c.icone("ferramenta") }} Chamados</a>
+    <a href="/inquilino/avisos{{ sufixo }}" class="{{ 'ativo' if aba == 'avisos' }}">{{ c.icone("sino") }} Avisos{% if nao_lidos %} <span class="selo-num">{{ nao_lidos }}</span>{% endif %}</a>
+    <a href="/inquilino/senha" class="{{ 'ativo' if aba == 'senha' }}">{{ c.icone("chave") }} Senha</a>
+    <form method="post" action="/inquilino/sair"><button type="submit">{{ c.icone("sair") }} Sair</button></form>
+  </nav>
+  <section class="portal">
+    {% if request.query_params.get("ok") %}<div class="aviso ok" role="status">{{ request.query_params.get("ok") }}</div>{% endif %}
+    {% if request.query_params.get("erro") %}<div class="aviso erro" role="alert">{{ request.query_params.get("erro") }}</div>{% endif %}
+    {% block portal %}{% endblock %}
+  </section>
+</div>
+{% endblock %}

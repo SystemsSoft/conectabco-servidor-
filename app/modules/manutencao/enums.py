@@ -14,6 +14,11 @@ class TipoManutencao(EnumRotulado):
     outros = "outros", "Outros"
 
 
+class OrigemManutencao(EnumRotulado):
+    equipe = "equipe", "Equipe"
+    inquilino = "inquilino", "Inquilino (portal)"
+
+
 class StatusManutencao(EnumRotulado):
     pendente = "pendente", "Pendente"
     emAndamento = "emAndamento", "Em andamento"

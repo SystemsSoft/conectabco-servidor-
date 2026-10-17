@@ -1,0 +1,40 @@
+{% extends "inquilino/_layout.html" %}
+{% import "_componentes.html" as c with context %}
+{% import "inquilino/_macros.html" as x %}
+{% block portal %}
+<div class="duas">
+  <div>
+    <div class="painel revelar">
+      <h2>Seus chamados</h2>
+      {% if chamados %}
+      <div class="lista">{% for ch in chamados %}
+        <div class="aviso-item">
+          <h3>{{ c.icone("ferramenta") }} {{ ch.tipo.rotulo }} <span class="situacao {{ ch.status.value }}" style="margin-left:auto">{{ ch.status.rotulo }}</span></h3>
+          <p>{{ ch.descricao }}</p>
+          <small>Aberto em {{ x.data(ch.criado_em) }}{% if ch.data_prevista %} · previsão {{ x.data(ch.data_prevista) }}{% endif %}{% if ch.origem.value == "equipe" %} · registrado pela imobiliária{% endif %}</small>
+          {% if anexos[ch.id] %}<div style="margin-top:10px">{{ x.galeria(anexos[ch.id], categorias) }}</div>{% endif %}
+        </div>{% endfor %}
+      </div>
+      {% else %}<p class="vazio-p">Você ainda não abriu chamados.</p>{% endif %}
+    </div>
+  </div>
+  <div>
+    <div class="painel revelar">
+      <h2>Abrir chamado de manutenção</h2>
+      {% if contrato.status.value == "ativo" %}
+      <form class="envio" method="post" action="/inquilino/chamados" enctype="multipart/form-data" data-enviando>
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        {% if sufixo %}<input type="hidden" name="c" value="{{ contrato.id }}">{% endif %}
+        <div class="campo"><label for="tipo">Tipo</label>
+          <select id="tipo" name="tipo">{% for t in tipos %}<option value="{{ t.value }}">{{ t.rotulo }}</option>{% endfor %}</select></div>
+        <div class="campo"><label for="desc">O que está acontecendo? *</label>
+          <textarea id="desc" name="descricao" required minlength="10" maxlength="5000" placeholder="Ex.: a torneira da cozinha está pingando desde ontem."></textarea></div>
+        {{ x.envio("Fotos ou vídeos do problema (opcional)") }}
+        <button class="btn btn-ouro" type="submit">Abrir chamado</button>
+        <p class="nota" style="text-align:left">Em caso de emergência (vazamento de gás, curto-circuito), ligue também para a imobiliária{% if empresa.telefone %}: {{ empresa.telefone }}{% endif %}.</p>
+      </form>
+      {% else %}<p class="vazio-p">Este contrato está {{ contrato.status.rotulo|lower }}: não é possível abrir chamados.</p>{% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

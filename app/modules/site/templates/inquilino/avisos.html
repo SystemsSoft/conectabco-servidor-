@@ -1,0 +1,16 @@
+{% extends "inquilino/_layout.html" %}
+{% import "inquilino/_macros.html" as x %}
+{% block portal %}
+<div class="painel">
+  <h2>Avisos da imobiliária</h2>
+  {% if avisos %}
+  <div class="lista" data-cascata>{% for a, lido in avisos %}
+    <div class="aviso-item {{ 'novo' if not lido }}">
+      <h3>{% if not lido %}<span class="ponto-novo" title="Novo"></span>{% endif %}{{ a.titulo }}</h3>
+      <p>{{ a.mensagem }}</p>
+      <small>{{ a.criado_em.strftime("%d/%m/%Y %H:%M") }}{% if not a.contrato_id %} · para todos os inquilinos{% endif %}</small>
+    </div>{% endfor %}
+  </div>
+  {% else %}<p class="vazio-p">Nenhum aviso por enquanto.</p>{% endif %}
+</div>
+{% endblock %}
