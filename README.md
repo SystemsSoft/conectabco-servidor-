@@ -74,6 +74,29 @@ Os demais usuários são criados no app, em Equipe e Segurança > Usuários.
 
 Documentação interativa (Swagger): **http://localhost:8000/docs**
 
+## Produção (AWS EC2)
+
+Servidor `18.191.168.173` (Amazon Linux 2023, usuário SSH `ec2-user`):
+
+| O quê | Onde |
+|---|---|
+| Código e `.env` (dono `marceloimob`, permissão 600) | `/opt/marceloimob` |
+| Fotos, vídeos e arquivos enviados | `/var/lib/marceloimob/arquivos` |
+| Serviço (uvicorn, 2 workers, 127.0.0.1:8000) | `systemctl status marceloimob` · `journalctl -u marceloimob -f` |
+| nginx (porta 80 → serviço, uploads até 300 MB) | `/etc/nginx/default.d/marceloimob.conf` |
+| Limpeza diária de arquivos sem uso (03:30) | `/etc/cron.d/marceloimob` |
+
+Para publicar uma nova versão (envia o código, instala dependências, aplica
+as migrações e reinicia):
+
+```bash
+./deploy.sh
+```
+
+A chave `key-aws.pem` nunca vai para o git (`*.pem` no `.gitignore`).
+O app de gestão aponta para o servidor com
+`flutter build web --dart-define=API_URL=http://18.191.168.173`.
+
 ## App Flutter
 
 O app usa `http://localhost:8000` por padrão. Para outro endereço:
