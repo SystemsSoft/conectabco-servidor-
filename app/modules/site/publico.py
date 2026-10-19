@@ -433,7 +433,7 @@ def _url_site(request: Request) -> str:
 @router.get("/robots.txt")
 def robots(request: Request):
     return Response(
-        f"User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /docs\nDisallow: /inquilino\nDisallow: /proprietario\nDisallow: /relatorio-auditoria\n"
+        f"User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /docs\nDisallow: /inquilino\nDisallow: /proprietario\nDisallow: /relatorio-auditoria\nDisallow: /gestao\n"
         f"Sitemap: {_url_site(request)}/sitemap.xml\n",
         media_type="text/plain",
     )
