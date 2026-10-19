@@ -1,0 +1,32 @@
+{% extends "proprietario/_layout.html" %}
+{% import "proprietario/_macros.html" as x %}
+{% block portal %}
+<div class="painel">
+  <h2>Repasses
+    {% if anos %}<form method="get" style="display:flex;gap:8px">
+      <select name="ano" onchange="this.form.submit()" style="font:500 .9rem var(--sans);padding:8px 10px;border-radius:10px;border:1px solid var(--line)">
+        <option value="">Todos os anos</option>{% for a in anos %}<option {{ "selected" if ano == a|string }}>{{ a }}</option>{% endfor %}
+      </select></form>{% endif %}
+  </h2>
+  {% if linhas %}
+  <table class="tabela">
+    <thead><tr><th>Competência</th><th>Contrato</th><th class="num">Aluguel + encargos</th><th class="num">Taxa adm.</th><th class="num">Despesas</th><th class="num">IR retido</th><th class="num">Líquido</th><th>Situação</th></tr></thead>
+    <tbody>
+    {% for r in linhas %}
+      <tr>
+        <td><strong>{{ x.competencia(r.cobranca.competencia) }}</strong></td>
+        <td>{{ r.contrato.numero }}</td>
+        <td class="num">{{ r.bruto|moeda }}</td>
+        <td class="num">{{ (r.taxa_administracao + r.taxa_intermediacao)|moeda }}</td>
+        <td class="num">{{ r.despesas|moeda or "—" }}</td>
+        <td class="num">{{ r.irrf|moeda or "—" }}</td>
+        <td class="num"><strong>{{ r.liquido|moeda }}</strong></td>
+        <td>{% if r.repassado_em %}<span class="situacao paga">Repassado {{ x.data(r.repassado_em) }}</span>{% else %}<span class="situacao pendente">A repassar</span>{% endif %}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <p class="nota" style="text-align:left">Total no período: {{ total_bruto|moeda }} recebidos do inquilino · {{ total_liquido|moeda }} líquidos para você. Taxa adm. inclui a intermediação do 1º aluguel, quando houver.</p>
+  {% else %}<p class="vazio-p">Nenhum aluguel recebido{{ " em " ~ ano if ano }}.</p>{% endif %}
+</div>
+{% endblock %}

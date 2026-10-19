@@ -42,6 +42,11 @@ def create_app() -> FastAPI:
     from app.modules.inquilino.portal import router as portal_inquilino
 
     app.include_router(portal_inquilino)
+    from app.modules.auditoria.relatorio import router as relatorio_auditoria
+    from app.modules.proprietario.portal import router as portal_proprietario
+
+    app.include_router(portal_proprietario)
+    app.include_router(relatorio_auditoria)
     app.mount("/estatico", StaticFiles(directory=PASTA / "static"), name="estatico")
 
     @app.get("/saude", tags=["Sistema"])

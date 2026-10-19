@@ -31,6 +31,10 @@ class Settings(BaseSettings):
     # Fotos, vídeos e arquivos enviados (pasta no servidor, fora do git).
     arquivos_dir: str = "dados/arquivos"
 
+    # Transcrição dos vídeos de auditoria (faster-whisper em CPU).
+    transcricao_modelo: str = "small"
+    transcricao_threads: int = 2
+
     # Endereço público do site (sitemap); vazio = o do próprio acesso.
     site_url: str = ""
 

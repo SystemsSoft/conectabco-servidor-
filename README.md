@@ -372,6 +372,65 @@ mudar o status na gestão avisa o inquilino; publicar um documento também.
 | GET / POST | `/api/v1/portal-inquilino/comunicados` | Avisos (sem contrato = todos os inquilinos) |
 | DELETE | `/api/v1/portal-inquilino/comunicados/{id}` | Remove aviso |
 
+## Auditorias (app, permissão Auditorias)
+
+Acompanhamento dos imóveis administrados para os proprietários:
+
+- **Pendências automáticas** (sem cadastro manual): repasse atrasado, aluguel
+  em atraso, cobrança do mês não gerada, contrato vencido/vencendo, reajuste,
+  falta de garantia/fiador, laudo de vistoria e via digital, chamado sem
+  resposta, manutenção parada, imóvel nunca auditado ou com auditoria antiga,
+  cadastro do proprietário incompleto (CPF/CNPJ, PIX/conta). Prazos em
+  `/auditorias/configuracao`.
+- **Auditoria em campo**: checklist (modelos editáveis), fotos e **vídeos**,
+  nota de 1 a 5, resumo e recomendações. Itens com problema viram pautas de
+  Manutenção. Concluída fica travada (reabrir exige poder excluir).
+- **Transcrição dos vídeos** no próprio servidor (faster-whisper, CPU): o que
+  foi dito no vídeo entra no relatório e na Área do proprietário.
+- **Relatório** imprimível (link assinado temporário) e publicação na Área
+  do proprietário.
+
+| Método | Rota | Descrição |
+|---|---|---|
+| GET | `/api/v1/auditorias/pendencias?proprietarioId=` | Pendências calculadas na hora |
+| GET | `/api/v1/auditorias/proprietarios` | Saúde por proprietário (verde/amarelo/vermelho) e acesso ao portal |
+| GET / PUT | `/api/v1/auditorias/configuracao` | Prazos das pendências |
+| POST / DELETE | `/api/v1/auditorias/proprietarios/{contatoId}/acesso` | Libera (senha provisória mostrada uma vez) / revoga a Área do proprietário |
+| GET · PUT / DELETE | `/api/v1/auditorias/modelos` · `/{id}` | Modelos de checklist |
+| GET | `/api/v1/auditorias?status=&imovelId=&proprietarioId=` | Lista |
+| GET / PUT / DELETE | `/api/v1/auditorias/{id}` | Auditoria com itens e mídias |
+| POST | `/api/v1/auditorias/{id}/concluir` · `/reabrir` · `/publicacao` | Conclui (e publica) / reabre / publica ou retira |
+| POST | `/api/v1/auditorias/{id}/manutencoes` | Gera pautas de Manutenção dos itens com problema |
+| POST | `/api/v1/auditorias/{id}/relatorio` | Link temporário do relatório |
+| PUT / DELETE | `/api/v1/auditorias/{id}/midias/{midiaId}` | Foto/vídeo (`referencia` = `arquivo:<id>` do upload) |
+| POST | `/api/v1/auditorias/{id}/midias/{midiaId}/transcrever` | Põe o vídeo na fila de transcrição |
+
+### Fila de transcrição
+
+A transcrição roda num processo separado (não trava a API):
+
+```bash
+pip install -r requirements-transcricao.txt
+python gerenciar.py transcrever          # fica rodando (no servidor: serviço marceloimob-transcricao)
+python gerenciar.py transcrever --uma-vez
+```
+
+`.env`: `TRANSCRICAO_MODELO` (`small` padrão; `base` é mais leve e rápido) e
+`TRANSCRICAO_THREADS` (2). O modelo é baixado na 1ª vez (cache em `HF_HOME`).
+
+## Área do proprietário (`/proprietario`)
+
+Mesmo esquema de acesso da Área do inquilino (login pelo CPF/CNPJ, senha
+liberada em Auditorias › Proprietários no app). Pode ser desligada em Site
+(`mostrarAreaProprietario`).
+
+| Página | O que mostra (só dos contratos em que ele é beneficiário) |
+|---|---|
+| `/proprietario` | Resumo: contratos ativos, recebido no ano, a repassar, últimas auditorias, manutenções |
+| `/proprietario/repasses` | Repasses por competência (aluguel, taxas, despesas, IRRF e líquido) |
+| `/proprietario/auditorias` | Auditorias publicadas: checklist, fotos, vídeos e transcrição |
+| `/proprietario/manutencoes` | Manutenções dos seus imóveis |
+
 ## Rotas – Manutenção
 
 | Método | Rota | Descrição |

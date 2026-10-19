@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% import "_componentes.html" as c with context %}
+{% block titulo %}Área do proprietário – {{ empresa.nome }}{% endblock %}
+
+{% block conteudo %}
+<header class="portal-topo">
+  <div class="container linha">
+    <div class="entra">
+      <span class="sobretitulo" style="color:var(--gold)">Área do proprietário</span>
+      <h1>Olá, {{ contato.nome.split(' ')[0] if contato else '' }}!</h1>
+      <p>{{ contratos|selectattr("status.value", "equalto", "ativo")|list|length }} contrato(s) ativo(s) administrado(s) por {{ empresa.nome }}</p>
+    </div>
+  </div>
+</header>
+<div class="container">
+  <nav class="portal-abas entra" style="--d:.15s" aria-label="Área do proprietário">
+    <a href="/proprietario" class="{{ 'ativo' if aba == 'inicio' }}">{{ c.icone("casa") }} Início</a>
+    <a href="/proprietario/repasses" class="{{ 'ativo' if aba == 'repasses' }}">{{ c.icone("dinheiro") }} Repasses</a>
+    <a href="/proprietario/auditorias" class="{{ 'ativo' if aba == 'auditorias' }}">{{ c.icone("check") }} Auditorias</a>
+    <a href="/proprietario/manutencoes" class="{{ 'ativo' if aba == 'manutencoes' }}">{{ c.icone("ferramenta") }} Manutenções</a>
+    <a href="/proprietario/senha" class="{{ 'ativo' if aba == 'senha' }}">{{ c.icone("chave") }} Senha</a>
+    <form method="post" action="/proprietario/sair"><button type="submit">{{ c.icone("sair") }} Sair</button></form>
+  </nav>
+  <section class="portal">
+    {% if request.query_params.get("ok") %}<div class="aviso ok" role="status">{{ request.query_params.get("ok") }}</div>{% endif %}
+    {% if request.query_params.get("erro") %}<div class="aviso erro" role="alert">{{ request.query_params.get("erro") }}</div>{% endif %}
+    {% block portal %}{% endblock %}
+  </section>
+</div>
+{% endblock %}

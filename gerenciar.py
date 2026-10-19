@@ -7,6 +7,10 @@
   python gerenciar.py limpar-arquivos
       Apaga fotos, vídeos e arquivos enviados que nenhum cadastro usa mais
       (anexo removido ou imóvel excluído). Pode rodar diariamente (cron).
+
+  python gerenciar.py transcrever [--uma-vez]
+      Processa a fila de transcrição dos vídeos das auditorias (roda como
+      serviço no servidor; com --uma-vez, para quando a fila esvazia).
 """
 
 import argparse
@@ -46,6 +50,18 @@ def limpar_arquivos(_: argparse.Namespace) -> None:
         print(f"Arquivos sem uso apagados: {limpar_orfaos(db)}")
 
 
+def transcrever(args: argparse.Namespace) -> None:
+    import logging
+
+    from sqlalchemy.orm import sessionmaker
+
+    from app.modules.auditoria.transcricao import rodar
+
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+    feitas = rodar(sessionmaker(bind=get_engine()), uma_vez=args.uma_vez)
+    print(f"Vídeos transcritos: {feitas}")
+
+
 def main() -> None:
     carregar_models()
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -59,6 +75,9 @@ def main() -> None:
     sub.add_parser("limpar-arquivos", help="apaga arquivos enviados sem uso").set_defaults(
         func=limpar_arquivos
     )
+    t = sub.add_parser("transcrever", help="processa a fila de transcrição de vídeos")
+    t.add_argument("--uma-vez", action="store_true", help="para quando a fila esvaziar")
+    t.set_defaults(func=transcrever)
     args = p.parse_args()
     args.func(args)
 

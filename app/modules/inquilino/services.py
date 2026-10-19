@@ -3,20 +3,17 @@ envios de fotos/vídeos e comunicados. Tudo lido das mesmas tabelas da
 gestão (contratos, cobranças, manutenção), sem cópia de dados."""
 
 import re
-import secrets
+from datetime import date
 import uuid
 import unicodedata
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta, UTC
 from pathlib import Path
 
-import jwt
 import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.errors import NaoEncontrado, RegraNegocio
-from app.core.seguranca import _segredo, assinar, hash_senha, verificar_senha
 from app.core.tempo import agora
 from app.modules.arquivos import services as arquivos
 from app.modules.crm import models as crm
@@ -33,15 +30,13 @@ from app.modules.manutencao.enums import (
     TipoManutencao,
 )
 
-TENTATIVAS = 5
-BLOQUEIO = timedelta(minutes=15)
-SESSAO_HORAS = 8
+from app.core import acesso_portal as portal
+
+TENTATIVAS = portal.TENTATIVAS
+SESSAO_HORAS = portal.SESSAO_HORAS
 MAX_ARQUIVOS_POR_ENVIO = 10
-_SEM_CONFUSAO = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789"
-
-
-def digitos(texto: str) -> str:
-    return re.sub(r"\D", "", texto or "")
+TIPO = "inquilino"
+digitos = portal.digitos
 
 
 # ------------------------------------------------------------------ Acesso
@@ -50,120 +45,39 @@ def digitos(texto: str) -> str:
 def liberar_acesso(db: Session, contato_id: str) -> tuple[m.AcessoInquilino, str]:
     """Cria (ou renova) o acesso com senha provisória. Devolve a senha uma
     única vez, para a equipe entregar ao inquilino."""
-    contato = db.get(crm.Contato, contato_id)
-    if contato is None:
-        raise NaoEncontrado("Contato não encontrado.")
-    login = digitos(contato.documento)
-    if len(login) not in (11, 14):
-        raise RegraNegocio("Cadastre o CPF/CNPJ do locatário: ele é o login do portal.")
+    contato = portal.obter_contato(db, contato_id)
+    portal.exigir_documento(contato, "locatário")
     if not db.scalar(
         sa.select(sa.func.count())
         .select_from(loc.ContratoLocacao)
         .where(loc.ContratoLocacao.locatario_id == contato_id)
     ):
         raise RegraNegocio("Este contato não é locatário de nenhum contrato.")
-    outro = db.scalar(sa.select(m.AcessoInquilino).where(m.AcessoInquilino.login == login))
-    if outro and outro.contato_id != contato_id:
-        raise RegraNegocio("Outro contato já usa este CPF/CNPJ no portal.")
-    senha = "".join(secrets.choice(_SEM_CONFUSAO) for _ in range(10))
-    acesso = db.scalar(
-        sa.select(m.AcessoInquilino).where(m.AcessoInquilino.contato_id == contato_id)
-    )
-    if acesso is None:
-        acesso = m.AcessoInquilino(id=str(uuid.uuid4()), contato_id=contato_id, versao=1)
-        db.add(acesso)
-    else:
-        acesso.versao += 1  # derruba sessões abertas com a senha antiga
-    acesso.login = login
-    acesso.senha_hash = hash_senha(senha)
-    acesso.ativo = True
-    acesso.trocar_senha = True
-    acesso.tentativas = 0
-    acesso.bloqueado_ate = None
-    db.commit()
-    return acesso, senha
+    return portal.liberar(db, m.AcessoInquilino, contato, "locatário")
 
 
 def revogar_acesso(db: Session, contato_id: str) -> None:
-    acesso = db.scalar(
-        sa.select(m.AcessoInquilino).where(m.AcessoInquilino.contato_id == contato_id)
-    )
-    if acesso:
-        db.delete(acesso)
-        db.commit()
+    portal.revogar(db, m.AcessoInquilino, contato_id)
 
 
 def autenticar(db: Session, login: str, senha: str) -> m.AcessoInquilino:
-    erro = RegraNegocio("CPF/CNPJ ou senha incorretos.")
-    acesso = db.scalar(
-        sa.select(m.AcessoInquilino).where(m.AcessoInquilino.login == digitos(login))
-    )
-    if acesso is None:
-        verificar_senha(senha, hash_senha("x"))  # mesmo tempo de resposta
-        raise erro
-    momento = agora()
-    if acesso.bloqueado_ate and acesso.bloqueado_ate > momento:
-        raise RegraNegocio(
-            "Muitas tentativas. Tente novamente em alguns minutos ou fale com a imobiliária."
-        )
-    if not verificar_senha(senha, acesso.senha_hash):
-        acesso.tentativas += 1
-        if acesso.tentativas >= TENTATIVAS:
-            acesso.tentativas = 0
-            acesso.bloqueado_ate = momento + BLOQUEIO
-        db.commit()
-        raise erro
-    if not acesso.ativo:
-        raise RegraNegocio("Seu acesso está desativado. Fale com a imobiliária.")
-    acesso.tentativas = 0
-    acesso.bloqueado_ate = None
-    acesso.ultimo_acesso = momento
-    db.commit()
-    return acesso
+    return portal.autenticar(db, m.AcessoInquilino, login, senha)
 
 
 def trocar_senha(db: Session, acesso: m.AcessoInquilino, atual: str, nova: str, repetida: str) -> None:
-    if not verificar_senha(atual, acesso.senha_hash):
-        raise RegraNegocio("A senha atual não confere.")
-    if len(nova) < 8:
-        raise RegraNegocio("A nova senha deve ter pelo menos 8 caracteres.")
-    if nova != repetida:
-        raise RegraNegocio("As senhas novas não conferem.")
-    if nova == atual:
-        raise RegraNegocio("Escolha uma senha diferente da atual.")
-    acesso.senha_hash = hash_senha(nova)
-    acesso.trocar_senha = False
-    acesso.versao += 1
-    db.commit()
+    portal.trocar_senha(db, acesso, atual, nova, repetida)
 
 
 def criar_token(acesso: m.AcessoInquilino) -> str:
-    momento = datetime.now(UTC)
-    return jwt.encode(
-        {"sub": acesso.id, "v": acesso.versao, "tipo": "inquilino",
-         "iat": momento, "exp": momento + timedelta(hours=SESSAO_HORAS)},
-        _segredo(),
-        algorithm="HS256",
-    )  # fmt: skip
+    return portal.criar_token(acesso, TIPO)
 
 
 def acesso_do_token(db: Session, token: str | None) -> m.AcessoInquilino | None:
-    if not token:
-        return None
-    try:
-        dados = jwt.decode(token, _segredo(), algorithms=["HS256"])
-    except jwt.PyJWTError:
-        return None
-    if dados.get("tipo") != "inquilino":
-        return None
-    acesso = db.get(m.AcessoInquilino, dados.get("sub"))
-    if acesso is None or not acesso.ativo or acesso.versao != dados.get("v"):
-        return None
-    return acesso
+    return portal.acesso_do_token(db, m.AcessoInquilino, token, TIPO)
 
 
 def token_csrf(acesso: m.AcessoInquilino) -> str:
-    return assinar(f"csrf-inquilino:{acesso.id}:{acesso.versao}")
+    return portal.token_csrf(acesso, TIPO)
 
 
 # --------------------------------------------------------------- Contratos

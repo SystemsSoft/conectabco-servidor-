@@ -56,6 +56,7 @@ class ConfiguracaoSite(Esquema):
     botao_whatsapp: bool = True
     mostrar_valores: bool = True
     mostrar_area_inquilino: bool = True
+    mostrar_area_proprietario: bool = True
 
     # Atendimento dos leads
     distribuir_na_fila: bool = True

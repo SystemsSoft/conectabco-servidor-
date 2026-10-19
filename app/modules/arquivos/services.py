@@ -154,16 +154,19 @@ def limpar_orfaos(db: Session, carencia: timedelta = timedelta(days=1)) -> int:
     """Apaga os arquivos que nenhum cadastro usa mais (anexo removido ou
     imóvel excluído). A carência poupa envios de cadastros ainda abertos."""
     from app.modules.crm.models import Anexo
+    from app.modules.auditoria.models import MidiaAuditoria
     from app.modules.inquilino.models import ArquivoContrato
 
     referencia = sa.literal(REFERENCIA, sa.String) + Arquivo.id
     em_imovel = sa.select(Anexo.id).where(Anexo.url == referencia)
     em_contrato = sa.select(ArquivoContrato.id).where(ArquivoContrato.arquivo_id == Arquivo.id)
+    em_auditoria = sa.select(MidiaAuditoria.id).where(MidiaAuditoria.arquivo_id == Arquivo.id)
     orfaos = db.scalars(
         sa.select(Arquivo).where(
             Arquivo.criado_em <= agora() - carencia,
             ~sa.exists(em_imovel),
             ~sa.exists(em_contrato),
+            ~sa.exists(em_auditoria),
         )
     ).all()
     for a in orfaos:

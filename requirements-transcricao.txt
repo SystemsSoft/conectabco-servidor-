@@ -1,0 +1,4 @@
+# Transcrição dos vídeos das auditorias (só no servidor):
+#   pip install -r requirements-transcricao.txt
+faster-whisper>=1.2,<2
+av>=15,<17  # o av 17+ removeu um parâmetro usado pelo faster-whisper 1.2

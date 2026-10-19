@@ -1,0 +1,4 @@
+{% macro data(d) -%}{{ d.strftime("%d/%m/%Y") if d else "" }}{%- endmacro %}
+{% macro competencia(d) -%}{{ "%02d/%d"|format(d.month, d.year) }}{%- endmacro %}
+{% macro estrelas(n) -%}{% if n %}<span style="color:var(--gold-dark);letter-spacing:2px">{{ "★" * n }}{{ "☆" * (5 - n) }}</span>{% endif %}{%- endmacro %}
+{% macro endereco(i) -%}{% if i %}{{ [i.logradouro ~ (", " ~ i.numero if i.numero else ""), i.complemento, i.bairro, i.cidade]|select|join(" · ") }}{% endif %}{%- endmacro %}

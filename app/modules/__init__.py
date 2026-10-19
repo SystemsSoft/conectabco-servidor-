@@ -21,6 +21,7 @@ def carregar_models() -> None:
     """Importa os models de todos os módulos para o metadata do SQLAlchemy."""
     import app.core.sequencias  # noqa: F401
     import app.modules.arquivos.models  # noqa: F401
+    import app.modules.auditoria.models  # noqa: F401
     import app.modules.contratos.models  # noqa: F401
     import app.modules.crm.models  # noqa: F401
     import app.modules.equipe.models  # noqa: F401
@@ -30,6 +31,7 @@ def carregar_models() -> None:
     import app.modules.locacao.models  # noqa: F401
     import app.modules.manutencao.models  # noqa: F401
     import app.modules.personalizacao.models  # noqa: F401
+    import app.modules.proprietario.models  # noqa: F401
     import app.modules.site.models  # noqa: F401
     import app.modules.temporada.models  # noqa: F401
     import app.modules.vendas.models  # noqa: F401
@@ -40,6 +42,7 @@ def roteadores() -> list[tuple[APIRouter, list]]:
     GET = ver, PUT/POST = criar ou editar, DELETE = excluir)."""
     from app.core.auth import exigir_modulo
     from app.modules.arquivos.api import router as arquivos
+    from app.modules.auditoria.api import router as auditorias
     from app.modules.contratos.api import router as contratos
     from app.modules.crm.api import router as crm
     from app.modules.equipe.api import auth
@@ -71,4 +74,5 @@ def roteadores() -> list[tuple[APIRouter, list]]:
         (arquivos, []),
         (site, [exigir_modulo("site")]),
         (portal_inquilino, [exigir_modulo("locacao")]),
+        (auditorias, [exigir_modulo("auditorias")]),
     ]

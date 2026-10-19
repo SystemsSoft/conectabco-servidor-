@@ -1,0 +1,59 @@
+{% extends "proprietario/_layout.html" %}
+{% import "_componentes.html" as c with context %}
+{% import "proprietario/_macros.html" as x %}
+{% block portal %}
+<div class="grade-resumo" data-cascata>
+  <div class="resumo-cartao"><span>Repassado em {{ hoje.year }}</span><strong>{{ recebido_ano|moeda or "R$ 0" }}</strong><small>valor líquido</small></div>
+  <div class="resumo-cartao"><span>A repassar</span><strong>{{ a_repassar|moeda or "R$ 0" }}</strong><small>aluguéis pagos aguardando repasse</small></div>
+  <div class="resumo-cartao"><span>Contratos ativos</span><strong>{{ ativos|length }}</strong><small>{{ imoveis|length }} imóvel(is)</small></div>
+  <div class="resumo-cartao"><span>Manutenções em aberto</span><strong>{{ manutencoes_abertas|length }}</strong><small>nos seus imóveis</small></div>
+</div>
+<div class="duas">
+  <div>
+    <div class="painel revelar">
+      <h2>Seus imóveis</h2>
+      <ul class="lista">
+        {% for k in ativos %}{% set i = imoveis[k.imovel_id] %}
+        <li class="item"><span class="ic">{{ c.icone("casa") }}</span>
+          <div class="txt"><strong>{{ i.titulo if i else k.numero }}</strong>
+            <small>{{ x.endereco(i) }}<br>Contrato {{ k.numero }} · aluguel {{ (k.valor_aluguel * cotas[k.id])|moeda }}{% if cotas[k.id] < 1 %} (sua parte: {{ (cotas[k.id] * 100)|numero }}%){% endif %}</small></div>
+        </li>
+        {% else %}<p class="vazio-p">Nenhum contrato ativo no momento.</p>{% endfor %}
+      </ul>
+    </div>
+    <div class="painel revelar">
+      <h2>Últimos repasses <a href="/proprietario/repasses">Ver todos →</a></h2>
+      {% if ultimos_repasses %}
+      <ul class="lista">{% for r in ultimos_repasses %}
+        <li class="item"><span class="ic">{{ c.icone("dinheiro") }}</span>
+          <div class="txt"><strong>{{ x.competencia(r.cobranca.competencia) }} · {{ r.liquido|moeda }}</strong>
+            <small>{{ r.contrato.numero }} · {% if r.repassado_em %}repassado em {{ x.data(r.repassado_em) }}{% else %}aguardando repasse{% endif %}</small></div>
+          <span class="situacao {{ 'paga' if r.repassado_em else 'pendente' }}">{{ "Repassado" if r.repassado_em else "A repassar" }}</span></li>{% endfor %}
+      </ul>
+      {% else %}<p class="vazio-p">Nenhum aluguel recebido ainda.</p>{% endif %}
+    </div>
+  </div>
+  <div>
+    <div class="painel revelar">
+      <h2>Auditorias recentes <a href="/proprietario/auditorias">Ver todas →</a></h2>
+      {% if auditorias %}
+      <ul class="lista">{% for a in auditorias %}
+        <li class="item"><span class="ic">{{ c.icone("check") }}</span>
+          <div class="txt"><strong>{{ a.numero }} · {{ x.data(a.data_realizada) }}</strong><small>{{ a.tipo.rotulo }} {{ x.estrelas(a.nota) }}</small></div>
+          <div class="acoes"><a class="btn btn-ouro btn-p" href="/proprietario/auditorias/{{ a.id }}">Ver relatório</a></div></li>{% endfor %}
+      </ul>
+      {% else %}<p class="vazio-p">Nenhuma auditoria publicada ainda.</p>{% endif %}
+    </div>
+    <div class="painel revelar">
+      <h2>Manutenções em aberto <a href="/proprietario/manutencoes">Ver todas →</a></h2>
+      {% if manutencoes_abertas %}
+      <ul class="lista">{% for m in manutencoes_abertas[:4] %}
+        <li class="item"><span class="ic">{{ c.icone("ferramenta") }}</span>
+          <div class="txt"><strong>{{ m.tipo_outro if m.tipo.value == 'outros' and m.tipo_outro else m.tipo.rotulo }}</strong><small>{{ m.descricao[:90] }}</small></div>
+          <span class="situacao {{ m.status.value }}">{{ m.status.rotulo }}</span></li>{% endfor %}
+      </ul>
+      {% else %}<p class="vazio-p">Nenhuma manutenção em aberto.</p>{% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

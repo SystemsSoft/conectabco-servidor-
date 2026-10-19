@@ -1,0 +1,23 @@
+{% extends "proprietario/_layout.html" %}
+{% import "proprietario/_macros.html" as x %}
+{% block portal %}
+<div class="painel">
+  <h2>Manutenções</h2>
+  {% if manutencoes %}
+  <table class="tabela">
+    <thead><tr><th>Aberta em</th><th>Imóvel</th><th>Serviço</th><th>Situação</th><th class="num">Custo</th></tr></thead>
+    <tbody>
+    {% for m in manutencoes %}{% set i = imoveis_todos.get(m.imovel_id) %}
+      <tr>
+        <td>{{ x.data(m.criado_em) }}</td>
+        <td>{{ i.titulo if i else "" }}</td>
+        <td><strong>{{ m.tipo_outro if m.tipo.value == 'outros' and m.tipo_outro else m.tipo.rotulo }}</strong><br><small style="color:var(--muted)">{{ m.descricao[:140] }}</small></td>
+        <td><span class="situacao {{ m.status.value }}">{{ m.status.rotulo }}</span>{% if m.data_prevista and m.status.value != 'concluida' %}<br><small style="color:var(--muted)">previsão {{ x.data(m.data_prevista) }}</small>{% endif %}</td>
+        <td class="num">{{ (m.diario|sum(attribute='valor_material') + m.diario|sum(attribute='valor_mao_de_obra') + m.diario|sum(attribute='valor_taxa'))|moeda or "—" }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<p class="vazio-p">Nenhuma manutenção registrada nos seus imóveis.</p>{% endif %}
+</div>
+{% endblock %}

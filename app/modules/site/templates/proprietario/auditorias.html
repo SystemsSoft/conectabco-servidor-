@@ -1,0 +1,17 @@
+{% extends "proprietario/_layout.html" %}
+{% import "_componentes.html" as c with context %}
+{% import "proprietario/_macros.html" as x %}
+{% block portal %}
+<div class="painel">
+  <h2>Auditorias dos seus imóveis</h2>
+  <p style="color:var(--muted);margin-top:-6px">Vistorias feitas pela equipe, com checklist, fotos e vídeos (com o que foi dito transcrito).</p>
+  {% if auditorias %}
+  <ul class="lista" data-cascata>{% for a in auditorias %}{% set i = imoveis_todos.get(a.imovel_id) %}
+    <li class="item"><span class="ic">{{ c.icone("check") }}</span>
+      <div class="txt"><strong>{{ a.numero }} · {{ a.tipo.rotulo }} · {{ x.data(a.data_realizada) }}</strong>
+        <small>{{ i.titulo if i else "" }} {{ x.estrelas(a.nota) }} · {{ a.midias|selectattr("tipo.value", "equalto", "foto")|list|length }} foto(s), {{ a.midias|selectattr("tipo.value", "equalto", "video")|list|length }} vídeo(s)</small></div>
+      <div class="acoes"><a class="btn btn-ouro btn-p" href="/proprietario/auditorias/{{ a.id }}">Ver relatório</a></div></li>{% endfor %}
+  </ul>
+  {% else %}<p class="vazio-p">Nenhuma auditoria publicada ainda. Quando a equipe concluir uma vistoria, ela aparece aqui.</p>{% endif %}
+</div>
+{% endblock %}
