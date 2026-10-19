@@ -21,4 +21,4 @@ $SSH "$HOST" 'set -e
   sudo -u marceloimob .venv/bin/alembic upgrade head
   sudo systemctl restart marceloimob
   sleep 3
-  curl -fsS localhost/saude && echo && curl -fsS localhost/saude/banco && echo'
+  curl -fsS 127.0.0.1:8000/saude && echo && curl -fsS 127.0.0.1:8000/saude/banco && echo'

@@ -76,14 +76,19 @@ Documentação interativa (Swagger): **http://localhost:8000/docs**
 
 ## Produção (AWS EC2)
 
-Servidor `18.191.168.173` (Amazon Linux 2023, usuário SSH `ec2-user`):
+Servidor **https://api.inovacloud.app** (IP `18.191.168.173`, Amazon Linux
+2023, usuário SSH `ec2-user`). Acessos por HTTP ou pelo IP são
+redirecionados para o domínio com HTTPS.
 
 | O quê | Onde |
 |---|---|
 | Código e `.env` (dono `marceloimob`, permissão 600) | `/opt/marceloimob` |
 | Fotos, vídeos e arquivos enviados | `/var/lib/marceloimob/arquivos` |
 | Serviço (uvicorn, 2 workers, 127.0.0.1:8000) | `systemctl status marceloimob` · `journalctl -u marceloimob -f` |
-| nginx (porta 80 → serviço, uploads até 300 MB) | `/etc/nginx/default.d/marceloimob.conf` |
+| nginx: rotas para o serviço (uploads até 300 MB) | `/etc/nginx/snippets/marceloimob-proxy.conf` |
+| nginx: domínio + HTTPS (gerido pelo certbot) | `/etc/nginx/conf.d/inovacloud.conf` |
+| nginx: IP/HTTP → `https://api.inovacloud.app` | `/etc/nginx/default.d/redireciona-dominio.conf` |
+| Certificado Let's Encrypt (renova sozinho) | `certbot-renew.timer` · teste: `sudo certbot renew --dry-run` |
 | Limpeza diária de arquivos sem uso (03:30) | `/etc/cron.d/marceloimob` |
 
 Para publicar uma nova versão (envia o código, instala dependências, aplica
@@ -94,41 +99,32 @@ as migrações e reinicia):
 ```
 
 A chave `key-aws.pem` nunca vai para o git (`*.pem` no `.gitignore`).
-O app de gestão aponta para o servidor com
-`flutter build web --dart-define=API_URL=https://api.inovacloud.app`.
 
-### Domínio e HTTPS (`api.inovacloud.app`)
+### Domínio e HTTPS
 
-1. No painel DNS (Hostinger): registro **A** `api` → `18.191.168.173`.
-2. No grupo de segurança da EC2, libere a porta **443** (além da 80).
-3. Rode (uma vez; pode repetir sem problema):
-   ```bash
-   ./configurar_https.sh seu-email@dominio.com.br
-   ```
-   Instala o certbot, cria `/etc/nginx/conf.d/marceloimob.conf` para o
-   domínio, emite o certificado Let's Encrypt (aceitando os termos de uso
-   em nome do e-mail informado), redireciona HTTP → HTTPS, liga a renovação
-   automática e grava `SITE_URL=https://api.inovacloud.app` no `.env`.
+DNS na Hostinger: registro **A** `api` → `18.191.168.173` (porta 443 já
+liberada na EC2). O HTTPS foi configurado com:
 
-Para o domínio principal (`inovacloud.app` e `www`), crie o registro **A**
-`@` → `18.191.168.173` e rode
-`./configurar_https.sh email key-aws.pem ec2-user@18.191.168.173 inovacloud.app`.
+```bash
+./configurar_https.sh            # e-mail opcional como 1º argumento
+```
 
-`.app` exige HTTPS nos navegadores: sem o certificado o domínio não abre.
-O acesso pelo IP (`http://18.191.168.173`) continua funcionando até o app
-de gestão ser publicado com o novo endereço.
+O script pode ser repetido sem efeito colateral. Para servir também o
+domínio principal, crie o registro **A** `@` → `18.191.168.173` (e o
+`www`) e rode `./configurar_https.sh "" key-aws.pem ec2-user@18.191.168.173 inovacloud.app`.
+`.app` só abre em HTTPS nos navegadores.
 
 ## App Flutter
 
-O app usa `http://localhost:8000` por padrão. Para outro endereço:
+O app de gestão usa `https://api.inovacloud.app` por padrão
+(`lib/core/api/api_config.dart`). Para o servidor local:
 
 ```bash
-flutter run -d chrome --dart-define=API_URL=https://api.seudominio.com.br
+flutter run -d chrome --dart-define=API_URL=http://localhost:8000
 ```
 
-Hoje o CRM, a Administração de Locação, a Administração de Vendas, a
-Todos os módulos do app usam a API. Sem `--dart-define=API_URL`, o app usa
-`http://localhost:8000`.
+Publicando o app web em outro endereço (ex.: `https://gestao.inovacloud.app`),
+inclua esse endereço em `CORS_ORIGINS` no `.env`.
 
 ## Testes
 
@@ -337,8 +333,8 @@ campo-isca contra robôs e limite de 5 envios a cada 10 minutos por endereço.
 
 Textos, contatos, redes, funcionalidades (busca, destaques, valores, visita,
 WhatsApp...) e a distribuição dos leads são editados no app em **Site e
-Leads**. Em produção, defina `SITE_URL` (ex.: `https://www.seudominio.com.br`)
-para o sitemap e aponte o domínio para este servidor.
+Leads**. Em produção, `SITE_URL` (hoje `https://api.inovacloud.app`) define
+o endereço do sitemap e liga o cookie seguro da Área do inquilino.
 
 | Método | Rota | Descrição |
 |---|---|---|
