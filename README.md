@@ -95,7 +95,28 @@ as migrações e reinicia):
 
 A chave `key-aws.pem` nunca vai para o git (`*.pem` no `.gitignore`).
 O app de gestão aponta para o servidor com
-`flutter build web --dart-define=API_URL=http://18.191.168.173`.
+`flutter build web --dart-define=API_URL=https://api.inovacloud.app`.
+
+### Domínio e HTTPS (`api.inovacloud.app`)
+
+1. No painel DNS (Hostinger): registro **A** `api` → `18.191.168.173`.
+2. No grupo de segurança da EC2, libere a porta **443** (além da 80).
+3. Rode (uma vez; pode repetir sem problema):
+   ```bash
+   ./configurar_https.sh seu-email@dominio.com.br
+   ```
+   Instala o certbot, cria `/etc/nginx/conf.d/marceloimob.conf` para o
+   domínio, emite o certificado Let's Encrypt (aceitando os termos de uso
+   em nome do e-mail informado), redireciona HTTP → HTTPS, liga a renovação
+   automática e grava `SITE_URL=https://api.inovacloud.app` no `.env`.
+
+Para o domínio principal (`inovacloud.app` e `www`), crie o registro **A**
+`@` → `18.191.168.173` e rode
+`./configurar_https.sh email key-aws.pem ec2-user@18.191.168.173 inovacloud.app`.
+
+`.app` exige HTTPS nos navegadores: sem o certificado o domínio não abre.
+O acesso pelo IP (`http://18.191.168.173`) continua funcionando até o app
+de gestão ser publicado com o novo endereço.
 
 ## App Flutter
 
