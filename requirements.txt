@@ -6,3 +6,5 @@ pydantic-settings>=2.16,<3
 PyMySQL>=1.1,<2
 cryptography>=46  # autenticação caching_sha2_password do MySQL 8
 PyJWT>=2.10,<3     # token de acesso
+Pillow>=11,<13    # miniaturas das fotos
+segno>=1.6,<2     # QR code dos relatórios

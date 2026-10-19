@@ -6,14 +6,15 @@ import hmac
 from typing import Annotated
 from urllib.parse import urlencode
 
-from fastapi import APIRouter, Depends, Form, Request
-from fastapi.responses import FileResponse, RedirectResponse, Response
+from fastapi import APIRouter, Depends, Form, Query, Request
+from fastapi.responses import RedirectResponse, Response
 from sqlalchemy.orm import Session
 
 from app.core.acesso_portal import SESSAO_HORAS
 from app.core.database import get_db
 from app.core.errors import NaoEncontrado, RegraNegocio
 from app.core.tempo import agora
+from app.modules.arquivos.api import resposta_arquivo
 from app.modules.arquivos.models import Arquivo
 from app.modules.arquivos.services import caminho as caminho_arquivo
 from app.modules.auditoria import relatorio
@@ -201,7 +202,10 @@ def auditoria(auditoria_id: str, request: Request, db: Db):
         return _ir(r.destino)
     except NaoEncontrado:
         return _resposta("nao_encontrado.html", _base(request, db), 404)
-    ctx |= relatorio.contexto(db, a, lambda x: f"/proprietario/midia/{x.id}") | {
+    ctx |= relatorio.contexto(
+        db, a, lambda x: f"/proprietario/midia/{x.id}", relatorio.endereco_base(request),
+        lambda x: f"/proprietario/midia/{x.id}?largura=640",
+    ) | {  # fmt: skip
         "voltar": "/proprietario/auditorias", "equipe": False}
     return _resposta("auditoria/relatorio.html", ctx)
 
@@ -214,7 +218,8 @@ def manutencoes(request, db, ctx):
 
 
 @router.get("/midia/{midia_id}")
-def midia(midia_id: str, request: Request, db: Db):
+def midia(midia_id: str, request: Request, db: Db,
+          largura: Annotated[int | None, Query(ge=1, le=4000)] = None):  # fmt: skip
     try:
         acesso = _acesso(request, db)
         m = s.midia_publicada(db, acesso.contato_id, midia_id)
@@ -223,10 +228,6 @@ def midia(midia_id: str, request: Request, db: Db):
     except NaoEncontrado:
         return Response("Arquivo não encontrado.", status_code=404)
     arquivo = db.get(Arquivo, m.arquivo_id)
-    caminho = caminho_arquivo(m.arquivo_id)
-    if arquivo is None or not caminho.is_file():
+    if arquivo is None or not caminho_arquivo(m.arquivo_id).is_file():
         return Response("Arquivo não encontrado.", status_code=404)
-    return FileResponse(
-        caminho, media_type=arquivo.tipo_mime,
-        headers={"Cache-Control": "private, max-age=3600", "X-Content-Type-Options": "nosniff"},
-    )  # fmt: skip
+    return resposta_arquivo(arquivo, largura)

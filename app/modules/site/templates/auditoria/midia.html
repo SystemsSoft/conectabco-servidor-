@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>{{ "Vídeo" if midia.tipo.value == "video" else "Foto" }} da auditoria {{ a.numero }} – {{ empresa.nome }}</title>
+  <link rel="icon" href="/estatico/icone.png">
+  <link rel="stylesheet" href="/estatico/site.css?v={{ versao_css }}">
+  <style>
+    body { background: #020B22; color: #fff; min-height: 100vh; margin: 0; }
+    .midia-pg { max-width: 860px; margin: 0 auto; padding: 16px; }
+    .midia-cab { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+    .midia-cab img { width: 44px; height: 44px; object-fit: contain; }
+    .midia-cab strong { display: block; color: #F5C432; }
+    .midia-cab small { color: rgba(255,255,255,.7); }
+    .midia-quadro { background: #000; border-radius: 14px; overflow: hidden; line-height: 0; }
+    .midia-quadro img, .midia-quadro video { width: 100%; max-height: 78vh; object-fit: contain; background: #000; }
+    .midia-info { margin-top: 12px; color: rgba(255,255,255,.8); font-size: .92rem; }
+    .fala { margin-top: 12px; padding: 12px 14px; background: rgba(245,196,50,.08); border-left: 4px solid #F5C432; border-radius: 8px; white-space: pre-line; }
+    .fala b { display: block; font-size: .72rem; text-transform: uppercase; letter-spacing: .06em; color: #F5C432; margin-bottom: 4px; }
+    .midia-acoes { margin-top: 14px; }
+    .midia-acoes a { color: #F5C432; }
+  </style>
+</head>
+<body>
+  <main class="midia-pg">
+    <header class="midia-cab">
+      <img src="/logo" alt="">
+      <div><strong>{{ empresa.nome }}</strong><small>Auditoria {{ a.numero }}{% if imovel %} · {{ imovel.titulo }}{% endif %}</small></div>
+    </header>
+    <div class="midia-quadro">
+      {% if midia.tipo.value == "video" %}
+        <video src="{{ arquivo }}" controls playsinline preload="metadata"></video>
+      {% else %}
+        <img src="{{ arquivo }}&largura=1280" alt="{{ midia.titulo or 'Foto da auditoria' }}">
+      {% endif %}
+    </div>
+    <p class="midia-info">
+      {% if item %}<strong>{{ item.area }} – {{ item.item }}</strong>{% if item.observacao %}: {{ item.observacao }}{% endif %}<br>{% endif %}
+      {{ [midia.titulo, ("Registrada na auditoria de " ~ a.data_realizada.strftime("%d/%m/%Y")) if a.data_realizada else ""]|select|join(" · ") }}
+    </p>
+    {% if midia.tipo.value == "video" and midia.transcricao_status == Transcricao.concluida %}
+      <div class="fala"><b>O que foi dito no vídeo</b>{{ midia.transcricao_texto }}</div>
+    {% endif %}
+    <p class="midia-acoes"><a href="{{ arquivo }}" target="_blank" rel="noopener">Abrir o arquivo original</a></p>
+  </main>
+</body>
+</html>

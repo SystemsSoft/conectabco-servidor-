@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Form, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, Form, Query, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import Field
 from sqlalchemy.orm import Session
@@ -59,11 +59,15 @@ def enviar(
     db: Db,
     usuario: UsuarioLogado,
     categoria: Annotated[str, Form(description="foto, video ou arquivo")],
+    tarefas: BackgroundTasks,
 ):
-    """Envia um arquivo do computador (multipart)."""
+    """Envia um arquivo do computador (multipart). As miniaturas das fotos
+    são geradas em segundo plano, depois da resposta."""
     novo = services.salvar(
         db, arquivo.file, arquivo.filename or "", categoria, usuario.id
     )
+    if novo.tipo_mime.startswith("image/"):
+        tarefas.add_task(services.gerar_miniaturas, novo.id)
     return _saida(novo)
 
 
@@ -85,14 +89,32 @@ def obter(arquivo_id: str, db: Db, _: UsuarioLogado):
 
 
 @router.get("/{arquivo_id}/conteudo", include_in_schema=False)
-def conteudo(arquivo_id: str, expira: int, assinatura: str, db: Db):
-    """Acesso pelo link assinado (imagens, vídeos com avanço, downloads)."""
+def conteudo(
+    arquivo_id: str, expira: int, assinatura: str, db: Db,
+    largura: Annotated[int | None, Query(ge=1, le=4000)] = None,
+):  # fmt: skip
+    """Acesso pelo link assinado (imagens, vídeos com avanço, downloads).
+    Com `largura`, fotos saem como miniatura (bem mais leves para listas)."""
     if not services.link_valido(arquivo_id, expira, assinatura):
         raise NaoEncontrado("Link expirado ou inválido.")
     a = db.get(Arquivo, validar_id(arquivo_id))
     caminho = services.caminho(arquivo_id) if a else None
     if a is None or not caminho.is_file():
         raise NaoEncontrado("Arquivo não encontrado.")
+    return resposta_arquivo(a, largura)
+
+
+def resposta_arquivo(a: Arquivo, largura: int | None = None):
+    """O arquivo (ou a miniatura da foto, com `largura`)."""
+    caminho = services.caminho(a.id)
+    if not caminho.is_file():
+        raise NaoEncontrado("Arquivo não encontrado.")
+    if largura and a.tipo_mime.startswith("image/"):
+        if mini := services.miniatura(a.id, services.largura_miniatura(largura)):
+            return FileResponse(mini, media_type="image/jpeg", headers={
+                "Cache-Control": "private, max-age=604800, immutable",
+                "X-Content-Type-Options": "nosniff",
+            })  # fmt: skip
     return FileResponse(
         caminho,
         media_type=a.tipo_mime,

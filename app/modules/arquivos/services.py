@@ -64,6 +64,64 @@ def caminho(arquivo_id: str) -> Path:
     return pasta() / arquivo_id[:2] / arquivo_id
 
 
+# Larguras das miniaturas de fotos (a tela pede a mais próxima).
+LARGURAS = (320, 640, 1280)
+
+
+def largura_miniatura(pedida: int | None) -> int | None:
+    """A menor largura padrão que atende ao pedido (ou nenhuma)."""
+    if not pedida:
+        return None
+    return next((w for w in LARGURAS if w >= pedida), LARGURAS[-1])
+
+
+def caminho_miniatura(arquivo_id: str, largura: int) -> Path:
+    return pasta() / "miniaturas" / arquivo_id[:2] / f"{arquivo_id}-{largura}.jpg"
+
+
+def miniatura(arquivo_id: str, largura: int) -> Path | None:
+    """JPEG reduzido da foto (gerado uma vez e guardado em disco). Corrige a
+    rotação das fotos de celular. Nenhuma se não for uma imagem legível."""
+    destino = caminho_miniatura(arquivo_id, largura)
+    if destino.is_file():
+        return destino
+    origem = caminho(arquivo_id)
+    if not origem.is_file():
+        return None
+    from PIL import Image, ImageOps
+
+    try:
+        with Image.open(origem) as img:
+            img.draft("RGB", (largura * 2, largura * 2))  # JPEG: decodifica já reduzido
+            img = ImageOps.exif_transpose(img)
+            if getattr(img, "is_animated", False):
+                img.seek(0)
+            img.thumbnail((largura, largura * 4))
+            if img.mode not in ("RGB", "L"):
+                fundo = Image.new("RGB", img.size, (255, 255, 255))
+                fundo.paste(img, mask=img.convert("RGBA").getchannel("A"))
+                img = fundo
+            destino.parent.mkdir(parents=True, exist_ok=True)
+            temporario = destino.with_suffix(f".{uuid.uuid4().hex}.parcial")
+            img.save(temporario, "JPEG", quality=82, optimize=True, progressive=True)
+            os.replace(temporario, destino)
+    except (OSError, ValueError, Image.DecompressionBombError):
+        return None
+    return destino
+
+
+def gerar_miniaturas(arquivo_id: str) -> None:
+    """Prepara as miniaturas em segundo plano logo após o envio da foto."""
+    for largura in LARGURAS[:2]:
+        miniatura(arquivo_id, largura)
+
+
+def remover_arquivo(arquivo_id: str) -> None:
+    caminho(arquivo_id).unlink(missing_ok=True)
+    for largura in LARGURAS:
+        caminho_miniatura(arquivo_id, largura).unlink(missing_ok=True)
+
+
 def exibivel(tipo_mime: str) -> bool:
     return tipo_mime.startswith(_EXIBIVEIS)
 
@@ -170,7 +228,7 @@ def limpar_orfaos(db: Session, carencia: timedelta = timedelta(days=1)) -> int:
         )
     ).all()
     for a in orfaos:
-        caminho(a.id).unlink(missing_ok=True)
+        remover_arquivo(a.id)
         db.delete(a)
     db.commit()
     return len(orfaos)

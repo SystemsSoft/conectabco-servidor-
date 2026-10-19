@@ -271,3 +271,93 @@ def test_imposto_retido_quando_inquilino_e_pj(banco):
     assert prop.imposto_mensal(6000, 2026) < prop.imposto_mensal(6000, 2025)
     with banco() as db:
         assert db.scalar(sa.select(sa.func.count()).select_from(MidiaAuditoria)) == 0
+
+
+def _jpeg(largura=2400, altura=1800, orientacao=None) -> bytes:
+    import io
+
+    from PIL import Image
+
+    img = Image.new("RGB", (largura, altura), (40, 120, 200))
+    saida = io.BytesIO()
+    exif = Image.Exif()
+    if orientacao:
+        exif[0x0112] = orientacao  # foto de celular "deitada"
+    img.save(saida, "JPEG", quality=90, exif=exif)
+    return saida.getvalue()
+
+
+def test_miniaturas_das_fotos(client):
+    from PIL import Image
+
+    r = client.post("/api/v1/arquivos", data={"categoria": "foto"},
+                    files={"arquivo": ("cozinha.jpg", _jpeg(orientacao=6))}).json()  # fmt: skip
+    # Gerada em segundo plano logo após o envio (largura 320 e 640).
+    for w in (320, 640):
+        assert arquivos.caminho_miniatura(r["id"], w).is_file()
+    leve = client.get(r["link"] + "&largura=300")
+    assert leve.status_code == 200 and leve.headers["content-type"] == "image/jpeg"
+    assert "immutable" in leve.headers["cache-control"]
+    import io
+
+    with Image.open(io.BytesIO(leve.content)) as img:
+        # Rotação do celular aplicada: 2400×1800 deitada vira em pé, 320 de largura.
+        assert img.size == (320, 427)
+    assert len(leve.content) < len(client.get(r["link"]).content)
+    # Sem largura, o original; vídeos ignoram a largura.
+    assert client.get(r["link"]).headers["content-type"] == "image/jpeg"
+    v = client.post("/api/v1/arquivos", data={"categoria": "video"},
+                    files={"arquivo": ("t.mp4", MP4)}).json()  # fmt: skip
+    assert client.get(v["link"] + "&largura=320").content == MP4
+
+
+def test_qr_code_das_midias_no_relatorio(client, banco):
+    dono, _, im, cid = _cenario(client)
+    a = _auditoria(client, im, cid)
+    foto, video = novo_id(), novo_id()
+    ref_foto = _upload(client, "sala.jpg", _jpeg(), "foto")
+    ref_video = _upload(client, "cozinha.mp4", MP4, "video")
+    client.put(f"{API}/{a['id']}/midias/{foto}", json={"referencia": ref_foto, "tipo": "foto",
+                                                       "itemId": a["itens"][1]["id"]})  # fmt: skip
+    client.put(f"{API}/{a['id']}/midias/{video}", json={"referencia": ref_video, "tipo": "video"})
+    with banco() as db:
+        m = db.get(MidiaAuditoria, video)
+        m.transcricao_status = m.transcricao_status.__class__.concluida
+        m.transcricao_texto = "A torneira da cozinha está pingando."
+        db.commit()
+
+    pagina = client.get(client.post(f"{API}/{a['id']}/relatorio").json()["link"]).text
+    links = sorted(set(re.findall(r'href="(http://testserver/auditoria/midia/[^"]+)"', pagina)))
+    assert len(links) == 2 and pagina.count("<svg") >= 2  # um QR por foto e vídeo
+    assert "&amp;largura=640" in pagina  # a página mostra a miniatura da foto
+    assert "Escaneie para assistir ao vídeo" in pagina
+
+    anonimo = client.__class__(client.app)  # o celular que escaneia não tem login
+    link_video = next(x for x in links if video in x).replace("&amp;", "&")
+    p = anonimo.get(link_video)
+    assert p.status_code == 200 and "<video" in p.text and "A torneira da cozinha" in p.text
+    assert p.headers["x-robots-tag"] == "noindex" and p.headers["cache-control"] == "no-store"
+    arquivo = re.search(r'<video src="([^"]+)"', p.text).group(1).replace("&amp;", "&")
+    assert anonimo.get(arquivo).content == MP4
+    link_foto = next(x for x in links if foto in x).replace("&amp;", "&")
+    f = anonimo.get(link_foto).text
+    assert "Paredes e teto" in f
+    img = re.search(r'<img src="(/auditoria/midia/[^"]+)"', f).group(1).replace("&amp;", "&")
+    assert anonimo.get(img).headers["content-type"] == "image/jpeg"
+
+    # Token errado ou mídia removida: nada.
+    assert anonimo.get(link_video.replace("t=", "t=x")).status_code == 404
+    assert anonimo.get(arquivo.replace("t=", "t=x")).status_code == 404
+    client.delete(f"{API}/{a['id']}/midias/{video}")
+    assert anonimo.get(link_video).status_code == 404
+
+    # Relatório do proprietário também traz os QR codes e a miniatura.
+    for i in a["itens"]:
+        i["estado"] = "ok"
+    client.put(f"{API}/{a['id']}", json={"imovelId": im, "contratoId": cid, "itens": a["itens"], "nota": 4})
+    client.post(f"{API}/{a['id']}/concluir", json={"publicar": True})
+    _entrar_proprietario(client, dono, "529.982.247-25")
+    rel = client.get(f"/proprietario/auditorias/{a['id']}").text
+    assert f"/proprietario/midia/{foto}?largura=640" in rel and f"/auditoria/midia/{foto}?t=" in rel
+    leve = client.get(f"/proprietario/midia/{foto}?largura=640")
+    assert leve.headers["content-type"] == "image/jpeg" and len(leve.content) < len(_jpeg())
