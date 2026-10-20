@@ -431,6 +431,22 @@ liberada em Auditorias › Proprietários no app). Pode ser desligada em Site
 | `/proprietario/auditorias` | Auditorias publicadas: checklist, fotos, vídeos e transcrição |
 | `/proprietario/manutencoes` | Manutenções dos seus imóveis |
 
+## Integração Sicoob (testes no Sandbox)
+
+Menu **Integração Sicoob** no app (permissão Financeiro). Usa o Sandbox do
+portal developers.sicoob.com.br (client_id + token de teste): nada é cobrado
+nem movimentado. A produção exige conta da imobiliária no Sicoob e o
+certificado digital da empresa, e ainda não está habilitada.
+
+| API Sicoob | Endereço (Sandbox) | O que o sistema faz |
+|---|---|---|
+| Cobrança Bancária v3 | `/cobranca-bancaria/v3/boletos` | Registrar boleto (com Pix), consultar, segunda via em PDF, baixar |
+| Pix Recebimentos v2 | `/pix/api/v2/cob`, `/pix` | Cobrança imediata com QR code/copia e cola, consultar, Pix recebidos |
+| Conta Corrente v4 | `/conta-corrente/v4/saldo`, `/v4/extrato/{mes}/{ano}` | Saldo, extrato e importação para a Conciliação bancária |
+
+Cada requisição fica registrada (sem o token) em `/api/v1/integracoes/sicoob/chamadas`.
+O token do Sandbox fica só no banco do servidor e nunca volta na API.
+
 ## Rotas – Manutenção
 
 | Método | Rota | Descrição |

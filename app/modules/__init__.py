@@ -32,6 +32,7 @@ def carregar_models() -> None:
     import app.modules.manutencao.models  # noqa: F401
     import app.modules.personalizacao.models  # noqa: F401
     import app.modules.proprietario.models  # noqa: F401
+    import app.modules.sicoob.models  # noqa: F401
     import app.modules.site.models  # noqa: F401
     import app.modules.temporada.models  # noqa: F401
     import app.modules.vendas.models  # noqa: F401
@@ -53,6 +54,7 @@ def roteadores() -> list[tuple[APIRouter, list]]:
     from app.modules.locacao.api import router as locacao
     from app.modules.manutencao.api import router as manutencao
     from app.modules.personalizacao.api import router as personalizacao
+    from app.modules.sicoob.api import router as sicoob
     from app.modules.site.api import router as site
     from app.modules.temporada.api import router as temporada
     from app.modules.vendas.api import router as vendas
@@ -75,4 +77,5 @@ def roteadores() -> list[tuple[APIRouter, list]]:
         (site, [exigir_modulo("site")]),
         (portal_inquilino, [exigir_modulo("locacao")]),
         (auditorias, [exigir_modulo("auditorias")]),
+        (sicoob, [exigir_modulo("financeiro")]),
     ]
