@@ -33,7 +33,6 @@ class ContaBancariaEntrada(Esquema):
     saldo_inicial: float = 0
     convenio: Texto(30) = ""
     carteira: Texto(10) = ""
-    link_internet_banking: Annotated[str, Field(max_length=300, pattern=r"^(https://.*)?$")] = ""
 
 
 class ContaBancariaSaida(ContaBancariaEntrada, _Auditoria):
@@ -114,3 +113,4 @@ class ConfiguracaoFinanceira(Esquema):
     multa_percentual: float = 2
     juros_mes_percentual: float = 1
     indice_padrao: IndiceMonetario = IndiceMonetario.nenhum
+    link_banco: Annotated[str, Field(max_length=300, pattern=r"^(https://.*)?$")] = ""

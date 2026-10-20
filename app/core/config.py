@@ -62,7 +62,8 @@ class Settings(BaseSettings):
 
     @property
     def lista_cors(self) -> list[str]:
-        return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
+        # O navegador manda a origem sem a barra final.
+        return [o.strip().rstrip("/") for o in self.cors_origins.split(",") if o.strip()]
 
 
 @lru_cache

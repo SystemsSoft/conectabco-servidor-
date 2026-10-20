@@ -31,8 +31,6 @@ class ContaBancaria(_Auditoria, Base):
     # Dados da cobrança bancária (emissão de boletos).
     convenio: Mapped[str] = mapped_column(sa.String(30), default="")
     carteira: Mapped[str] = mapped_column(sa.String(10), default="")
-    # Link do internet banking, aberto pelo botão do Financeiro.
-    link_internet_banking: Mapped[str] = mapped_column(sa.String(300), default="")
 
 
 class Lancamento(_Auditoria, Base):
@@ -142,3 +140,5 @@ class ConfiguracaoFinanceira(Base):
     indice_padrao: Mapped[IndiceMonetario] = mapped_column(
         coluna_enum(IndiceMonetario), default=IndiceMonetario.nenhum
     )
+    # Link do internet banking, aberto pelo botão "Abrir banco" do Financeiro.
+    link_banco: Mapped[str] = mapped_column(sa.String(300), default="")

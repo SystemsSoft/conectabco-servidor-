@@ -10,15 +10,15 @@ def _conta(client, nome="Itaú Empresa") -> str:
     return id
 
 
-def test_conta_bancaria_guarda_o_link_do_banco(client):
-    id = novo_id()
+def test_configuracao_guarda_o_link_do_banco(client):
+    url = f"{URL}/configuracao"
     link = "https://www.itau.com.br/empresas"
-    r = client.put(f"{URL}/contas-bancarias/{id}", json={"nome": "Itaú", "linkInternetBanking": link})
-    assert r.status_code == 201
-    assert r.json()["linkInternetBanking"] == link
-    assert client.put(f"{URL}/contas-bancarias/{id}", json={"nome": "Itaú"}).json()["linkInternetBanking"] == ""
-    erro = client.put(f"{URL}/contas-bancarias/{id}", json={"nome": "Itaú", "linkInternetBanking": "http://x.com"})
-    assert erro.status_code == 422
+    r = client.put(url, json={"multaPercentual": 3, "linkBanco": link})
+    assert r.status_code == 200, r.text
+    assert (r.json()["multaPercentual"], r.json()["linkBanco"]) == (3, link)
+    assert client.get(url).json()["linkBanco"] == link
+    assert client.put(url, json={"linkBanco": "http://x.com"}).status_code == 422
+    assert client.put(url, json={}).json()["linkBanco"] == ""
 
 
 def _lanc(**extra):
@@ -127,4 +127,4 @@ def test_indices_e_configuracao(client):
     r = client.put(f"{URL}/configuracao", json={"multaPercentual": 10, "jurosMesPercentual": 1,
                                                 "indicePadrao": "ipca"})  # fmt: skip
     assert client.get(f"{URL}/configuracao").json() == {
-        "multaPercentual": 10, "jurosMesPercentual": 1, "indicePadrao": "ipca"}
+        "multaPercentual": 10, "jurosMesPercentual": 1, "indicePadrao": "ipca", "linkBanco": ""}
