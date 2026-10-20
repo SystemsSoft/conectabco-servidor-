@@ -445,6 +445,17 @@ certificado digital da empresa, e ainda não está habilitada.
 | Conta Corrente v4 | `/conta-corrente/v4/saldo`, `/v4/extrato/{mes}/{ano}` | Saldo, extrato e importação para a Conciliação bancária |
 
 Cada requisição fica registrada (sem o token) em `/api/v1/integracoes/sicoob/chamadas`.
+
+**Retorno de cobrança (sem API):** `POST /api/v1/integracoes/sicoob/retorno`
+recebe o arquivo CNAB 240 baixado no internet banking (`conteudo` em base64).
+Com `aplicar=false` devolve a prévia; com `aplicar=true` marca como pagas as
+cobranças do aluguel dos boletos liquidados (movimentos 06 e 17), pelo nosso
+número. Pagamento menor que a cobrança, boleto desconhecido ou cobrança
+cancelada não são baixados (ficam para conferir). Reenviar o mesmo arquivo
+não paga de novo. No menu do app, **Abrir Sicoob** abre o login do Sicoobnet
+(https://ib.sicoob.com.br/sicoobnet/ib/#/login) em outra aba; o banco não
+permite embutir o site. Financeiro e Integração Sicoob saíram do menu (as
+telas continuam no código; os atalhos do dashboard ainda abrem o Financeiro).
 O token do Sandbox fica só no banco do servidor e nunca volta na API.
 
 ## Rotas – Manutenção

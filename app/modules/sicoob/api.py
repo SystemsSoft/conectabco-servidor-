@@ -123,6 +123,14 @@ def importar_extrato(dados: s.ImportacaoExtrato, db: Db, usuario: UsuarioLogado)
     return svc.importar_extrato(db, dados.mes, dados.ano, usuario.id)
 
 
+# Retorno de cobrança (arquivo baixado no Sicoob)
+@router.post("/retorno", response_model=s.ResultadoRetorno)
+def processar_retorno(dados: s.RetornoEntrada, db: Db):
+    """Lê o arquivo CNAB 240 de retorno. `aplicar=false` só mostra o que será
+    feito; `aplicar=true` dá baixa nas cobranças do aluguel pagas."""
+    return svc.processar_retorno(db, dados)
+
+
 # Registro de chamadas
 @router.get("/chamadas", response_model=list[s.Chamada])
 def listar_chamadas(db: Db):

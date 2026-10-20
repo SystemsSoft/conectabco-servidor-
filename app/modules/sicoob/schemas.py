@@ -18,6 +18,9 @@ class Configuracao(Esquema):
     numero_conta_corrente: Texto(20) = ""
     chave_pix: Texto(100) = ""
     conta_bancaria_id: str | None = Field(None, description="Conta do Financeiro que recebe o extrato")
+    link_internet_banking: Annotated[str, Field(max_length=300, pattern=r"^https://")] = (
+        "https://ib.sicoob.com.br/sicoobnet/ib/#/login"
+    )
 
 
 class ConfiguracaoEntrada(Configuracao):
@@ -176,3 +179,32 @@ class CobrancaAberta(Esquema):
     locatario: str
     valor: float
     vencimento: date
+
+
+class RetornoEntrada(Esquema):
+    """Conteúdo do arquivo CNAB 240 de retorno, em base64."""
+
+    conteudo: str
+    aplicar: bool = False
+
+
+class ItemRetorno(Esquema):
+    linha: int
+    nosso_numero: str
+    seu_numero: str
+    movimento: str
+    valor_pago: float
+    data_credito: date | None
+    # baixar | aplicada | ja_paga | divergente | sem_boleto | sem_cobranca | ignorado
+    situacao: str
+    mensagem: str
+    cobranca_id: str | None = None
+    descricao: str = ""
+    locatario: str = ""
+
+
+class ResultadoRetorno(Esquema):
+    arquivo_linhas: int
+    aplicado: bool
+    itens: list[ItemRetorno]
+    baixas: int

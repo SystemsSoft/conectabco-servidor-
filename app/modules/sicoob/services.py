@@ -15,6 +15,7 @@ from app.modules.crm.models import Contato
 from app.modules.financeiro.models import ContaBancaria, LinhaExtrato
 from app.modules.locacao import models as loc
 from app.modules.locacao.enums import StatusCobranca
+from app.modules.sicoob import retorno
 from app.modules.sicoob import schemas as s
 from app.modules.sicoob.cliente import ClienteSicoob
 from app.modules.sicoob.models import BoletoSicoob, ChamadaSicoob, ConfiguracaoSicoob, PixSicoob
@@ -409,3 +410,81 @@ def importar_extrato(db: Session, mes: int, ano: int, usuario_id: str | None) ->
 
 def chamadas(db: Session, limite: int = 100) -> list[ChamadaSicoob]:
     return list(db.scalars(sa.select(ChamadaSicoob).order_by(ChamadaSicoob.criado_em.desc()).limit(limite)))
+
+
+# ------------------------------------------------------- Retorno (CNAB 240)
+
+
+def _boleto_do_retorno(db: Session, p: retorno.Pagamento) -> BoletoSicoob | None:
+    """Acha o boleto pelo nosso número (com ou sem o dígito verificador no
+    fim) e, se não achar, pelo seu número."""
+    candidatos = [p.nosso_numero]
+    if len(p.nosso_numero) > 1:
+        candidatos.append(p.nosso_numero[:-1])
+    for nn in candidatos:
+        if not nn:
+            continue
+        b = db.scalar(sa.select(BoletoSicoob).where(sa.func.trim(BoletoSicoob.nosso_numero) == nn)
+                      .order_by(BoletoSicoob.criado_em.desc()))  # fmt: skip
+        if b is not None:
+            return b
+    if p.seu_numero:
+        return db.scalar(sa.select(BoletoSicoob).where(BoletoSicoob.seu_numero == p.seu_numero)
+                         .order_by(BoletoSicoob.criado_em.desc()))  # fmt: skip
+    return None
+
+
+def processar_retorno(db: Session, e: s.RetornoEntrada) -> s.ResultadoRetorno:
+    """Lê o retorno do Sicoob e dá baixa nas cobranças do aluguel pagas.
+    Com `aplicar=False` só mostra o que seria feito."""
+    try:
+        raw = base64.b64decode(e.conteudo, validate=True)
+    except ValueError as ex:
+        raise RegraNegocio("Não foi possível ler o arquivo enviado.") from ex
+    arq = retorno.ler(raw)
+    itens, baixas = [], 0
+    for p in arq.pagamentos:
+        item = s.ItemRetorno(linha=p.linha, nosso_numero=p.nosso_numero, seu_numero=p.seu_numero,
+                             movimento=p.movimento, valor_pago=p.valor_pago, data_credito=p.data_credito,
+                             situacao="ignorado", mensagem="")  # fmt: skip
+        itens.append(item)
+        if p.movimento not in retorno.LIQUIDACAO:
+            item.mensagem = retorno.OUTROS.get(p.movimento, f"Movimento {p.movimento}") + " (sem pagamento)."
+            continue
+        b = _boleto_do_retorno(db, p)
+        if b is None:
+            item.situacao, item.mensagem = "sem_boleto", "Boleto não emitido pelo sistema; dê baixa à mão."
+            continue
+        c = db.get(loc.Cobranca, b.cobranca_id) if b.cobranca_id else None
+        if c is None:
+            item.situacao, item.mensagem = "sem_cobranca", "Boleto avulso, sem cobrança do aluguel vinculada."
+            if e.aplicar:
+                b.situacao = "Liquidado"
+            continue
+        contrato = db.get(loc.ContratoLocacao, c.contrato_id)
+        inquilino = db.get(Contato, contrato.locatario_id) if contrato else None
+        item.cobranca_id = c.id
+        item.descricao = f"{contrato.numero if contrato else ''} · {c.competencia.strftime('%m/%Y')}"
+        item.locatario = inquilino.nome if inquilino else ""
+        if c.status == StatusCobranca.paga:
+            item.situacao, item.mensagem = "ja_paga", "A cobrança já estava paga."
+            continue
+        if c.status == StatusCobranca.cancelada:
+            item.situacao, item.mensagem = "divergente", "A cobrança está cancelada; confira."
+            continue
+        total = _cobranca_total(c)
+        if p.valor_pago + 0.009 < total:
+            item.situacao = "divergente"
+            item.mensagem = f"Pago R$ {p.valor_pago:.2f}, menor que a cobrança (R$ {total:.2f}); dê baixa à mão."
+            continue
+        item.situacao = "aplicada" if e.aplicar else "baixar"
+        item.mensagem = "Baixa feita." if e.aplicar else "Será marcada como paga."
+        baixas += 1
+        if e.aplicar:
+            c.status = StatusCobranca.paga
+            c.data_pagamento = p.data_credito or agora().date()
+            c.valor_pago = p.valor_pago
+            b.situacao = "Liquidado"
+    if e.aplicar:
+        db.commit()
+    return s.ResultadoRetorno(arquivo_linhas=arq.linhas, aplicado=e.aplicar, itens=itens, baixas=baixas)
