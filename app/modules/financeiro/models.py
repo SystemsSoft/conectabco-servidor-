@@ -142,3 +142,27 @@ class ConfiguracaoFinanceira(Base):
     )
     # Link do internet banking, aberto pelo botão "Abrir banco" do Financeiro.
     link_banco: Mapped[str] = mapped_column(sa.String(300), default="")
+
+
+class PastaDocumento(_Auditoria, Base):
+    """Pasta do gerenciador de documentos do Financeiro (boletos baixados do
+    banco, relatórios e outros)."""
+
+    __tablename__ = "pastas_documentos"
+
+    id: Mapped[str] = mapped_column(sa.String(36), primary_key=True, default=_uuid)
+    nome: Mapped[str] = mapped_column(sa.String(100))
+
+
+class DocumentoFinanceiro(_Auditoria, Base):
+    """Documento guardado numa pasta. O conteúdo fica em `arquivos`; o nome
+    é o título exibido, editável sem mexer no arquivo."""
+
+    __tablename__ = "documentos_financeiro"
+
+    id: Mapped[str] = mapped_column(sa.String(36), primary_key=True, default=_uuid)
+    pasta_id: Mapped[str] = mapped_column(
+        sa.ForeignKey("pastas_documentos.id", ondelete="CASCADE"), index=True
+    )
+    nome: Mapped[str] = mapped_column(sa.String(255))
+    arquivo_id: Mapped[str] = mapped_column(sa.String(36), index=True)

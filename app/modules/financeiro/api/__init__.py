@@ -192,3 +192,9 @@ def obter_configuracao(svc: Configuracao):
 @router.put("/configuracao", tags=_t, response_model=s.ConfiguracaoFinanceira)
 def salvar_configuracao(dados: s.ConfiguracaoFinanceira, svc: Configuracao):
     return svc.salvar(dados)
+
+
+# ------------------------------------------------------ Pastas e documentos
+from app.modules.financeiro.api import documentos as _documentos  # noqa: E402
+
+router.include_router(_documentos.router)

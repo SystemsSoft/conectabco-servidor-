@@ -114,3 +114,28 @@ class ConfiguracaoFinanceira(Esquema):
     juros_mes_percentual: float = 1
     indice_padrao: IndiceMonetario = IndiceMonetario.nenhum
     link_banco: Annotated[str, Field(max_length=300, pattern=r"^(https://.*)?$")] = ""
+
+
+# ---------------------------------------------------- Pastas e documentos
+
+
+class PastaEntrada(Esquema):
+    nome: Texto(100)
+
+
+class PastaSaida(PastaEntrada, _Auditoria):
+    documentos: int = Field(0, description="Quantidade de documentos na pasta")
+
+
+class DocumentoEntrada(Esquema):
+    """Renomeia o documento e/ou o move para outra pasta."""
+
+    nome: Texto(255)
+    pasta_id: str
+
+
+class DocumentoSaida(DocumentoEntrada, _Auditoria):
+    arquivo_id: str
+    arquivo_nome: str = Field(description="Nome do arquivo enviado")
+    tipo_mime: str
+    tamanho: int
