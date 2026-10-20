@@ -10,6 +10,17 @@ def _conta(client, nome="Itaú Empresa") -> str:
     return id
 
 
+def test_conta_bancaria_guarda_o_link_do_banco(client):
+    id = novo_id()
+    link = "https://www.itau.com.br/empresas"
+    r = client.put(f"{URL}/contas-bancarias/{id}", json={"nome": "Itaú", "linkInternetBanking": link})
+    assert r.status_code == 201
+    assert r.json()["linkInternetBanking"] == link
+    assert client.put(f"{URL}/contas-bancarias/{id}", json={"nome": "Itaú"}).json()["linkInternetBanking"] == ""
+    erro = client.put(f"{URL}/contas-bancarias/{id}", json={"nome": "Itaú", "linkInternetBanking": "http://x.com"})
+    assert erro.status_code == 422
+
+
 def _lanc(**extra):
     return {"tipo": "receber", "descricao": "Comissão", "valor": 5000,
             "vencimento": "2026-10-10", **extra}  # fmt: skip

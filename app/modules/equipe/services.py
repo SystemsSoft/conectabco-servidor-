@@ -17,6 +17,14 @@ _EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 # Letras (com acento), números, ponto, hífen e sublinhado; sem espaços.
 _LOGIN = re.compile(r"^[A-Za-zÀ-ÖØ-öø-ÿ0-9._-]{3,60}$")
 SENHA_MINIMA = 8
+# Espaços e caracteres invisíveis que vêm junto ao copiar e colar (quebra de
+# linha, espaço sem quebra, espaço de largura zero, marcas de direção).
+_BORDA = re.compile(r"^[\s\u200b-\u200f\u2060\ufeff]+|[\s\u200b-\u200f\u2060\ufeff]+$")
+
+
+def aparar(texto: str) -> str:
+    """Tira das pontas o que o usuário não digitou de propósito."""
+    return _BORDA.sub("", texto)
 
 
 def configuracao(db: Session) -> m.ConfiguracaoSeguranca:
@@ -47,7 +55,7 @@ def _validar_login(login: str) -> None:
 
 def _por_login(db: Session, login: str) -> m.Usuario | None:
     return db.scalar(
-        sa.select(m.Usuario).where(sa.func.lower(m.Usuario.login) == login.strip().lower())
+        sa.select(m.Usuario).where(sa.func.lower(m.Usuario.login) == aparar(login).lower())
     )
 
 
@@ -89,7 +97,7 @@ def sessoes_ativas(db: Session) -> list[m.Sessao]:
 
 def entrar(db: Session, dados: s.Login, dispositivo: str) -> s.LoginSaida:
     u = _por_login(db, dados.usuario)
-    if u is None or not verificar_senha(dados.senha, u.senha_hash):
+    if u is None or not verificar_senha(aparar(dados.senha), u.senha_hash):
         raise RegraNegocio("Usuário ou senha incorretos.")
     if not u.ativo:
         raise RegraNegocio("Este usuário está desativado.")
@@ -118,10 +126,11 @@ def sair(db: Session, usuario: m.Usuario, sessao_id: str | None) -> None:
 
 
 def alterar_senha(db: Session, usuario: m.Usuario, dados: s.AlterarSenha) -> None:
-    if not verificar_senha(dados.senha_atual, usuario.senha_hash):
+    if not verificar_senha(aparar(dados.senha_atual), usuario.senha_hash):
         raise RegraNegocio("A senha atual não confere.")
-    _validar_senha(dados.nova_senha)
-    usuario.senha_hash = hash_senha(dados.nova_senha)
+    nova = aparar(dados.nova_senha)
+    _validar_senha(nova)
+    usuario.senha_hash = hash_senha(nova)
     registrar(db, usuario.id, TipoAtividade.edicao, "Alterou a própria senha",
               ModuloSistema.equipeSeguranca)  # fmt: skip
     db.commit()
@@ -142,7 +151,8 @@ def salvar_usuario(db: Session, id: str, d: s.UsuarioEntrada, autor: m.Usuario):
     id = validar_id(id)
     if not d.nome.strip():
         raise RegraNegocio("Informe o nome.")
-    login = d.login.strip()
+    login = aparar(d.login)
+    senha = aparar(d.senha or "")
     _validar_login(login)
     outro = _por_login(db, login)
     if outro is not None and outro.id != id:
@@ -153,7 +163,7 @@ def salvar_usuario(db: Session, id: str, d: s.UsuarioEntrada, autor: m.Usuario):
     u = db.get(m.Usuario, id)
     criado = u is None
     if criado:
-        if not d.senha:
+        if not senha:
             raise RegraNegocio("Defina uma senha para o novo usuário.")
         u = m.Usuario(id=id)
         db.add(u)
@@ -165,9 +175,9 @@ def salvar_usuario(db: Session, id: str, d: s.UsuarioEntrada, autor: m.Usuario):
             raise RegraNegocio("Mantenha ao menos um administrador ativo.")
         if u.ativo and not d.ativo:
             db.execute(sa.delete(m.Sessao).where(m.Sessao.usuario_id == id))
-    if d.senha:
-        _validar_senha(d.senha)
-        u.senha_hash = hash_senha(d.senha)
+    if senha:
+        _validar_senha(senha)
+        u.senha_hash = hash_senha(senha)
     for campo, valor in d.model_dump(exclude={"senha", "permissoes"}).items():
         setattr(u, campo, valor)
     u.login = login
@@ -213,7 +223,8 @@ def criar_administrador(
     """Usado pelo gerenciar.py para o primeiro acesso (ou redefinir a senha)."""
     from app.modules.equipe.enums import PerfilAcesso, permissoes_do_perfil
 
-    login = login.strip()
+    login = aparar(login)
+    senha = aparar(senha)
     _validar_login(login)
     _validar_senha(senha)
     email = email.strip().lower()

@@ -48,6 +48,18 @@ def test_login_e_rotas_protegidas(cliente_anonimo):
     assert (r.status_code, r.json()["detail"]) == (401, "Sua sessão foi encerrada. Entre novamente.")
 
 
+def test_login_ignora_espacos_colados_nas_pontas(cliente_anonimo):
+    # Copiar e colar costuma trazer espaço, quebra de linha, tabulação,
+    # espaço sem quebra e espaço de largura zero.
+    sujeiras = [" ", "\n", "\t", "\u00a0", "\u200b", "\ufeff", " \r\n"]
+    for x in sujeiras:
+        r = _entrar(cliente_anonimo, f"{x}{ADMIN['usuario']}{x}", f"{x}{ADMIN['senha']}{x}")
+        assert r.status_code == 200, (repr(x), r.text)
+    # Espaço no meio continua contando.
+    meio = ADMIN["senha"][:4] + " " + ADMIN["senha"][4:]
+    assert _entrar(cliente_anonimo, ADMIN["usuario"], meio).status_code != 200
+
+
 def test_permissoes_por_modulo(client):
     _usuario(client)
     r = _entrar(client, "corretor")

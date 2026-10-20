@@ -452,10 +452,13 @@ Com `aplicar=false` devolve a prévia; com `aplicar=true` marca como pagas as
 cobranças do aluguel dos boletos liquidados (movimentos 06 e 17), pelo nosso
 número. Pagamento menor que a cobrança, boleto desconhecido ou cobrança
 cancelada não são baixados (ficam para conferir). Reenviar o mesmo arquivo
-não paga de novo. No menu do app, **Abrir Sicoob** abre o login do Sicoobnet
-(https://ib.sicoob.com.br/sicoobnet/ib/#/login) em outra aba; o banco não
-permite embutir o site. Financeiro e Integração Sicoob saíram do menu (as
-telas continuam no código; os atalhos do dashboard ainda abrem o Financeiro).
+não paga de novo.
+
+**Situação atual:** a API não é mais usada. A integração com o Sicoob é só o
+botão **Abrir Sicoob** no topo do Financeiro, que abre o login do Sicoobnet
+(https://ib.sicoob.com.br/sicoobnet/ib/#/login) em outra aba (o banco não
+permite embutir o site). A tela Integração Sicoob saiu do menu; o código e
+as rotas acima continuam, sem uso.
 O token do Sandbox fica só no banco do servidor e nunca volta na API.
 
 ## Rotas – Manutenção
