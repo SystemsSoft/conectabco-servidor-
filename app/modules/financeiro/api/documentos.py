@@ -32,6 +32,19 @@ def remover_pasta(id: str, svc: Documentos) -> None:
     svc.remover_pasta(id)
 
 
+@router.put("/pastas/{id}/compartilhamento", tags=_t, response_model=s.PastaSaida)
+def compartilhar_pasta(id: str, dados: s.Compartilhamento, svc: Documentos):
+    """Define quais inquilinos e proprietários veem a pasta na área deles
+    do portal (lista vazia deixa a pasta só para a equipe)."""
+    return svc.compartilhar(id, dados)
+
+
+@router.get("/destinatarios", tags=_t, response_model=list[s.Destinatario])
+def destinatarios(svc: Documentos):
+    """Inquilinos e proprietários que podem receber pastas."""
+    return svc.destinatarios()
+
+
 @router.get("/pastas/{id}/documentos", tags=_t, response_model=list[s.DocumentoSaida])
 def listar_documentos(id: str, svc: Documentos):
     return svc.listar(id)

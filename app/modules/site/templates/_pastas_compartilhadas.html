@@ -1,0 +1,17 @@
+{# Pastas do Financeiro compartilhadas com o inquilino ou o proprietário. #}
+{% macro lista(pastas, rota, data) -%}
+  {% for p in pastas %}
+  <div class="painel revelar">
+    <h2>{{ p.nome }}</h2>
+    {% if p.documentos %}
+    <ul class="lista">{% for d in p.documentos %}
+      <li class="item"><span class="ic">{{ c.icone("doc") }}</span>
+        <div class="txt"><strong>{{ d.nome }}</strong><small>{{ d.arquivo }} · {{ ((d.tamanho / 1024)|round(0, "ceil"))|int }} KB · atualizado em {{ data(d.atualizado_em) }}</small></div>
+        <div class="acoes">
+          <a class="btn btn-contorno btn-p" href="{{ rota }}/{{ d.id }}" target="_blank" rel="noopener">Abrir</a>
+        </div></li>{% endfor %}
+    </ul>
+    {% else %}<p class="vazio-p">Nenhum documento nesta pasta ainda.</p>{% endif %}
+  </div>
+  {% endfor %}
+{%- endmacro %}

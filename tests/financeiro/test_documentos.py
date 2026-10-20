@@ -1,8 +1,18 @@
-from tests.apoio import novo_id
+import re
+
+import pytest
+
+from app.core.config import get_settings
+from tests.apoio import contato, imovel, novo_id
 
 URL = "/api/v1/financeiro"
 PDF = b"%PDF-1.4 boleto"
 XLSX = b"PK\x03\x04 planilha"
+
+
+@pytest.fixture(autouse=True)
+def pasta_arquivos(tmp_path, monkeypatch):
+    monkeypatch.setattr(get_settings(), "arquivos_dir", str(tmp_path))
 
 
 def _pasta(client, nome="Boletos") -> str:
@@ -75,3 +85,78 @@ def test_documentos_nao_sao_apagados_como_orfaos(client, banco):
     with banco() as db:
         limpar_orfaos(db, carencia=timedelta(0))
     assert client.get(f"/api/v1/arquivos/{arquivo}").status_code == 200
+
+
+# ------------------------------------------------------------ Compartilhamento
+
+
+def _entrar_proprietario(client, dono, cpf):
+    senha = client.post(f"/api/v1/auditorias/proprietarios/{dono}/acesso").json()["senha"]
+    client.post("/proprietario/entrar", data={"documento": cpf, "senha": senha})
+    csrf = re.search(r'name="csrf" value="([^"]+)"', client.get("/proprietario/senha").text).group(1)
+    client.post("/proprietario/senha", data={"atual": senha, "nova": "senha-do-dono-1",
+                                             "repetida": "senha-do-dono-1", "csrf": csrf})  # fmt: skip
+
+
+def _entrar_inquilino(client, inquilino, cpf):
+    senha = client.post(f"/api/v1/portal-inquilino/acessos/{inquilino}").json()["senha"]
+    client.post("/inquilino/entrar", data={"documento": cpf, "senha": senha})
+    csrf = re.search(r'name="csrf" value="([^"]+)"', client.get("/inquilino/senha").text).group(1)
+    client.post("/inquilino/senha", data={"atual": senha, "nova": "senha-nova-123",
+                                          "repetida": "senha-nova-123", "csrf": csrf})  # fmt: skip
+
+
+def test_compartilhar_pasta_com_inquilinos_e_proprietarios(client):
+    dono = contato(client, "Roberto Dono", documento="111.444.777-35", papeis=["proprietario"])
+    inquilina = contato(client, "Ana Inquilina", documento="529.982.247-25", papeis=["locatario"])
+    lead = contato(client, "Lead Qualquer", papeis=["lead"])
+    r = client.put(f"/api/v1/locacao/contratos/{novo_id()}", json={
+        "imovelId": imovel(client, finalidades=["locacao"]), "locatarioId": inquilina,
+        "beneficiarios": [{"contatoId": dono, "percentual": 100}],
+        "dataInicio": "2026-01-01", "valorAluguel": 3000, "diaVencimento": 10})  # fmt: skip
+    assert r.status_code == 201, r.text
+
+    dest = {d["nome"]: d for d in client.get(f"{URL}/destinatarios").json()}
+    assert set(dest) == {"Roberto Dono", "Ana Inquilina"}
+    assert (dest["Roberto Dono"]["proprietario"], dest["Roberto Dono"]["inquilino"]) == (True, False)
+    assert dest["Ana Inquilina"]["inquilino"] and not dest["Ana Inquilina"]["acessoInquilino"]
+
+    boletos, privada = _pasta(client, "Boletos"), _pasta(client, "Interna")
+    doc = _enviar(client, boletos).json()["id"]
+    interno = _enviar(client, privada, "Interno.pdf").json()["id"]
+
+    url = f"{URL}/pastas/{boletos}/compartilhamento"
+    assert client.put(url, json={"contatoIds": [lead]}).json()["detail"] == (
+        "O contato escolhido não é inquilino nem proprietário."
+    )
+    r = client.put(url, json={"contatoIds": [dono, inquilina]})
+    assert r.status_code == 200, r.text
+    assert set(r.json()["compartilhadaCom"]) == {dono, inquilina}
+    pastas = {p["nome"]: p for p in client.get(f"{URL}/pastas").json()}
+    assert set(pastas["Boletos"]["compartilhadaCom"]) == {dono, inquilina}
+    assert pastas["Interna"]["compartilhadaCom"] == []
+
+    # Na Área do proprietário: só a pasta compartilhada e os documentos dela.
+    _entrar_proprietario(client, dono, "111.444.777-35")
+    pagina = client.get("/proprietario/documentos").text
+    assert "Boletos" in pagina and "Boleto Outubro" in pagina and "Interna" not in pagina
+    assert client.get(f"/proprietario/documento/{doc}").content == PDF
+    assert client.get(f"/proprietario/documento/{interno}").status_code == 404
+
+    # Na Área do inquilino: a pasta aparece em Documentos.
+    _entrar_inquilino(client, inquilina, "529.982.247-25")
+    pagina = client.get("/inquilino/documentos").text
+    assert "Boletos" in pagina and f"/inquilino/documento/{doc}" in pagina and "Interna" not in pagina
+    assert client.get(f"/inquilino/documento/{doc}").content == PDF
+    assert client.get(f"/inquilino/documento/{interno}").status_code == 404
+
+    # Tirar da lista corta o acesso na hora.
+    assert client.put(url, json={"contatoIds": [inquilina]}).json()["compartilhadaCom"] == [inquilina]
+    assert client.get(f"/proprietario/documento/{doc}").status_code == 404
+    assert client.get(f"/inquilino/documento/{doc}").status_code == 200
+    assert "Nenhum documento foi compartilhado" in client.get("/proprietario/documentos").text
+
+    # Excluir a pasta apaga o compartilhamento junto.
+    assert client.delete(f"{URL}/pastas/{boletos}").status_code == 204
+    assert client.get(f"/inquilino/documento/{doc}").status_code == 404
+    assert "Boleto Outubro" not in client.get("/inquilino/documentos").text

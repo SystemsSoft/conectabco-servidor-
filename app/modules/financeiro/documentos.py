@@ -45,10 +45,67 @@ class DocumentoService:
         linhas = self.db.execute(
             sa.select(m.PastaDocumento, contagem).order_by(m.PastaDocumento.nome)
         ).all()
+        compartilhadas: dict[str, list[str]] = {}
+        for pasta_id, contato_id in self.db.execute(
+            sa.select(m.CompartilhamentoPasta.pasta_id, m.CompartilhamentoPasta.contato_id)
+        ):
+            compartilhadas.setdefault(pasta_id, []).append(contato_id)
         return [
-            s.PastaSaida.model_validate(p).model_copy(update={"documentos": n})
+            s.PastaSaida.model_validate(p).model_copy(
+                update={"documentos": n, "compartilhada_com": compartilhadas.get(p.id, [])}
+            )
             for p, n in linhas
         ]
+
+    def destinatarios(self) -> list[s.Destinatario]:
+        """Inquilinos e proprietários (pelo papel no cadastro ou por já terem
+        acesso ao portal), com a situação do login de cada um."""
+        from app.modules.crm.enums import PapelContato
+        from app.modules.crm.models import Contato, ContatoPapel
+        from app.modules.inquilino.models import AcessoInquilino
+        from app.modules.proprietario.models import AcessoProprietario
+
+        papeis: dict[str, set[PapelContato]] = {}
+        for contato_id, papel in self.db.execute(
+            sa.select(ContatoPapel.contato_id, ContatoPapel.papel).where(
+                ContatoPapel.papel.in_([PapelContato.locatario, PapelContato.proprietario])
+            )
+        ):
+            papeis.setdefault(contato_id, set()).add(papel)
+        inq = dict(self.db.execute(sa.select(AcessoInquilino.contato_id, AcessoInquilino.ativo)).all())
+        prop = dict(self.db.execute(sa.select(AcessoProprietario.contato_id, AcessoProprietario.ativo)).all())
+        ids = set(papeis) | set(inq) | set(prop)
+        if not ids:
+            return []
+        contatos = self.db.scalars(sa.select(Contato).where(Contato.id.in_(ids)).order_by(Contato.nome))
+        return [
+            s.Destinatario(
+                id=c.id,
+                nome=c.nome,
+                documento=c.documento,
+                inquilino=PapelContato.locatario in papeis.get(c.id, ()) or c.id in inq,
+                proprietario=PapelContato.proprietario in papeis.get(c.id, ()) or c.id in prop,
+                acesso_inquilino=bool(inq.get(c.id)),
+                acesso_proprietario=bool(prop.get(c.id)),
+            )
+            for c in contatos
+        ]
+
+    def compartilhar(self, pasta_id: str, dados: s.Compartilhamento) -> s.PastaSaida:
+        pasta = self._pasta(pasta_id)
+        ids = set(dados.contato_ids)
+        validos = {d.id for d in self.destinatarios()}
+        if fora := ids - validos:
+            raise RegraNegocio(
+                f"{len(fora)} contato(s) não é inquilino nem proprietário."
+                if len(fora) > 1 else "O contato escolhido não é inquilino nem proprietário."
+            )
+        self.db.execute(
+            sa.delete(m.CompartilhamentoPasta).where(m.CompartilhamentoPasta.pasta_id == pasta.id)
+        )
+        self.db.add_all(m.CompartilhamentoPasta(pasta_id=pasta.id, contato_id=i) for i in ids)
+        self.db.commit()
+        return self._pasta_saida(pasta)
 
     def salvar_pasta(self, id: str, dados: s.PastaEntrada) -> tuple[s.PastaSaida, bool]:
         id = validar_id(id)
@@ -79,6 +136,9 @@ class DocumentoService:
         ):
             self._apagar_arquivo(d.arquivo_id)
             self.db.delete(d)
+        self.db.execute(
+            sa.delete(m.CompartilhamentoPasta).where(m.CompartilhamentoPasta.pasta_id == pasta.id)
+        )
         self.db.delete(pasta)
         self.db.commit()
 
@@ -160,7 +220,14 @@ class DocumentoService:
         n = self.db.scalar(
             sa.select(sa.func.count()).where(m.DocumentoFinanceiro.pasta_id == p.id)
         )
-        return s.PastaSaida.model_validate(p).model_copy(update={"documentos": n or 0})
+        com = self.db.scalars(
+            sa.select(m.CompartilhamentoPasta.contato_id).where(
+                m.CompartilhamentoPasta.pasta_id == p.id
+            )
+        ).all()
+        return s.PastaSaida.model_validate(p).model_copy(
+            update={"documentos": n or 0, "compartilhada_com": list(com)}
+        )
 
     @staticmethod
     def _saida(d: m.DocumentoFinanceiro, a: Arquivo | None) -> s.DocumentoSaida:
@@ -175,3 +242,39 @@ class DocumentoService:
             criado_em=d.criado_em,
             atualizado_em=d.atualizado_em,
         )
+
+
+# ------------------------------------------------------- Portais (inquilino e proprietário)
+
+
+def pastas_do_contato(db: Session, contato_id: str) -> list[dict]:
+    """Pastas compartilhadas com o contato, cada uma com os documentos."""
+    pastas = db.scalars(
+        sa.select(m.PastaDocumento)
+        .join(m.CompartilhamentoPasta, m.CompartilhamentoPasta.pasta_id == m.PastaDocumento.id)
+        .where(m.CompartilhamentoPasta.contato_id == contato_id)
+        .order_by(m.PastaDocumento.nome)
+    ).all()
+    if not pastas:
+        return []
+    docs: dict[str, list[dict]] = {p.id: [] for p in pastas}
+    for d, a in db.execute(
+        sa.select(m.DocumentoFinanceiro, Arquivo)
+        .join(Arquivo, Arquivo.id == m.DocumentoFinanceiro.arquivo_id)
+        .where(m.DocumentoFinanceiro.pasta_id.in_(docs))
+        .order_by(m.DocumentoFinanceiro.nome)
+    ).all():
+        docs[d.pasta_id].append({"id": d.id, "nome": d.nome, "arquivo": a.nome,
+                                 "tamanho": a.tamanho, "atualizado_em": d.atualizado_em})  # fmt: skip
+    return [{"id": p.id, "nome": p.nome, "documentos": docs[p.id]} for p in pastas]
+
+
+def documento_do_contato(db: Session, contato_id: str, documento_id: str) -> Arquivo:
+    """O arquivo, só se a pasta do documento foi compartilhada com o contato."""
+    d = db.get(m.DocumentoFinanceiro, documento_id)
+    if d is None or db.get(m.CompartilhamentoPasta, (d.pasta_id, contato_id)) is None:
+        raise NaoEncontrado("Arquivo não encontrado.")
+    a = db.get(Arquivo, d.arquivo_id)
+    if a is None or not arquivos.caminho(a.id).is_file():
+        raise NaoEncontrado("Arquivo não encontrado.")
+    return a

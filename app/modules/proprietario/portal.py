@@ -19,6 +19,7 @@ from app.modules.arquivos.models import Arquivo
 from app.modules.arquivos.services import caminho as caminho_arquivo
 from app.modules.auditoria import relatorio
 from app.modules.crm.models import Contato, Imovel
+from app.modules.financeiro.documentos import documento_do_contato, pastas_do_contato
 from app.modules.inquilino.services import site_seguro
 from app.modules.manutencao.enums import StatusManutencao
 from app.modules.proprietario import services as s
@@ -215,6 +216,25 @@ def auditoria(auditoria_id: str, request: Request, db: Db):
 def manutencoes(request, db, ctx):
     return {"manutencoes": s.manutencoes(db, ctx["acesso"].contato_id),
             "imoveis_todos": {i.id: i for i in s.imoveis_do(db, ctx["acesso"].contato_id)}}  # fmt: skip
+
+
+@router.get("/documentos")
+@_pagina("proprietario/documentos.html", "documentos")
+def documentos(request, db, ctx):
+    return {"pastas": pastas_do_contato(db, ctx["acesso"].contato_id)}
+
+
+@router.get("/documento/{id}")
+def documento_compartilhado(id: str, request: Request, db: Db):
+    """Documento de uma pasta do Financeiro compartilhada com o proprietário."""
+    try:
+        acesso = _acesso(request, db)
+        a = documento_do_contato(db, acesso.contato_id, id)
+    except _Redirecionar as r:
+        return _ir(r.destino)
+    except NaoEncontrado:
+        return Response("Arquivo não encontrado.", status_code=404)
+    return resposta_arquivo(a)
 
 
 @router.get("/midia/{midia_id}")

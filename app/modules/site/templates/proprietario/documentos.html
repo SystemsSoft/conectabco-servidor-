@@ -1,0 +1,11 @@
+{% extends "proprietario/_layout.html" %}
+{% import "_componentes.html" as c with context %}
+{% import "_pastas_compartilhadas.html" as pc with context %}
+{% import "proprietario/_macros.html" as x %}
+{% block portal %}
+{% if pastas %}
+{{ pc.lista(pastas, "/proprietario/documento", x.data) }}
+{% else %}
+<div class="painel"><h2>Documentos</h2><p class="vazio-p">Nenhum documento foi compartilhado com você ainda.</p></div>
+{% endif %}
+{% endblock %}

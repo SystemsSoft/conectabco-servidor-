@@ -1,12 +1,13 @@
 """Tabelas do Financeiro."""
 
-from datetime import date
+from datetime import date, datetime
 
 import sqlalchemy as sa
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
 from app.core.enums import coluna_enum
+from app.core.tempo import agora
 from app.modules.crm.models import _Auditoria, _Dinheiro, _uuid
 from app.modules.financeiro.enums import (
     IndiceMonetario,
@@ -166,3 +167,18 @@ class DocumentoFinanceiro(_Auditoria, Base):
     )
     nome: Mapped[str] = mapped_column(sa.String(255))
     arquivo_id: Mapped[str] = mapped_column(sa.String(36), index=True)
+
+
+class CompartilhamentoPasta(Base):
+    """Inquilino ou proprietário que vê a pasta (e os documentos dela) na
+    própria área do portal."""
+
+    __tablename__ = "compartilhamentos_pasta"
+
+    pasta_id: Mapped[str] = mapped_column(
+        sa.ForeignKey("pastas_documentos.id", ondelete="CASCADE"), primary_key=True
+    )
+    contato_id: Mapped[str] = mapped_column(
+        sa.ForeignKey("contatos.id", ondelete="CASCADE"), primary_key=True, index=True
+    )
+    criado_em: Mapped[datetime] = mapped_column(sa.DateTime, default=agora)

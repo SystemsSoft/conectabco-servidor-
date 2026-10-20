@@ -125,6 +125,27 @@ class PastaEntrada(Esquema):
 
 class PastaSaida(PastaEntrada, _Auditoria):
     documentos: int = Field(0, description="Quantidade de documentos na pasta")
+    compartilhada_com: list[str] = Field(
+        default_factory=list, description="Contatos (inquilinos/proprietários) que veem a pasta"
+    )
+
+
+class Compartilhamento(Esquema):
+    """Substitui a lista de quem vê a pasta (vazia = só a equipe)."""
+
+    contato_ids: list[str] = Field(max_length=500)
+
+
+class Destinatario(Esquema):
+    """Inquilino ou proprietário que pode receber uma pasta."""
+
+    id: str
+    nome: str
+    documento: str
+    inquilino: bool
+    proprietario: bool
+    acesso_inquilino: bool = Field(description="Tem login ativo na Área do inquilino")
+    acesso_proprietario: bool = Field(description="Tem login ativo na Área do proprietário")
 
 
 class DocumentoEntrada(Esquema):

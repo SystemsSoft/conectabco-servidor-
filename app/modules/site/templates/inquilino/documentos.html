@@ -1,6 +1,7 @@
 {% extends "inquilino/_layout.html" %}
 {% import "_componentes.html" as c with context %}
 {% import "inquilino/_macros.html" as x %}
+{% import "_pastas_compartilhadas.html" as pc with context %}
 {% macro lista_docs(itens, vazio) -%}
   {% if itens %}
   <ul class="lista">{% for a in itens %}
@@ -18,6 +19,7 @@
     <div class="painel revelar"><h2>Contrato de locação</h2>{{ lista_docs(grupos.contrato, "A via digital do contrato ainda não foi publicada pela imobiliária.") }}</div>
     <div class="painel revelar"><h2>Laudo de vistoria</h2>{{ lista_docs(grupos.vistoria, "O laudo de vistoria ainda não foi publicado.") }}</div>
     <div class="painel revelar"><h2>Outros documentos</h2>{{ lista_docs(grupos.documento, "Nenhum outro documento.") }}</div>
+    {{ pc.lista(pastas, "/inquilino/documento", x.data) }}
   </div>
   <div>
     <div class="painel revelar">

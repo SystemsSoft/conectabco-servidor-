@@ -14,7 +14,9 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.errors import NaoEncontrado, RegraNegocio
 from app.core.tempo import agora
+from app.modules.arquivos.api import resposta_arquivo
 from app.modules.crm.models import Contato, Imovel
+from app.modules.financeiro.documentos import documento_do_contato, pastas_do_contato
 from app.modules.inquilino import models as m
 from app.modules.inquilino import services as s
 from app.modules.inquilino.enums import TipoArquivoContrato
@@ -233,7 +235,21 @@ def documentos(request, db, ctx):
         "documento": [a for a in todos if a.tipo == TipoArquivoContrato.documento],
         "enviados": [a for a in todos if a.tipo == TipoArquivoContrato.estadoImovel],
     }
-    return {"grupos": grupos, "categorias": s.categorias(db, grupos["enviados"])}
+    return {"grupos": grupos, "categorias": s.categorias(db, grupos["enviados"]),
+            "pastas": pastas_do_contato(db, ctx["acesso"].contato_id)}  # fmt: skip
+
+
+@router.get("/documento/{id}")
+def documento_compartilhado(id: str, request: Request, db: Db):
+    """Documento de uma pasta do Financeiro compartilhada com o inquilino."""
+    try:
+        acesso = _acesso(request, db)
+        a = documento_do_contato(db, acesso.contato_id, id)
+    except _Redirecionar as r:
+        return _ir(r.destino)
+    except NaoEncontrado:
+        return Response("Arquivo não encontrado.", status_code=404)
+    return resposta_arquivo(a)
 
 
 @router.post("/documentos")
