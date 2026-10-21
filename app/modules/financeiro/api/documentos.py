@@ -63,6 +63,12 @@ def salvar_documento(id: str, dados: s.DocumentoEntrada, svc: Documentos):
     return svc.salvar(id, dados)
 
 
+@router.post("/documentos/{id}/duplicar", tags=_t, response_model=s.DocumentoSaida, status_code=201)
+def duplicar_documento(id: str, svc: Documentos, usuario: UsuarioLogado):
+    """Cria uma cópia na mesma pasta, com o sufixo "(cópia)" no nome."""
+    return svc.duplicar(id, usuario.id)
+
+
 @router.post("/documentos/{id}/arquivo", tags=_t, response_model=s.DocumentoSaida)
 def substituir_arquivo(id: str, arquivo: UploadFile, svc: Documentos, usuario: UsuarioLogado):
     """Troca o arquivo do documento (o antigo é apagado)."""

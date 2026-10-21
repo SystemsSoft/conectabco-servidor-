@@ -177,6 +177,31 @@ class DocumentoService:
         self.db.commit()
         return self._saida(d, self.db.get(Arquivo, d.arquivo_id))
 
+    def duplicar(self, id: str, usuario_id: str) -> s.DocumentoSaida:
+        """Cópia na mesma pasta, com o arquivo copiado e o sufixo "(cópia)"
+        no nome ("(cópia 2)", "(cópia 3)"... se já existir)."""
+        d = self._documento(id)
+        original = self.db.get(Arquivo, d.arquivo_id)
+        caminho = arquivos.caminho(d.arquivo_id)
+        if original is None or not caminho.is_file():
+            raise NaoEncontrado("Arquivo não encontrado.")
+        nomes = set(self.db.scalars(
+            sa.select(m.DocumentoFinanceiro.nome).where(m.DocumentoFinanceiro.pasta_id == d.pasta_id)
+        ))  # fmt: skip
+        n = 1
+        sufixo = " (cópia)"
+        while f"{d.nome}{sufixo}"[:255] in nomes:
+            n += 1
+            sufixo = f" (cópia {n})"
+        nome = f"{d.nome[: 255 - len(sufixo)]}{sufixo}"
+        base = Path(original.nome)
+        with caminho.open("rb") as conteudo:
+            a = arquivos.salvar(self.db, conteudo, f"{base.stem}{sufixo}{base.suffix}", "arquivo", usuario_id)
+        copia = m.DocumentoFinanceiro(pasta_id=d.pasta_id, nome=nome, arquivo_id=a.id)
+        self.db.add(copia)
+        self.db.commit()
+        return self._saida(copia, a)
+
     def substituir(
         self, id: str, conteudo: BinaryIO, nome_arquivo: str, usuario_id: str
     ) -> s.DocumentoSaida:

@@ -194,3 +194,25 @@ def test_acesso_ao_portal_sem_contrato_so_com_cpf(client):
     assert "Avaliações" in pagina and "Laudo" in pagina and "Fotos e vídeos" not in pagina
     assert client.get("/inquilino/avisos").status_code == 200
     assert client.get(f"/inquilino/documento/{doc}").content == PDF
+
+
+def test_duplicar_documento(client):
+    pasta = _pasta(client)
+    doc = _enviar(client, pasta, "Liquidação 20102026.pdf").json()
+    url = f"{URL}/documentos/{doc['id']}/duplicar"
+
+    r = client.post(url)
+    assert r.status_code == 201, r.text
+    copia = r.json()
+    assert (copia["nome"], copia["arquivoNome"], copia["pastaId"]) == (
+        "Liquidação 20102026 (cópia)", "Liquidação 20102026 (cópia).pdf", pasta)
+    assert copia["arquivoId"] != doc["arquivoId"] and copia["tamanho"] == doc["tamanho"]
+    assert client.post(url).json()["nome"] == "Liquidação 20102026 (cópia 2)"
+
+    # A cópia é independente: excluir o original não apaga o arquivo dela.
+    assert client.delete(f"{URL}/documentos/{doc['id']}").status_code == 204
+    links = client.post("/api/v1/arquivos/links", json={"ids": [copia["arquivoId"]]}).json()
+    assert client.get(links[copia["arquivoId"]]).content == PDF
+    assert {d["nome"] for d in client.get(f"{URL}/pastas/{pasta}/documentos").json()} == {
+        "Liquidação 20102026 (cópia)", "Liquidação 20102026 (cópia 2)"}
+    assert client.post(f"{URL}/documentos/{novo_id()}/duplicar").status_code == 404
