@@ -160,3 +160,37 @@ def test_compartilhar_pasta_com_inquilinos_e_proprietarios(client):
     assert client.delete(f"{URL}/pastas/{boletos}").status_code == 204
     assert client.get(f"/inquilino/documento/{doc}").status_code == 404
     assert "Boleto Outubro" not in client.get("/inquilino/documentos").text
+
+
+def test_acesso_ao_portal_sem_contrato_so_com_cpf(client):
+    """Inquilino e proprietário sem contrato: basta o CPF/CNPJ para liberar,
+    e eles veem as pastas compartilhadas."""
+    inq = contato(client, "Igor Interessado", documento="529.982.247-25", papeis=["locatario"])
+    dono = contato(client, "Olga Proprietária", documento="111.444.777-35", papeis=["proprietario"])
+    sem_cpf = contato(client, "Sem Documento", papeis=["proprietario"])
+    assert client.post(f"/api/v1/auditorias/proprietarios/{sem_cpf}/acesso").json()["detail"].startswith(
+        "Cadastre o CPF"
+    )
+
+    pasta = _pasta(client, "Avaliações")
+    doc = _enviar(client, pasta, "Laudo.pdf").json()["id"]
+    client.put(f"{URL}/pastas/{pasta}/compartilhamento", json={"contatoIds": [inq, dono]})
+
+    # Proprietário sem contrato aparece na lista das Auditorias (sem números).
+    donos = {p["nome"]: p for p in client.get("/api/v1/auditorias/proprietarios").json()}
+    assert donos["Olga Proprietária"]["contratosAtivos"] == 0
+    assert donos["Olga Proprietária"]["acesso"] is None
+
+    _entrar_proprietario(client, dono, "111.444.777-35")
+    assert client.get("/api/v1/auditorias/proprietarios").json()[0]["acesso"] is not None
+    assert "Nenhum contrato ativo no momento" in client.get("/proprietario").text
+    assert "Avaliações" in client.get("/proprietario/documentos").text
+    assert client.get(f"/proprietario/documento/{doc}").content == PDF
+
+    _entrar_inquilino(client, inq, "529.982.247-25")
+    assert "Nenhum contrato de locação ainda" in client.get("/inquilino").text
+    assert "Nenhum contrato de locação ainda" in client.get("/inquilino/pagamentos").text
+    pagina = client.get("/inquilino/documentos").text
+    assert "Avaliações" in pagina and "Laudo" in pagina and "Fotos e vídeos" not in pagina
+    assert client.get("/inquilino/avisos").status_code == 200
+    assert client.get(f"/inquilino/documento/{doc}").content == PDF

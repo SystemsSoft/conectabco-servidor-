@@ -44,15 +44,10 @@ digitos = portal.digitos
 
 def liberar_acesso(db: Session, contato_id: str) -> tuple[m.AcessoInquilino, str]:
     """Cria (ou renova) o acesso com senha provisória. Devolve a senha uma
-    única vez, para a equipe entregar ao inquilino."""
+    única vez, para a equipe entregar ao inquilino. Basta o CPF/CNPJ (o
+    login): sem contrato, o inquilino vê os documentos e avisos."""
     contato = portal.obter_contato(db, contato_id)
     portal.exigir_documento(contato, "locatário")
-    if not db.scalar(
-        sa.select(sa.func.count())
-        .select_from(loc.ContratoLocacao)
-        .where(loc.ContratoLocacao.locatario_id == contato_id)
-    ):
-        raise RegraNegocio("Este contato não é locatário de nenhum contrato.")
     return portal.liberar(db, m.AcessoInquilino, contato, "locatário")
 
 

@@ -10,7 +10,7 @@ import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
 from app.core import acesso_portal as portal
-from app.core.errors import NaoEncontrado, RegraNegocio
+from app.core.errors import NaoEncontrado
 from app.modules.auditoria import models as aud
 from app.modules.auditoria.enums import StatusAuditoria
 from app.modules.crm.enums import TipoPessoa
@@ -33,10 +33,10 @@ TIPO = "proprietario"
 
 
 def liberar_acesso(db: Session, contato_id: str) -> tuple[Acesso, str]:
+    """Basta o CPF/CNPJ (o login): sem contrato, o proprietário vê os
+    documentos compartilhados e os imóveis cadastrados em nome dele."""
     contato = portal.obter_contato(db, contato_id)
     portal.exigir_documento(contato, "proprietário")
-    if not contratos_do(db, contato_id):
-        raise RegraNegocio("Este contato não é proprietário (beneficiário) de nenhum contrato.")
     return portal.liberar(db, Acesso, contato, "proprietário")
 
 

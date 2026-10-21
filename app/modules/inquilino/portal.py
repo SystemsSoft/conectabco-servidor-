@@ -96,7 +96,8 @@ def _pagina(nome: str, pagina: str, exigir_senha_nova: bool = True):
                 ctx = _contexto(request, db, pagina, exigir_senha_nova)
             except _Redirecionar as r:
                 return _ir(r.destino)
-            if ctx["contrato"] is None and pagina not in ("senha",):
+            # Sem contrato: só documentos compartilhados, avisos e senha.
+            if ctx["contrato"] is None and pagina not in ("senha", "documentos", "avisos"):
                 return _resposta("inquilino/sem_contrato.html", ctx)
             extra = funcao(request, db, ctx)
             if isinstance(extra, Response):
@@ -228,7 +229,7 @@ def boleto(request, db, ctx):
 @router.get("/documentos")
 @_pagina("inquilino/documentos.html", "documentos")
 def documentos(request, db, ctx):
-    todos = s.arquivos_visiveis(db, ctx["contrato"])
+    todos = s.arquivos_visiveis(db, ctx["contrato"]) if ctx["contrato"] else []
     grupos = {
         "contrato": [a for a in todos if a.tipo == TipoArquivoContrato.contrato],
         "vistoria": [a for a in todos if a.tipo == TipoArquivoContrato.vistoria],

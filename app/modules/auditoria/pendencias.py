@@ -16,6 +16,7 @@ from app.modules.auditoria import schemas as s
 from app.modules.auditoria.enums import AreaPendencia as A
 from app.modules.auditoria.enums import Gravidade as G
 from app.modules.auditoria.enums import StatusAuditoria
+from app.modules.crm.enums import PapelContato
 from app.modules.crm.models import Contato, Imovel
 from app.modules.inquilino.enums import TipoArquivoContrato
 from app.modules.inquilino.models import ArquivoContrato
@@ -211,7 +212,9 @@ def pendencias(d: Dados) -> list[s.Pendencia]:
 
 
 def proprietarios(d: Dados, lista: list[s.Pendencia], acessos: dict) -> list[s.ResumoProprietario]:
-    """Visão consolidada por proprietário (beneficiários de contratos)."""
+    """Visão consolidada por proprietário: beneficiários de contratos e,
+    sem números, quem tem o perfil Proprietário, imóvel em seu nome ou acesso
+    à Área do proprietário (o acesso só exige o CPF/CNPJ)."""
     por_dono: dict[str, list[loc.ContratoLocacao]] = defaultdict(list)
     for c in d.contratos:
         for dono in _donos(c):
@@ -241,11 +244,33 @@ def proprietarios(d: Dados, lista: list[s.Pendencia], acessos: dict) -> list[s.R
             em_atraso=round(em_atraso, 2), criticas=criticas, atencoes=atencoes,
             ultima_auditoria=max(datas, default=None),
             saude="vermelho" if criticas else "amarelo" if atencoes else "verde",
-            acesso=s.AcessoPortal(
-                ativo=acesso.ativo, trocar_senha=acesso.trocar_senha,
-                bloqueado=bool(acesso.bloqueado_ate and acesso.bloqueado_ate > d.momento),
-                ultimo_acesso=acesso.ultimo_acesso,
-            ) if acesso else None,
+            acesso=_acesso(acesso, d) if acesso else None,
+        ))  # fmt: skip
+    com_contrato = set(por_dono)
+    sem_contrato = (
+        {c.id for c in d.contatos.values() if any(x.papel == PapelContato.proprietario for x in c.papeis)}
+        | {i.proprietario_id for i in d.imoveis.values() if i.proprietario_id}
+        | set(acessos)
+    ) - com_contrato
+    for dono in sem_contrato:
+        p = d.contatos.get(dono)
+        if p is None:
+            continue
+        acesso = acessos.get(dono)
+        resumo.append(s.ResumoProprietario(
+            contato_id=dono, nome=p.nome, documento=p.documento,
+            imoveis=sum(i.proprietario_id == dono for i in d.imoveis.values()),
+            contratos_ativos=0, aluguel_mensal=0, em_atraso=0, criticas=0, atencoes=0,
+            ultima_auditoria=None, saude="verde",
+            acesso=_acesso(acesso, d) if acesso else None,
         ))  # fmt: skip
     return sorted(resumo, key=lambda r: ({"vermelho": 0, "amarelo": 1, "verde": 2}[r.saude], r.nome))
+
+
+def _acesso(acesso, d: Dados) -> s.AcessoPortal:
+    return s.AcessoPortal(
+        ativo=acesso.ativo, trocar_senha=acesso.trocar_senha,
+        bloqueado=bool(acesso.bloqueado_ate and acesso.bloqueado_ate > d.momento),
+        ultimo_acesso=acesso.ultimo_acesso,
+    )
 
