@@ -110,6 +110,11 @@ def registrar(db: Session, imob: Imobiliaria) -> None:
 # ------------------------------------------------- Bancos e migrações
 
 
+def url_servidor(url: URL) -> URL:
+    """A URL sem o banco (para criá-lo); `set(database=None)` não o tira."""
+    return url._replace(database=None)
+
+
 def _criar_banco(url: str | URL) -> bool:
     """CREATE DATABASE no MySQL (o SQLite cria o arquivo sozinho). Devolve
     False se o banco já existia."""
@@ -120,7 +125,7 @@ def _criar_banco(url: str | URL) -> bool:
         return True
     if not _BANCO.match(url.database or ""):
         raise RegraNegocio(f"Nome de banco inválido: {url.database}.")
-    servidor = criar_engine(url.set(database=None))
+    servidor = criar_engine(url_servidor(url))
     try:
         with servidor.connect() as c:
             existe = c.scalar(

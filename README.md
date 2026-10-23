@@ -1,7 +1,7 @@
 # Servidor – Gestão Imobiliária (várias imobiliárias)
 
 API em **Python + FastAPI** que alimenta o front-end Flutter (`marceloimob_gestao`).
-Banco: **MySQL 8.4 no AWS Lightsail** (SQLAlchemy 2 + migrações Alembic).
+Banco: **MySQL 8.4 no AWS Lightsail** (us-east-1; SQLAlchemy 2 + migrações Alembic).
 
 O mesmo servidor atende **várias imobiliárias**: todas usam as mesmas regras
 de negócio (o código de `app/modules`), mas cada uma tem o **seu banco de
@@ -89,7 +89,7 @@ cp .env .env           # preencha usuário, senha e nome do banco
    imobiliária) e, se quiser outro nome, `DB_CENTRAL` (padrão
    `conectabco_central`).
 3. (Recomendado) baixe o certificado da região e informe em `DB_SSL_CA`:
-   `https://truststore.pki.rds.amazonaws.com/us-east-2/us-east-2-bundle.pem`
+   `https://truststore.pki.rds.amazonaws.com/us-east-1/us-east-1-bundle.pem`
 4. Cadastre a primeira imobiliária (cria o banco central, o dela e as tabelas):
    ```bash
    .venv/bin/python gerenciar.py imobiliaria criar --slug marcelo --nome "Marcelo Bonifácio"

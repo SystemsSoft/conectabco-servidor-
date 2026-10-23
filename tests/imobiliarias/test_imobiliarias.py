@@ -156,3 +156,9 @@ def test_criar_imobiliaria_com_banco_proprio(plataforma, tmp_path, monkeypatch):
         central.criar_imobiliaria("legado", "Legado", banco="legado")
     assert imobiliarias.buscar("legado") is None
     assert central.criar_imobiliaria("legado", "Legado", banco="legado", existente=True).ativa
+
+
+def test_url_do_servidor_mysql_sem_o_banco():
+    url = get_settings()._url_mysql("conectabco_central")
+    assert central.url_servidor(url).database is None
+    assert central.url_servidor(url).host == url.host
