@@ -10,7 +10,7 @@
 # principal, também o www) e a porta 443 deve estar liberada na EC2.
 # Pode rodar de novo: reaproveita o certificado se ainda for válido.
 #
-# Layout no servidor (já aplicado para api.inovacloud.app):
+# Layout no servidor (já aplicado para api.xn--associaoconectabci-7sb3f.com.br):
 #   /etc/nginx/snippets/marceloimob-proxy.conf     rotas para o serviço
 #   /etc/nginx/conf.d/<arquivo do domínio>.conf     bloco do domínio (+443 do certbot)
 #   /etc/nginx/default.d/redireciona-dominio.conf   IP/HTTP -> https://<dominio>
@@ -19,7 +19,7 @@ cd "$(dirname "$0")"
 EMAIL=${1:-}
 CHAVE=${2:-key_aws.pem}
 HOST=${3:-ec2-user@44.223.83.147}
-DOMINIO=${4:-api.inovacloud.app}
+DOMINIO=${4:-api.xn--associaoconectabci-7sb3f.com.br}
 IMOBILIARIA=${5:-}
 # Domínio principal (exemplo.app) também atende pelo www; subdomínio não.
 NOMES=$DOMINIO

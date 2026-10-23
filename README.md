@@ -130,7 +130,7 @@ Documentação interativa (Swagger): **http://localhost:8000/docs**
 
 ## Produção (AWS EC2)
 
-Servidor **https://api.inovacloud.app** (IP `44.223.83.147`, Amazon Linux
+Servidor **https://api.xn--associaoconectabci-7sb3f.com.br** — `api.associaçãoconectabci.com.br` (IP `44.223.83.147`, Amazon Linux
 2023, usuário SSH `ec2-user`). Acessos por HTTP ou pelo IP são
 redirecionados para o domínio com HTTPS.
 
@@ -140,8 +140,8 @@ redirecionados para o domínio com HTTPS.
 | Fotos, vídeos e arquivos enviados (uma subpasta por imobiliária) | `/var/lib/marceloimob/arquivos/<slug>` |
 | Serviço (uvicorn, 2 workers, 127.0.0.1:8000) | `systemctl status marceloimob` · `journalctl -u marceloimob -f` |
 | nginx: rotas para o serviço (uploads até 300 MB) | `/etc/nginx/snippets/marceloimob-proxy.conf` |
-| nginx: domínio + HTTPS (gerido pelo certbot) | `/etc/nginx/conf.d/inovacloud.conf` |
-| nginx: IP/HTTP → `https://api.inovacloud.app` | `/etc/nginx/default.d/redireciona-dominio.conf` |
+| nginx: domínio + HTTPS (gerido pelo certbot) | `/etc/nginx/conf.d/api.xn--associaoconectabci-7sb3f.com.br.conf` |
+| nginx: IP/HTTP → `https://api.xn--associaoconectabci-7sb3f.com.br` | `/etc/nginx/default.d/redireciona-dominio.conf` |
 | Certificado Let's Encrypt (renova sozinho) | `certbot-renew.timer` · teste: `sudo certbot renew --dry-run` |
 | Limpeza diária de arquivos sem uso (03:30), de todas as imobiliárias | `/etc/cron.d/marceloimob` |
 
@@ -191,17 +191,19 @@ acessado (`proxy_set_header Host $host;` no snippet).
 
 ### Domínio e HTTPS
 
-DNS na Hostinger: registro **A** `api` → `44.223.83.147` (na instância
-nova, libere a porta 443 no Security Group da EC2). O HTTPS é configurado com:
+O domínio está registrado na Hostinger, mas o **DNS é gerenciado pela
+Netlify** (nameservers `dnsN.p01.nsone.net`): os registros ficam em
+app.netlify.com → Domains → DNS settings. Registro **A** `api` →
+`44.223.83.147`; a porta 443 está liberada no Security Group da EC2. Por
+causa do "ç" e do "ã", use sempre a forma `xn--` do domínio
+(`api.xn--associaoconectabci-7sb3f.com.br`). O HTTPS foi configurado com:
 
 ```bash
 ./configurar_https.sh            # e-mail opcional como 1º argumento
 ```
 
-O script pode ser repetido sem efeito colateral. Para servir também o
-domínio principal, crie o registro **A** `@` → `44.223.83.147` (e o
-`www`) e rode `./configurar_https.sh "" key_aws.pem ec2-user@44.223.83.147 inovacloud.app`.
-`.app` só abre em HTTPS nos navegadores.
+O script confere antes se o DNS já aponta para o servidor e pode ser repetido
+sem efeito colateral. O certificado renova sozinho (`certbot-renew.timer`).
 
 Domínio do site de uma imobiliária (registro **A** apontando para o servidor):
 o 5º argumento é o slug dela — o domínio é cadastrado para a imobiliária e o
@@ -213,8 +215,9 @@ o 5º argumento é o slug dela — o domínio é cadastrado para a imobiliária 
 
 ## App Flutter
 
-O app de gestão usa `https://api.inovacloud.app` por padrão
-(`lib/core/api/api_config.dart`). Para o servidor local:
+O app de gestão deve usar `https://api.xn--associaoconectabci-7sb3f.com.br` (`API_URL`, padrão em
+`lib/core/api/api_config.dart`; o app ainda aponta para o servidor antigo,
+`https://api.inovacloud.app`). Para o servidor local:
 
 ```bash
 flutter run -d chrome --dart-define=API_URL=http://localhost:8000
@@ -440,7 +443,7 @@ campo-isca contra robôs e limite de 5 envios a cada 10 minutos por endereço.
 Textos, contatos, redes, funcionalidades (busca, destaques, valores, visita,
 WhatsApp...) e a distribuição dos leads são editados no app em **Site e
 Leads**. O endereço do site de cada imobiliária (`--site-url` no cadastro;
-sem ele, `SITE_URL` do `.env`, hoje `https://api.inovacloud.app`) define o
+sem ele, `SITE_URL` do `.env`, hoje `https://api.xn--associaoconectabci-7sb3f.com.br`) define o
 sitemap e os QR codes e liga o cookie seguro das áreas do inquilino e do
 proprietário.
 
