@@ -26,15 +26,27 @@ NOMES=$DOMINIO
 [[ $DOMINIO == *.*.* ]] || NOMES="$DOMINIO www.$DOMINIO"
 SSH="ssh -i $CHAVE -o BatchMode=yes"
 
+# O Let's Encrypt confere o DNS: sem o registro A apontando para o servidor,
+# nada é alterado.
+IP=${HOST#*@}
+if [[ $IP =~ ^[0-9.]+$ ]]; then
+  for NOME in $NOMES; do
+    if ! dig +short A "$NOME" @8.8.8.8 | grep -qx "$IP"; then
+      echo "O DNS de $NOME ainda não aponta para $IP: crie o registro A e tente de novo." >&2
+      exit 1
+    fi
+  done
+fi
+
 $SSH "$HOST" DOMINIO="$DOMINIO" NOMES="'$NOMES'" EMAIL="'$EMAIL'" IMOBILIARIA="'$IMOBILIARIA'" 'bash -s' <<'REMOTO'
 set -euo pipefail
 
 command -v certbot >/dev/null || sudo dnf install -y -q certbot python3-certbot-nginx
 
-# Rotas para o serviço num snippet (o default.d fica só com o redirecionamento).
+# Rotas para o serviço num snippet (usado pelo bloco de cada domínio).
 sudo mkdir -p /etc/nginx/snippets
 if ! sudo test -f /etc/nginx/snippets/marceloimob-proxy.conf; then
-  sudo mv /etc/nginx/default.d/marceloimob.conf /etc/nginx/snippets/marceloimob-proxy.conf
+  sudo cp /etc/nginx/default.d/marceloimob.conf /etc/nginx/snippets/marceloimob-proxy.conf
 fi
 
 # Bloco do domínio, se ainda não existir; o certbot acrescenta o 443.
@@ -49,12 +61,6 @@ server {
 NGINX
 fi
 
-# Acesso pelo IP: o servidor genérico é o padrão da porta 80 e redireciona.
-sudo sed -i "0,/listen       80;/s//listen       80 default_server;/; 0,/listen       \[::\]:80;/s//listen       [::]:80 default_server;/" /etc/nginx/nginx.conf
-if ! sudo test -f /etc/nginx/default.d/redireciona-dominio.conf; then
-  echo "location / { return 301 https://$DOMINIO\$request_uri; }" |
-    sudo tee /etc/nginx/default.d/redireciona-dominio.conf >/dev/null
-fi
 sudo nginx -t
 sudo systemctl reload nginx
 
@@ -62,6 +68,17 @@ if [ -n "$EMAIL" ]; then CONTA=(-m "$EMAIL"); else CONTA=(--register-unsafely-wi
 sudo certbot --nginx -n --agree-tos "${CONTA[@]}" --redirect --keep-until-expiring \
   --expand -d "${NOMES// /,}"
 sudo systemctl enable --now certbot-renew.timer
+
+# Acesso pelo IP: com o certificado pronto, o servidor genérico (padrão da
+# porta 80) deixa de servir a API e redireciona para o domínio.
+sudo sed -i "0,/listen       80;/s//listen       80 default_server;/; 0,/listen       \[::\]:80;/s//listen       [::]:80 default_server;/" /etc/nginx/nginx.conf
+if ! sudo test -f /etc/nginx/default.d/redireciona-dominio.conf; then
+  sudo rm -f /etc/nginx/default.d/marceloimob.conf
+  echo "location / { return 301 https://$DOMINIO\$request_uri; }" |
+    sudo tee /etc/nginx/default.d/redireciona-dominio.conf >/dev/null
+  sudo nginx -t
+  sudo systemctl reload nginx
+fi
 
 cd /opt/marceloimob
 if [ -n "$IMOBILIARIA" ]; then
