@@ -1,0 +1,58 @@
+{% extends "_base.html" %}
+{% block titulo %}Nova imobiliária{% endblock %}
+{% block conteudo %}
+<p><a href="/plataforma">← Imobiliárias</a></p>
+<h1>Nova imobiliária</h1>
+<p class="sub">Cria o banco de dados dela no servidor MySQL, aplica as tabelas e cadastra o administrador que vai entrar no app.</p>
+<form method="post" action="/plataforma/nova" enctype="multipart/form-data" data-demora>
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <div class="cartao">
+    <h2>Identificação</h2>
+    <div class="grade">
+      <div>
+        <label for="nome">Nome</label>
+        <input type="text" id="nome" name="nome" value="{{ dados.nome or '' }}" required maxlength="200" placeholder="Ex.: João Imóveis">
+      </div>
+      <div>
+        <label for="slug">Identificador</label>
+        <input type="text" id="slug" name="slug" value="{{ dados.slug or '' }}" required maxlength="40" pattern="[a-z0-9][a-z0-9\-]*[a-z0-9]" placeholder="ex.: joao">
+        <span class="ajuda">Letras minúsculas, números e hífen. Vai no cabeçalho <code>X-Imobiliaria</code> do app e dá nome ao banco (<code>imob_…</code>). Não muda depois.</span>
+      </div>
+    </div>
+  </div>
+  <div class="cartao">
+    <h2>Domínios e site</h2>
+    <div class="grade">
+      <div>
+        <label for="dominios">Domínios</label>
+        <textarea id="dominios" name="dominios" rows="2" placeholder="joaoimoveis.com.br">{{ dados.dominios or '' }}</textarea>
+        <span class="ajuda">Um por linha; abrem o site e os portais dela. O <code>www.</code> é aceito sozinho. Depois aponte o DNS (registro A) para este servidor.</span>
+      </div>
+      <div>
+        <label for="site_url">Endereço do site <span style="font-weight: 400; color: var(--suave);">(opcional)</span></label>
+        <input type="url" id="site_url" name="site_url" value="{{ dados.site_url or '' }}" placeholder="https://joaoimoveis.com.br">
+        <span class="ajuda">Sem ele, vale o primeiro domínio.</span>
+      </div>
+    </div>
+  </div>
+  <div class="cartao">
+    <h2>Identidade visual</h2>
+    {% with primaria=dados.cor_primaria or padrao.primaria, destaque=dados.cor_destaque or padrao.destaque, nome=dados.nome %}{% include "_paleta.html" %}{% endwith %}
+    <div style="margin-top: 18px;">
+      <label for="logo">Logotipo <span style="font-weight: 400; color: var(--suave);">(opcional)</span></label>
+      <input type="file" id="logo" name="logo" accept="image/png,image/jpeg">
+      <span class="ajuda">PNG ou JPG, até 2 MB. Aparece no app, no site e nos documentos.</span>
+    </div>
+  </div>
+  <div class="cartao">
+    <h2>Administrador da imobiliária</h2>
+    <p class="sub" style="margin-top: -6px;">Primeiro acesso ao app de gestão; ele cadastra a equipe depois.</p>
+    <div class="grade">
+      <div><label for="admin_nome">Nome</label><input type="text" id="admin_nome" name="admin_nome" value="{{ dados.admin_nome or '' }}" required></div>
+      <div><label for="admin_login">Usuário</label><input type="text" id="admin_login" name="admin_login" value="{{ dados.admin_login or '' }}" required autocomplete="off"></div>
+      <div><label for="admin_senha">Senha</label><input type="password" id="admin_senha" name="admin_senha" required minlength="8" autocomplete="new-password"><span class="ajuda">Mínimo de 8 caracteres.</span></div>
+    </div>
+  </div>
+  <div class="acoes"><button type="submit" data-enviando="Criando banco e tabelas...">Criar imobiliária</button><a href="/plataforma">Cancelar</a></div>
+</form>
+{% endblock %}

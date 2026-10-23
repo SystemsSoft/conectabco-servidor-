@@ -14,11 +14,12 @@ from urllib.parse import quote, urlencode
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import FileResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
+from markupsafe import Markup
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.imobiliarias import com_imobiliaria, url_site
 from app.core.errors import RegraNegocio
+from app.core.imobiliarias import com_imobiliaria, estilo_marca, url_site
 from app.modules.arquivos.models import Arquivo
 from app.modules.arquivos.services import caminho as caminho_arquivo
 from app.modules.crm.enums import AnexoTipo, Finalidade, TipoImovel
@@ -62,6 +63,8 @@ templates.env.globals["versao_css"] = max(
 templates.env.filters["numero"] = numero
 # Links que precisam abrir a imobiliária certa pelo endereço compartilhado.
 templates.env.globals["com_imobiliaria"] = com_imobiliaria
+# Paleta de cores da imobiliária (cadastrada no painel da plataforma).
+templates.env.globals["estilo_marca"] = lambda: Markup(estilo_marca())
 
 
 def _midia(url: str) -> str | None:
@@ -435,7 +438,7 @@ def _url_site(request: Request) -> str:
 @router.get("/robots.txt")
 def robots(request: Request):
     return Response(
-        f"User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /docs\nDisallow: /inquilino\nDisallow: /proprietario\nDisallow: /relatorio-auditoria\nDisallow: /gestao\nDisallow: /auditoria/\n"
+        f"User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /docs\nDisallow: /inquilino\nDisallow: /proprietario\nDisallow: /relatorio-auditoria\nDisallow: /plataforma\nDisallow: /gestao\nDisallow: /auditoria/\n"
         f"Sitemap: {_url_site(request)}/sitemap.xml\n",
         media_type="text/plain",
     )

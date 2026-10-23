@@ -1,0 +1,113 @@
+{% extends "_base.html" %}
+{% block titulo %}{{ r.nome }}{% endblock %}
+{% block conteudo %}
+<p><a href="/plataforma">← Imobiliárias</a></p>
+<div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 20px;">
+  {% if tem_logo %}<img class="miniatura" style="width: 56px; height: 56px;" src="/plataforma/{{ r.slug }}/logo" alt="">{% endif %}
+  <div>
+    <h1>{{ r.nome }} {% if r.ativa %}<span class="selo ok">Ativa</span>{% else %}<span class="selo off">Desativada</span>{% endif %}</h1>
+    <p class="sub" style="margin: 0;"><code>{{ r.slug }}</code> · banco <code>{{ r.banco }}</code> · arquivos <code>{{ imob.pasta_arquivos }}</code></p>
+  </div>
+</div>
+
+{% if erro_banco %}<div class="aviso erro">Não foi possível abrir o banco desta imobiliária: {{ erro_banco }}</div>{% endif %}
+
+<div class="cartao">
+  <h2>Dados e cores</h2>
+  <form method="post" action="/plataforma/{{ r.slug }}">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <div class="grade" style="margin-bottom: 18px;">
+      <div><label for="nome">Nome</label><input type="text" id="nome" name="nome" value="{{ r.nome }}" required maxlength="200"></div>
+      <div>
+        <label for="site_url">Endereço do site</label>
+        <input type="url" id="site_url" name="site_url" value="{{ r.site_url }}" placeholder="https://...">
+        <span class="ajuda">Sitemap, QR codes das auditorias e cookie seguro dos portais.</span>
+      </div>
+    </div>
+    {% with primaria=r.cor_primaria or padrao.primaria, destaque=r.cor_destaque or padrao.destaque, nome=r.nome %}{% include "_paleta.html" %}{% endwith %}
+    <div class="acoes"><button type="submit">Salvar</button></div>
+  </form>
+</div>
+
+<div class="cartao">
+  <h2>Logotipo</h2>
+  <div style="display: flex; gap: 20px; align-items: center; flex-wrap: wrap;">
+    {% if tem_logo %}<img class="logo-grande" src="/plataforma/{{ r.slug }}/logo" alt="Logotipo atual">{% else %}<div class="logo-grande vazio" style="width: 220px; padding: 30px 10px;">Sem logotipo</div>{% endif %}
+    <div>
+      <form method="post" action="/plataforma/{{ r.slug }}/logo" enctype="multipart/form-data" class="linha">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <div><input type="file" name="logo" accept="image/png,image/jpeg" required><span class="ajuda">PNG ou JPG, até 2 MB. É o mesmo da Personalização no app.</span></div>
+        <button type="submit" class="secundario">Enviar</button>
+      </form>
+      {% if tem_logo %}
+      <form method="post" action="/plataforma/{{ r.slug }}/logo/remover" style="margin-top: 10px;">
+        <input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit" class="perigo">Remover logotipo</button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<div class="cartao">
+  <h2>Domínios</h2>
+  {% for d in r.dominios %}
+  <div class="dominio">
+    <strong>{{ d.dominio }}</strong>
+    {% if dns[d.dominio] %}<span class="selo ok">DNS aponta para este servidor</span>{% else %}<span class="selo atencao">DNS ainda não aponta para {{ ip or "este servidor" }}</span>{% endif %}
+    <form method="post" action="/plataforma/{{ r.slug }}/dominios/remover" style="margin-left: auto;">
+      <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="dominio" value="{{ d.dominio }}">
+      <button type="submit" class="perigo">Remover</button>
+    </form>
+    <details style="flex-basis: 100%;">
+      <summary>Como ligar este domínio</summary>
+      <p style="margin: 8px 0 0;">1. No DNS do domínio, crie um registro <strong>A</strong> → <code>{{ ip or "IP do servidor" }}</code> (no domínio principal, também o <code>www</code>).<br>
+      2. Com o DNS apontando, ligue o HTTPS (na pasta do servidor):</p>
+      <pre>./configurar_https.sh "" key_aws.pem ec2-user@{{ ip or "IP" }} {{ d.dominio }} {{ r.slug }}</pre>
+    </details>
+  </div>
+  {% else %}
+  <p class="sub">Sem domínio próprio, só o app de gestão funciona; o site e os portais do inquilino e do proprietário precisam de um domínio.</p>
+  {% endfor %}
+  <form method="post" action="/plataforma/{{ r.slug }}/dominios" class="linha" style="margin-top: 14px;">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <div><label for="dominio">Adicionar domínio</label><input type="text" id="dominio" name="dominio" placeholder="joaoimoveis.com.br" required></div>
+    <button type="submit" class="secundario">Adicionar</button>
+  </form>
+</div>
+
+<div class="cartao">
+  <h2>Administradores no app</h2>
+  {% if admins %}
+  <table style="margin-bottom: 14px;">
+    <thead><tr><th>Nome</th><th>Usuário</th><th>Situação</th></tr></thead>
+    <tbody>{% for u in admins %}<tr><td>{{ u.nome }}</td><td><code>{{ u.login }}</code></td><td>{% if u.ativo %}<span class="selo ok">Ativo</span>{% else %}<span class="selo off">Inativo</span>{% endif %}</td></tr>{% endfor %}</tbody>
+  </table>
+  {% else %}
+  <p class="sub">Nenhum administrador ainda.</p>
+  {% endif %}
+  <form method="post" action="/plataforma/{{ r.slug }}/administrador" class="linha">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <div><label for="adm_nome">Nome</label><input type="text" id="adm_nome" name="nome"></div>
+    <div><label for="adm_login">Usuário</label><input type="text" id="adm_login" name="login" required autocomplete="off"></div>
+    <div><label for="adm_senha">Senha</label><input type="password" id="adm_senha" name="senha" required minlength="8" autocomplete="new-password"></div>
+    <button type="submit" class="secundario">Criar ou redefinir senha</button>
+  </form>
+  <span class="ajuda" style="margin-top: 8px;">Com um usuário que já existe, troca a senha dele (e o reativa como administrador).</span>
+</div>
+
+<div class="cartao">
+  <h2>Acesso</h2>
+  <p style="margin: 0 0 6px;">App de gestão: cabeçalho <code>X-Imobiliaria: {{ r.slug }}</code> em todas as chamadas à API.</p>
+  <p style="margin: 0 0 6px;">Marca para o app (público): <a href="{{ endereco }}/api/v1/marca?imob={{ r.slug }}" target="_blank" rel="noopener"><code>/api/v1/marca?imob={{ r.slug }}</code></a></p>
+  {% if r.site_url %}<p style="margin: 0;">Site: <a href="{{ r.site_url }}" target="_blank" rel="noopener">{{ r.site_url }}</a></p>{% endif %}
+  <form method="post" action="/plataforma/{{ r.slug }}/situacao" style="margin-top: 18px;">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    {% if r.ativa %}
+    <input type="hidden" name="ativa" value="0">
+    <button type="submit" class="perigo" onclick="return confirm('Desativar esta imobiliária? API, site e portais deixam de abrir; os dados ficam no banco.')">Desativar imobiliária</button>
+    {% else %}
+    <input type="hidden" name="ativa" value="1"><button type="submit">Ativar imobiliária</button>
+    {% endif %}
+  </form>
+</div>
+{% endblock %}

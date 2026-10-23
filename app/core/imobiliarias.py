@@ -47,6 +47,8 @@ class Imobiliaria:
     site_url: str = ""
     dominios: tuple[str, ...] = ()
     ativa: bool = True
+    cor_primaria: str = ""
+    cor_destaque: str = ""
 
     @property
     def pasta_arquivos(self) -> Path:
@@ -224,6 +226,34 @@ def endereco_publico() -> str:
 
 def url_site(request: Request) -> str:
     return endereco_publico() or str(request.base_url).rstrip("/")
+
+
+def estilo_marca() -> str:
+    """CSS com a paleta da imobiliária atual (sobre a padrão do site); vazio
+    se ela segue a padrão. As cores são validadas no cadastro (#rrggbb)."""
+    imob = _atual.get()
+    if imob is None or not (imob.cor_primaria or imob.cor_destaque):
+        return ""
+    regras = []
+    if p := imob.cor_primaria:
+        regras += [
+            f"--navy-800:{p}",
+            f"--navy-950:color-mix(in srgb,{p} 30%,#000)",
+            f"--navy-900:color-mix(in srgb,{p} 55%,#000)",
+            f"--navy-700:color-mix(in srgb,{p} 82%,#fff)",
+            f"--navy-650:color-mix(in srgb,{p} 88%,#fff)",
+            f"--navy-600:color-mix(in srgb,{p} 78%,#fff)",
+            f"--blue:color-mix(in srgb,{p} 65%,#fff)",
+            f"--orbe:color-mix(in srgb,{p} 70%,#fff)",
+        ]
+    if d := imob.cor_destaque:
+        regras += [
+            f"--gold:{d}",
+            f"--gold-light:color-mix(in srgb,{d} 60%,#fff)",
+            f"--gold-dark:color-mix(in srgb,{d} 75%,#000)",
+            "--ouro:linear-gradient(135deg,var(--gold-light) 0%,var(--gold) 45%,var(--gold-dark) 100%)",
+        ]
+    return "<style>:root{" + ";".join(regras) + "}</style>"
 
 
 def com_imobiliaria(caminho: str) -> str:

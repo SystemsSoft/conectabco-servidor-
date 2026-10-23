@@ -7,20 +7,21 @@
   <title>{{ "Vídeo" if midia.tipo.value == "video" else "Foto" }} da auditoria {{ a.numero }} – {{ empresa.nome }}</title>
   <link rel="icon" href="/estatico/icone.png">
   <link rel="stylesheet" href="/estatico/site.css?v={{ versao_css }}">
+  {{ estilo_marca() }}
   <style>
-    body { background: #020B22; color: #fff; min-height: 100vh; margin: 0; }
+    body { background: var(--navy-900); color: #fff; min-height: 100vh; margin: 0; }
     .midia-pg { max-width: 860px; margin: 0 auto; padding: 16px; }
     .midia-cab { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
     .midia-cab img { width: 44px; height: 44px; object-fit: contain; }
-    .midia-cab strong { display: block; color: #F5C432; }
+    .midia-cab strong { display: block; color: var(--gold); }
     .midia-cab small { color: rgba(255,255,255,.7); }
     .midia-quadro { background: #000; border-radius: 14px; overflow: hidden; line-height: 0; }
     .midia-quadro img, .midia-quadro video { width: 100%; max-height: 78vh; object-fit: contain; background: #000; }
     .midia-info { margin-top: 12px; color: rgba(255,255,255,.8); font-size: .92rem; }
-    .fala { margin-top: 12px; padding: 12px 14px; background: rgba(245,196,50,.08); border-left: 4px solid #F5C432; border-radius: 8px; white-space: pre-line; }
-    .fala b { display: block; font-size: .72rem; text-transform: uppercase; letter-spacing: .06em; color: #F5C432; margin-bottom: 4px; }
+    .fala { margin-top: 12px; padding: 12px 14px; background: color-mix(in srgb, var(--gold) 8%, transparent); border-left: 4px solid var(--gold); border-radius: 8px; white-space: pre-line; }
+    .fala b { display: block; font-size: .72rem; text-transform: uppercase; letter-spacing: .06em; color: var(--gold); margin-bottom: 4px; }
     .midia-acoes { margin-top: 14px; }
-    .midia-acoes a { color: #F5C432; }
+    .midia-acoes a { color: var(--gold); }
   </style>
 </head>
 <body>

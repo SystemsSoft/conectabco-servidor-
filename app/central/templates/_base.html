@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>{% block titulo %}Plataforma{% endblock %} · Gestão Imobiliária</title>
+  <link rel="icon" href="/estatico/icone.png">
+  <style>
+    :root {
+      --fundo: #f4f5f9; --cartao: #fff; --tinta: #151b2e; --suave: #5f6782; --linha: #e3e6ef;
+      --marca: #2f4bd8; --marca-escura: #1e33a8; --ok: #127a43; --ok-fundo: #e6f5ec;
+      --perigo: #b42318; --perigo-fundo: #fdecea; --aviso: #8a5a00; --aviso-fundo: #fff4dc;
+      --raio: 14px; --sombra: 0 1px 2px rgba(21,27,46,.05), 0 8px 24px rgba(21,27,46,.06);
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: var(--tinta); background: var(--fundo); }
+    a { color: var(--marca); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    header.topo { background: var(--tinta); color: #fff; }
+    header.topo .dentro { max-width: 1080px; margin: 0 auto; padding: 14px 20px; display: flex; align-items: center; gap: 16px; }
+    header.topo .logo { font-weight: 700; letter-spacing: .01em; color: #fff; }
+    header.topo .logo small { font-weight: 400; opacity: .65; margin-left: 6px; }
+    header.topo .quem { margin-left: auto; display: flex; align-items: center; gap: 12px; opacity: .9; font-size: 14px; }
+    main { max-width: 1080px; margin: 0 auto; padding: 28px 20px 64px; }
+    h1 { font-size: 26px; margin: 0 0 4px; letter-spacing: -.01em; }
+    h2 { font-size: 17px; margin: 0 0 14px; }
+    .sub { color: var(--suave); margin: 0 0 24px; }
+    .cartao { background: var(--cartao); border: 1px solid var(--linha); border-radius: var(--raio); box-shadow: var(--sombra); padding: 22px; margin-bottom: 18px; }
+    .grade { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px 18px; }
+    label { display: block; font-weight: 600; font-size: 13px; margin-bottom: 6px; }
+    .ajuda { display: block; font-weight: 400; color: var(--suave); font-size: 12.5px; margin-top: 4px; }
+    input[type=text], input[type=password], input[type=url], textarea {
+      width: 100%; padding: 10px 12px; border: 1px solid var(--linha); border-radius: 10px; font: inherit; background: #fff; color: inherit;
+    }
+    input:focus, textarea:focus { outline: 2px solid var(--marca); outline-offset: 1px; border-color: transparent; }
+    input[type=color] { width: 54px; height: 40px; padding: 2px; border: 1px solid var(--linha); border-radius: 10px; background: #fff; cursor: pointer; }
+    .cor { display: flex; align-items: center; gap: 10px; }
+    .cor code { color: var(--suave); }
+    button, .botao {
+      display: inline-flex; align-items: center; gap: 6px; padding: 10px 16px; border-radius: 10px; border: 1px solid transparent;
+      background: var(--marca); color: #fff; font: inherit; font-weight: 600; cursor: pointer; text-decoration: none;
+    }
+    button:hover, .botao:hover { background: var(--marca-escura); text-decoration: none; }
+    button.secundario, .botao.secundario { background: #fff; color: var(--tinta); border-color: var(--linha); }
+    button.secundario:hover { background: var(--fundo); }
+    button.perigo { background: #fff; color: var(--perigo); border-color: #f3c6c1; }
+    button.perigo:hover { background: var(--perigo-fundo); }
+    button.link { background: none; border: 0; color: inherit; padding: 0; font-weight: 400; opacity: .9; }
+    button.link:hover { text-decoration: underline; background: none; }
+    .acoes { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-top: 18px; }
+    .aviso { padding: 12px 14px; border-radius: 10px; margin-bottom: 18px; }
+    .aviso.ok { background: var(--ok-fundo); color: var(--ok); }
+    .aviso.erro { background: var(--perigo-fundo); color: var(--perigo); }
+    .aviso.atencao { background: var(--aviso-fundo); color: var(--aviso); }
+    .selo { display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 9px; border-radius: 999px; }
+    .selo.ok { background: var(--ok-fundo); color: var(--ok); }
+    .selo.off { background: #eceef4; color: var(--suave); }
+    .selo.atencao { background: var(--aviso-fundo); color: var(--aviso); }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; padding: 12px 10px; border-bottom: 1px solid var(--linha); vertical-align: middle; }
+    th { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--suave); font-weight: 600; }
+    tr:last-child td { border-bottom: 0; }
+    .paleta { display: inline-flex; gap: 4px; }
+    .paleta span { width: 18px; height: 18px; border-radius: 6px; border: 1px solid rgba(0,0,0,.08); }
+    .miniatura { width: 40px; height: 40px; border-radius: 10px; object-fit: contain; background: var(--fundo); border: 1px solid var(--linha); }
+    .logo-grande { max-width: 220px; max-height: 120px; object-fit: contain; display: block; background: var(--fundo); border: 1px solid var(--linha); border-radius: 12px; padding: 10px; }
+    code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; }
+    pre { background: #10162a; color: #e5e9f6; padding: 12px 14px; border-radius: 10px; overflow-x: auto; margin: 8px 0 0; }
+    .prever { border-radius: 12px; overflow: hidden; border: 1px solid var(--linha); }
+    .prever .barra { padding: 16px 18px; color: #fff; display: flex; align-items: center; gap: 12px; font-weight: 600; }
+    .prever .corpo { padding: 16px 18px; background: #fff; }
+    .prever .chamada { display: inline-block; padding: 8px 14px; border-radius: 999px; font-weight: 700; }
+    .duas { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+    @media (max-width: 760px) { .duas { grid-template-columns: 1fr; } .esconder-celular { display: none; } }
+    .vazio { text-align: center; padding: 40px 10px; color: var(--suave); }
+    form.linha { display: flex; gap: 10px; flex-wrap: wrap; align-items: end; }
+    form.linha > div { flex: 1 1 220px; }
+    .dominio { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 12px 0; border-bottom: 1px solid var(--linha); }
+    .dominio:last-child { border-bottom: 0; }
+    .dominio strong { word-break: break-all; }
+    details summary { cursor: pointer; color: var(--marca); font-size: 13px; margin-top: 6px; }
+  </style>
+</head>
+<body>
+  <header class="topo">
+    <div class="dentro">
+      <a class="logo" href="/plataforma">Gestão Imobiliária<small>Plataforma</small></a>
+      {% if admin %}
+      <div class="quem">
+        <span>{{ admin.nome }}</span>
+        <form method="post" action="/plataforma/sair"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="link" type="submit">Sair</button></form>
+      </div>
+      {% endif %}
+    </div>
+  </header>
+  <main>
+    {% if msg %}<div class="aviso ok">{{ msg }}</div>{% endif %}
+    {% if erro %}<div class="aviso erro">{{ erro }}</div>{% endif %}
+    {% block conteudo %}{% endblock %}
+  </main>
+  <script>
+    // Mostra o código da cor ao lado do seletor e atualiza a prévia.
+    document.querySelectorAll('input[type=color]').forEach(function (campo) {
+      var rotulo = document.querySelector('[data-cor="' + campo.name + '"]');
+      campo.addEventListener('input', function () {
+        if (rotulo) rotulo.textContent = campo.value;
+        document.querySelectorAll('[data-usa="' + campo.name + '"]').forEach(function (el) {
+          el.style.setProperty(el.dataset.prop || 'background', campo.value);
+        });
+      });
+    });
+    // Evita enviar duas vezes (criar uma imobiliária leva alguns segundos).
+    document.querySelectorAll('form[data-demora]').forEach(function (f) {
+      f.addEventListener('submit', function () {
+        var b = f.querySelector('button[type=submit]');
+        if (b) { b.disabled = true; b.textContent = b.dataset.enviando || 'Aguarde...'; }
+      });
+    });
+  </script>
+</body>
+</html>

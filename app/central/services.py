@@ -20,6 +20,8 @@ RAIZ = Path(__file__).resolve().parents[2]
 _SLUG = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$")
 _BANCO = re.compile(r"^[a-z0-9_]{1,64}$")
 _DOMINIO = re.compile(r"^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)*$")
+_COR = re.compile(r"^#[0-9a-f]{6}$")
+LOGO_MAX = 2 * 1024 * 1024
 
 
 def sessao() -> Session:
@@ -34,6 +36,8 @@ def _para_contexto(r: m.Imobiliaria) -> Imobiliaria:
         site_url=r.site_url,
         dominios=tuple(d.dominio for d in r.dominios),
         ativa=r.ativa,
+        cor_primaria=r.cor_primaria,
+        cor_destaque=r.cor_destaque,
     )
 
 
@@ -64,6 +68,24 @@ def _validar_site(site_url: str) -> str:
     return site_url
 
 
+def _validar_cor(cor: str) -> str:
+    cor = cor.strip().lower()
+    if cor and not _COR.match(cor):
+        raise RegraNegocio(f"Cor inválida: {cor} (use o formato #1a2b3c).")
+    return cor
+
+
+def validar_logo(conteudo: bytes) -> str:
+    """Tipo da imagem (PNG ou JPG, até 2 MB), conferido pelo conteúdo."""
+    if len(conteudo) > LOGO_MAX:
+        raise RegraNegocio("O logotipo deve ter no máximo 2 MB.")
+    if conteudo.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "image/png"
+    if conteudo.startswith(b"\xff\xd8\xff"):
+        return "image/jpeg"
+    raise RegraNegocio("Use uma imagem PNG ou JPG para o logotipo.")
+
+
 def _validar_dominio(db: Session, dominio: str, slug: str) -> str:
     dominio = normalizar_dominio(dominio)
     if len(dominio) > 253 or not _DOMINIO.match(dominio):
@@ -76,7 +98,7 @@ def _validar_dominio(db: Session, dominio: str, slug: str) -> str:
 
 def validar_nova(
     db: Session, slug: str, nome: str, banco: str = "", site_url: str = "",
-    dominios: Iterable[str] = (),
+    dominios: Iterable[str] = (), cor_primaria: str = "", cor_destaque: str = "",
 ) -> Imobiliaria:  # fmt: skip
     """Confere os dados de uma imobiliária nova (sem gravar nada)."""
     slug = slug.strip().lower()
@@ -95,12 +117,14 @@ def validar_nova(
         raise RegraNegocio(f"O banco {banco} já é de outra imobiliária.")
     dominios = tuple(dict.fromkeys(_validar_dominio(db, d, slug) for d in dominios))
     site_url = _validar_site(site_url) or (f"https://{dominios[0]}" if dominios else "")
-    return Imobiliaria(slug, nome.strip(), banco, site_url, dominios)
+    return Imobiliaria(slug, nome.strip(), banco, site_url, dominios, True,
+                       _validar_cor(cor_primaria), _validar_cor(cor_destaque))  # fmt: skip
 
 
 def registrar(db: Session, imob: Imobiliaria) -> None:
     r = m.Imobiliaria(slug=imob.slug, nome=imob.nome, banco=imob.banco,
-                      site_url=imob.site_url, ativa=True, criada_em=agora())  # fmt: skip
+                      site_url=imob.site_url, ativa=True, cor_primaria=imob.cor_primaria,
+                      cor_destaque=imob.cor_destaque, criada_em=agora())  # fmt: skip
     r.dominios = [m.Dominio(dominio=d) for d in imob.dominios]
     db.add(r)
     db.commit()
@@ -180,14 +204,17 @@ def migrar(imob: Imobiliaria) -> None:
 def criar_imobiliaria(
     slug: str, nome: str, banco: str = "", site_url: str = "",
     dominios: Iterable[str] = (), existente: bool = False,
+    cor_primaria: str = "", cor_destaque: str = "", logo: bytes | None = None,
 ) -> Imobiliaria:  # fmt: skip
     """Cadastra a imobiliária e prepara o banco dela (novo ou, com
     `existente`, um banco que já tem dados, como o da primeira imobiliária)."""
     from app.modules.personalizacao.models import DadosEmpresa
 
+    if logo:
+        validar_logo(logo)
     migrar_central()
     with sessao() as db:
-        imob = validar_nova(db, slug, nome, banco, site_url, dominios)
+        imob = validar_nova(db, slug, nome, banco, site_url, dominios, cor_primaria, cor_destaque)
     criado = _criar_banco(get_settings().url_imobiliaria(imob.banco))
     if not criado and not existente:
         raise RegraNegocio(
@@ -199,16 +226,48 @@ def criar_imobiliaria(
         if db.get(DadosEmpresa, 1) is None:
             db.add(DadosEmpresa(id=1, nome=imob.nome))
             db.commit()
+    if logo:
+        definir_logo(imob, logo)
     imob.pasta_arquivos.mkdir(parents=True, exist_ok=True)
     with sessao() as db:
         registrar(db, imob)
     return imob
 
 
+# ------------------------------------------------------------- Logotipo
+# Fica no banco da imobiliária (Personalização): o mesmo do app, dos
+# documentos e do site.
+
+
+def logo(imob: Imobiliaria) -> tuple[bytes, str] | None:
+    from app.modules.personalizacao.models import DadosEmpresa
+
+    with fabrica(imob)() as db:
+        d = db.get(DadosEmpresa, 1)
+        return (d.logo, d.logo_tipo) if d and d.logo else None
+
+
+def definir_logo(imob: Imobiliaria, conteudo: bytes | None) -> None:
+    """Grava (ou, com None, remove) o logotipo da imobiliária."""
+    from app.modules.personalizacao.models import DadosEmpresa
+
+    tipo = validar_logo(conteudo) if conteudo else ""
+    with fabrica(imob)() as db:
+        d = db.get(DadosEmpresa, 1)
+        if d is None:
+            d = DadosEmpresa(id=1, nome=imob.nome)
+            db.add(d)
+        d.logo, d.logo_tipo, d.logo_atualizado_em = conteudo or None, tipo, agora()
+        db.commit()
+
+
 # ------------------------------------------------------------ Edição
 
 
-def editar(db: Session, slug: str, nome: str | None = None, site_url: str | None = None) -> None:
+def editar(
+    db: Session, slug: str, nome: str | None = None, site_url: str | None = None,
+    cor_primaria: str | None = None, cor_destaque: str | None = None,
+) -> None:  # fmt: skip
     r = obter(db, slug)
     if nome is not None:
         if not nome.strip():
@@ -216,6 +275,10 @@ def editar(db: Session, slug: str, nome: str | None = None, site_url: str | None
         r.nome = nome.strip()
     if site_url is not None:
         r.site_url = _validar_site(site_url)
+    if cor_primaria is not None:
+        r.cor_primaria = _validar_cor(cor_primaria)
+    if cor_destaque is not None:
+        r.cor_destaque = _validar_cor(cor_destaque)
     db.commit()
     limpar_cadastro()
 

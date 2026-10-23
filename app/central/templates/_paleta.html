@@ -1,0 +1,24 @@
+{# Campos de cor com prévia; espera `primaria`, `destaque` e `nome`. #}
+<div class="duas">
+  <div class="grade" style="grid-template-columns: 1fr 1fr; align-content: start;">
+    <div>
+      <label>Cor principal</label>
+      <div class="cor"><input type="color" name="cor_primaria" value="{{ primaria }}"><code data-cor="cor_primaria">{{ primaria }}</code></div>
+      <span class="ajuda">Topo, rodapé e fundos escuros.</span>
+    </div>
+    <div>
+      <label>Cor de destaque</label>
+      <div class="cor"><input type="color" name="cor_destaque" value="{{ destaque }}"><code data-cor="cor_destaque">{{ destaque }}</code></div>
+      <span class="ajuda">Botões, ícones e realces.</span>
+    </div>
+  </div>
+  <div class="prever" aria-hidden="true">
+    <div class="barra" data-usa="cor_primaria" style="background: {{ primaria }};">
+      <span data-usa="cor_destaque" style="width: 26px; height: 26px; border-radius: 8px; background: {{ destaque }};"></span>{{ nome or "Sua imobiliária" }}
+    </div>
+    <div class="corpo">
+      <span class="chamada" data-usa="cor_destaque" style="background: {{ destaque }}; color: #111;">Ver imóveis</span>
+      <span style="margin-left: 10px; font-weight: 600;" data-usa="cor_primaria" data-prop="color">Fale conosco</span>
+    </div>
+  </div>
+</div>

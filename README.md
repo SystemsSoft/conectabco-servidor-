@@ -54,8 +54,36 @@ fica no banco dela: o login de uma nunca vale em outra. A imobiliária padrão
 continua com a chave original, então logins, links e QR codes emitidos antes
 do multi-imobiliária seguem valendo.
 
-O cadastro fica no banco central e é mantido pelo `gerenciar.py` (o servidor
-relê o cadastro a cada 30 s, sem reiniciar):
+### Painel da plataforma (`/plataforma`)
+
+Sistema web, no próprio servidor, para cadastrar e manter as imobiliárias:
+**https://api.xn--associaoconectabci-7sb3f.com.br/plataforma**. Cada
+imobiliária é um "módulo" da plataforma, com:
+
+- **banco próprio** no servidor MySQL (`imob_<slug>`), criado com todas as
+  tabelas no cadastro — as regras de negócio são as mesmas para todas;
+- **domínios** (site e portais), com a situação do DNS e o comando do HTTPS;
+- **paleta de cores** (principal e destaque), aplicada ao site, portais,
+  relatórios e entregue ao app em `GET /api/v1/marca` (público);
+- **logotipo** (o mesmo da Personalização no app e dos documentos);
+- **administrador** que entra no app (criar ou redefinir a senha) e
+  ativar/desativar a imobiliária.
+
+Quem entra no painel são os administradores da plataforma (banco central),
+separados dos usuários das imobiliárias. Crie o primeiro no servidor:
+
+```bash
+ssh -i key_aws.pem ec2-user@44.223.83.147
+cd /opt/marceloimob && sudo -u marceloimob .venv/bin/python gerenciar.py plataforma criar-admin
+```
+
+O painel não abre pelos domínios das imobiliárias, só pelo endereço do
+servidor; tem bloqueio após 5 senhas erradas, sessão de 8 h e proteção CSRF.
+
+### Pela linha de comando
+
+O mesmo cadastro também é mantido pelo `gerenciar.py` (o servidor relê o
+cadastro a cada 30 s, sem reiniciar):
 
 ```bash
 # cria o banco imob_<slug>, aplica as migrações e pede o administrador
@@ -587,8 +615,10 @@ main.py                      inicia o servidor (python main.py)
 app/
   main.py                    cria a aplicação, CORS, rotas de saúde
   central/                   banco central: cadastro das imobiliárias
-    models.py                imobiliarias e dominios
-    services.py              cadastrar, criar o banco, migrar
+    models.py                imobiliarias, dominios e administradores
+    services.py              cadastrar, criar o banco, migrar, logotipo
+    acesso.py                login do painel da plataforma
+    painel.py                painel web (/plataforma) e templates/
   core/                      infraestrutura comum a todos os módulos
     config.py                configurações (.env)
     imobiliarias.py          imobiliária da requisição (cabeçalho/domínio)

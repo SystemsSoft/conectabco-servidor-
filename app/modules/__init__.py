@@ -53,6 +53,7 @@ def roteadores() -> list[tuple[APIRouter, list]]:
     from app.modules.inquilino.api import router as portal_inquilino
     from app.modules.locacao.api import router as locacao
     from app.modules.manutencao.api import router as manutencao
+    from app.modules.personalizacao.api import marca
     from app.modules.personalizacao.api import router as personalizacao
     from app.modules.sicoob.api import router as sicoob
     from app.modules.site.api import router as site
@@ -72,6 +73,7 @@ def roteadores() -> list[tuple[APIRouter, list]]:
         (contratos, [exigir_modulo("contratosRelatorios")]),
         # Leitura liberada a todos (documentos); gravar exige Personalização.
         (personalizacao, []),
+        (marca, []),  # nome, cores e logo, sem login
         # Enviar exige Cadastros e CRM; abrir usa link assinado.
         (arquivos, []),
         (site, [exigir_modulo("site")]),

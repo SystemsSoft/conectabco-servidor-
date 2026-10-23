@@ -8,6 +8,7 @@
   <meta name="robots" content="noindex">
   <title>{{ "Recibo" if paga else "Boleto" }} {{ k.numero }} {{ x.competencia(cb.competencia) }}</title>
   <link rel="stylesheet" href="/estatico/site.css?v={{ versao_css }}">
+  {{ estilo_marca() }}
   <script src="/estatico/site.js?v={{ versao_css }}" defer></script>
   <style>
     body { background: #e9ecf3; }

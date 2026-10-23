@@ -10,12 +10,14 @@ from app.core.auth import UsuarioLogado, exigir_modulo
 from app.core.database import get_db
 from app.core.documentos import validar_cpf_cnpj
 from app.core.errors import NaoEncontrado, RegraNegocio
-from app.core.imobiliarias import atual
+from app.core.imobiliarias import atual, com_imobiliaria
 from app.core.schemas import Esquema
 from app.core.tempo import agora
 from app.modules.personalizacao.models import DadosEmpresa
 
 router = APIRouter(prefix="/personalizacao", tags=["Personalização"])
+# Sem login: o app mostra a marca da imobiliária já na tela de entrada.
+marca = APIRouter(tags=["Personalização"])
 Db = Annotated[Session, Depends(get_db)]
 LOGO_MAX = 2 * 1024 * 1024
 
@@ -126,3 +128,28 @@ def remover_logo(db: Db):
         d.logo, d.logo_tipo, d.logo_atualizado_em = None, "", agora()
         db.commit()
     return _saida(d)
+
+
+class Marca(Esquema):
+    nome: str
+    cor_primaria: str = Field(description="#rrggbb (topo, fundos escuros)")
+    cor_destaque: str = Field(description="#rrggbb (botões e realces)")
+    tem_logo: bool
+    logo: str = Field(description="Caminho do logotipo (PNG/JPG)")
+
+
+@marca.get("/marca", response_model=Marca)
+def obter_marca(db: Db):
+    """Nome, paleta e logotipo da imobiliária (cadastrados no painel da
+    plataforma), para o app se vestir com a identidade dela."""
+    from app.central.painel import COR_DESTAQUE, COR_PRIMARIA
+
+    imob = atual()
+    d = _registro(db)
+    return Marca(
+        nome=(d.nome if d else "") or imob.nome,
+        cor_primaria=imob.cor_primaria or COR_PRIMARIA,
+        cor_destaque=imob.cor_destaque or COR_DESTAQUE,
+        tem_logo=bool(d and d.logo),
+        logo=com_imobiliaria("/logo"),
+    )

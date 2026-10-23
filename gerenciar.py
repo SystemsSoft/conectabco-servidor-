@@ -1,5 +1,10 @@
 """Tarefas administrativas do servidor.
 
+Painel da plataforma (/plataforma, cadastro das imobiliárias pela web):
+
+  python gerenciar.py plataforma criar-admin
+      Cria (ou redefine a senha de) quem entra no painel.
+
 Imobiliárias (mesmas regras de negócio; cada uma com o seu banco de dados):
 
   python gerenciar.py imobiliaria criar --slug marcelo --nome "Marcelo Bonifácio"
@@ -130,6 +135,25 @@ def imobiliaria_ativa(args: argparse.Namespace) -> None:
     print(f"Imobiliária {'ativada' if args.ativa else 'desativada'} (vale em até 30 s).")
 
 
+def plataforma_criar_admin(args: argparse.Namespace) -> None:
+    from app.central import acesso, services
+
+    services.migrar_central()
+    nome = args.nome or input("Nome: ").strip()
+    login = args.login or input("Usuário (login): ").strip()
+    senha = args.senha
+    if not senha:
+        senha = getpass.getpass("Senha (mín. 8 caracteres): ")
+        if senha != getpass.getpass("Repita a senha: "):
+            sys.exit("As senhas não conferem.")
+    with services.sessao() as db:
+        try:
+            a = acesso.criar_administrador(db, nome, login, senha)
+        except RegraNegocio as e:
+            sys.exit(e.mensagem)
+    print(f"Administrador da plataforma pronto: {a.nome} (usuário: {a.login}). Entre em /plataforma.")
+
+
 # --------------------------------------------------------------- Tarefas
 
 
@@ -196,6 +220,14 @@ def main() -> None:
     carregar_models()
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = p.add_subparsers(dest="comando", required=True)
+
+    pl = sub.add_parser("plataforma", help="painel da plataforma")
+    plsub = pl.add_subparsers(dest="acao", required=True)
+    pa = plsub.add_parser("criar-admin", help="cria ou redefine quem entra no painel")
+    pa.add_argument("--nome")
+    pa.add_argument("--login")
+    pa.add_argument("--senha", help="evite: prefira digitar quando pedido")
+    pa.set_defaults(func=plataforma_criar_admin)
 
     i = sub.add_parser("imobiliaria", help="cadastro das imobiliárias")
     isub = i.add_subparsers(dest="acao", required=True)

@@ -8,6 +8,7 @@
   <title>Relatório de auditoria {{ a.numero }} – {{ empresa.nome }}</title>
   <link rel="icon" href="/estatico/icone.png">
   <link rel="stylesheet" href="/estatico/site.css?v={{ versao_css }}">
+  {{ estilo_marca() }}
   <style>
     body { background: #e9ecf3; }
     .folha { max-width: 920px; margin: 24px auto; background: #fff; border-radius: 16px; padding: 40px; box-shadow: var(--sombra-forte); }
@@ -25,7 +26,7 @@
     h3 { font-family: var(--sans); font-size: 1rem; margin: 18px 0 8px; color: var(--navy-800); }
     .estado { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: .74rem; font-weight: 700; white-space: nowrap; }
     .estado.ok { background: rgba(31,157,85,.12); color: #1f7a45; }
-    .estado.atencao { background: rgba(245,196,50,.2); color: #8a6410; }
+    .estado.atencao { background: color-mix(in srgb, var(--gold) 20%, transparent); color: #8a6410; }
     .estado.problema { background: #fdecea; color: var(--erro); }
     .estado.naoAplica, .estado.pendente { background: var(--bg); color: var(--muted); }
     .resumo-estados { display: flex; gap: 8px; flex-wrap: wrap; margin: 6px 0 4px; }

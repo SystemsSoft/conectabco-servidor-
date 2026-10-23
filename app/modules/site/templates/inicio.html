@@ -10,7 +10,7 @@
   {% set predios = [(0,90,70),(85,60,112),(140,110,86),(245,70,132),(310,120,96),(425,80,122),(500,130,76),(625,90,140),(710,70,102),(775,140,82),(910,80,126),(985,110,92),(1090,70,136),(1155,120,86),(1270,90,116),(1355,90,76)] %}
   <svg class="skyline" viewBox="0 0 1440 150" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
     {% for x, w, h in predios %}
-      <rect x="{{ x }}" y="{{ 150 - h }}" width="{{ w }}" height="{{ h }}" fill="#010717" opacity=".88"/>
+      <rect x="{{ x }}" y="{{ 150 - h }}" width="{{ w }}" height="{{ h }}" style="fill: var(--navy-950)" opacity=".88"/>
       {% for r in range((h - 22) // 22) %}{% for col in range((w - 16) // 24) %}
         {% if (x // 5 + r * 3 + col * 7) % 4 == 0 %}<rect class="janela" x="{{ x + 12 + col * 24 }}" y="{{ 150 - h + 14 + r * 22 }}" width="8" height="10" style="--j: {{ ((x + r * 17 + col * 29) % 60) / 10 }}s"/>{% endif %}
       {% endfor %}{% endfor %}
