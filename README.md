@@ -130,7 +130,7 @@ Documentação interativa (Swagger): **http://localhost:8000/docs**
 
 ## Produção (AWS EC2)
 
-Servidor **https://api.inovacloud.app** (IP `18.191.168.173`, Amazon Linux
+Servidor **https://api.inovacloud.app** (IP `44.223.83.147`, Amazon Linux
 2023, usuário SSH `ec2-user`). Acessos por HTTP ou pelo IP são
 redirecionados para o domínio com HTTPS.
 
@@ -145,6 +145,14 @@ redirecionados para o domínio com HTTPS.
 | Certificado Let's Encrypt (renova sozinho) | `certbot-renew.timer` · teste: `sudo certbot renew --dry-run` |
 | Limpeza diária de arquivos sem uso (03:30), de todas as imobiliárias | `/etc/cron.d/marceloimob` |
 
+Instância nova (Amazon Linux 2023, vazia): prepare uma vez — Python 3.12,
+usuário `marceloimob`, pastas, `.venv`, serviços, nginx, cron e swap — e
+envie o `.env` de produção (só se o servidor ainda não tiver um):
+
+```bash
+./provisionar.sh key_aws.pem ec2-user@44.223.83.147 caminho/do/.env-producao
+```
+
 Para publicar uma nova versão (envia o código, instala dependências, aplica
 as migrações no banco central e no de todas as imobiliárias e reinicia):
 
@@ -152,7 +160,7 @@ as migrações no banco central e no de todas as imobiliárias e reinicia):
 ./deploy.sh
 ```
 
-A chave `key-aws.pem` nunca vai para o git (`*.pem` no `.gitignore`).
+A chave `key_aws.pem` nunca vai para o git (`*.pem` no `.gitignore`).
 
 ### Passando o servidor atual para várias imobiliárias
 
@@ -163,7 +171,7 @@ os passos 2 e 3, cerca de um minuto):
    da imobiliária `marcelo`, e o app atual, que ainda não manda
    `X-Imobiliaria`, continua funcionando:
    ```bash
-   ssh -i key-aws.pem ec2-user@18.191.168.173 \
+   ssh -i key_aws.pem ec2-user@44.223.83.147 \
        "printf '\nIMOBILIARIA_PADRAO=marcelo\n' | sudo tee -a /opt/marceloimob/.env"
    ```
 2. Publique: `./deploy.sh` (cria o banco central).
@@ -183,16 +191,16 @@ acessado (`proxy_set_header Host $host;` no snippet).
 
 ### Domínio e HTTPS
 
-DNS na Hostinger: registro **A** `api` → `18.191.168.173` (porta 443 já
-liberada na EC2). O HTTPS foi configurado com:
+DNS na Hostinger: registro **A** `api` → `44.223.83.147` (na instância
+nova, libere a porta 443 no Security Group da EC2). O HTTPS é configurado com:
 
 ```bash
 ./configurar_https.sh            # e-mail opcional como 1º argumento
 ```
 
 O script pode ser repetido sem efeito colateral. Para servir também o
-domínio principal, crie o registro **A** `@` → `18.191.168.173` (e o
-`www`) e rode `./configurar_https.sh "" key-aws.pem ec2-user@18.191.168.173 inovacloud.app`.
+domínio principal, crie o registro **A** `@` → `44.223.83.147` (e o
+`www`) e rode `./configurar_https.sh "" key_aws.pem ec2-user@44.223.83.147 inovacloud.app`.
 `.app` só abre em HTTPS nos navegadores.
 
 Domínio do site de uma imobiliária (registro **A** apontando para o servidor):
@@ -200,7 +208,7 @@ o 5º argumento é o slug dela — o domínio é cadastrado para a imobiliária 
 `SITE_URL` do servidor não muda:
 
 ```bash
-./configurar_https.sh "" key-aws.pem ec2-user@18.191.168.173 joaoimoveis.com.br joao
+./configurar_https.sh "" key_aws.pem ec2-user@44.223.83.147 joaoimoveis.com.br joao
 ```
 
 ## App Flutter

@@ -6,8 +6,8 @@
 # reinicia os serviços (API e fila de transcrição dos vídeos das auditorias).
 set -euo pipefail
 cd "$(dirname "$0")"
-CHAVE=${1:-key-aws.pem}
-HOST=${2:-ec2-user@18.191.168.173}
+CHAVE=${1:-key_aws.pem}
+HOST=${2:-ec2-user@44.223.83.147}
 SSH="ssh -i $CHAVE -o BatchMode=yes"
 
 rsync -az --delete -e "$SSH" \
