@@ -12,8 +12,8 @@ from pathlib import Path
 import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
-from app.core.config import get_settings
 from app.core.errors import NaoEncontrado, RegraNegocio
+from app.core.imobiliarias import endereco_publico
 from app.core.tempo import agora
 from app.modules.arquivos import services as arquivos
 from app.modules.crm import models as crm
@@ -379,4 +379,4 @@ def marcar_lidos(db: Session, acesso: m.AcessoInquilino, avisos: list[m.Comunica
 
 
 def site_seguro() -> bool:
-    return get_settings().site_url.startswith("https://")
+    return endereco_publico().startswith("https://")

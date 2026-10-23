@@ -1,52 +1,77 @@
-"""Os testes usam um SQLite em memória, criado e descartado a cada teste;
-a aplicação em si usa o MySQL configurado no .env. O `client` já está logado
-como administrador; `cliente_anonimo` não tem token."""
+"""Os testes usam SQLite em memória (um banco central e um por imobiliária),
+criados e descartados a cada teste; a aplicação em si usa o MySQL configurado
+no .env. Durante o teste a imobiliária "teste" é a atual (`imobiliaria`); o
+`client` já está logado como administrador dela; `cliente_anonimo` não tem
+token. `nova_imobiliaria` cadastra outras (testes de isolamento)."""
 
 from collections.abc import Iterator
 
 import pytest
-import sqlalchemy as sa
 from fastapi.testclient import TestClient
-from sqlalchemy.orm import Session, sessionmaker
-from sqlalchemy.pool import StaticPool
 
-from app.core.database import Base, get_db
+from app.central import services as central
+from app.core import imobiliarias
+from app.core.config import get_settings
+from app.core.database import Base, BaseCentral, descartar_motores, fabrica, motor, motor_central
+from app.core.imobiliarias import Imobiliaria, usar
 from app.main import create_app
 
 ADMIN = {"usuario": "Admin", "senha": "senha-forte-123"}
 
 
 @pytest.fixture
-def banco():
-    engine = sa.create_engine(
-        "sqlite://",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
+def plataforma(monkeypatch, tmp_path) -> Iterator[None]:
+    s = get_settings()
+    for campo, valor in {
+        "central_database_url": "sqlite://",
+        "database_url": "sqlite://",
+        "imobiliaria_padrao": "",
+        "site_url": "",
+        "arquivos_dir": str(tmp_path / "arquivos"),
+    }.items():
+        monkeypatch.setattr(s, campo, valor)
+    descartar_motores()
+    imobiliarias.limpar_cadastro()
+    BaseCentral.metadata.create_all(motor_central())
+    yield
+    descartar_motores()
+    imobiliarias.limpar_cadastro()
 
-    @sa.event.listens_for(engine, "connect")
-    def _fks(conexao, _):
-        conexao.execute("PRAGMA foreign_keys=ON")
 
-    Base.metadata.create_all(engine)
-    fabrica = sessionmaker(bind=engine, expire_on_commit=False)
-    with fabrica() as db:
-        from app.modules.equipe.services import criar_administrador
+def criar_imobiliaria(slug: str, nome: str, dominios: tuple[str, ...] = ()) -> Imobiliaria:
+    """Cadastro + tabelas (create_all, sem as migrações) + administrador."""
+    from app.modules.equipe.services import criar_administrador
 
+    with central.sessao() as db:
+        imob = central.validar_nova(db, slug, nome, dominios=dominios)
+        central.registrar(db, imob)
+    Base.metadata.create_all(motor(imob))
+    with usar(imob), fabrica(imob)() as db:
         criar_administrador(db, "Administrador", ADMIN["usuario"], ADMIN["senha"])
-    yield fabrica
-    engine.dispose()
+    return imob
 
 
 @pytest.fixture
-def cliente_anonimo(banco) -> Iterator[TestClient]:
-    def _db() -> Iterator[Session]:
-        with banco() as s:
-            yield s
+def nova_imobiliaria(plataforma):
+    return criar_imobiliaria
 
-    app = create_app()
-    app.dependency_overrides[get_db] = _db
-    with TestClient(app) as c:
+
+@pytest.fixture
+def imobiliaria(plataforma) -> Iterator[Imobiliaria]:
+    imob = criar_imobiliaria("teste", "Imobiliária Teste")
+    with usar(imob):
+        yield imob
+
+
+@pytest.fixture
+def banco(imobiliaria):
+    """Fábrica de sessões do banco da imobiliária do teste."""
+    return fabrica(imobiliaria)
+
+
+@pytest.fixture
+def cliente_anonimo(banco, imobiliaria) -> Iterator[TestClient]:
+    with TestClient(create_app(), headers={imobiliarias.CABECALHO: imobiliaria.slug}) as c:
         yield c
 
 

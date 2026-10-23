@@ -1,13 +1,14 @@
 """Criação da aplicação FastAPI."""
 
 import sqlalchemy as sa
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
+from app.core import imobiliarias
 from app.core.config import get_settings
-from app.core.database import get_engine
+from app.core.database import motor, motor_central
 from app.core.errors import registrar_tratadores
 from app.modules import carregar_models, roteadores
 
@@ -20,9 +21,11 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title=s.app_nome,
         version=s.versao,
-        description="API do Sistema de Gestão Imobiliária – Marcelo Bonifácio, "
-        "Corretor de Imóveis (CRECI 065655 RJ).",
+        description="API do Sistema de Gestão Imobiliária. Atende várias "
+        "imobiliárias, cada uma com o seu banco: informe qual no cabeçalho "
+        "X-Imobiliaria (ou acesse pelo domínio dela).",
     )
+    app.add_middleware(imobiliarias.IdentificarImobiliaria)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=s.lista_cors,
@@ -32,8 +35,9 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
     registrar_tratadores(app)
+    documentar = Depends(imobiliarias.cabecalho)
     for router, dependencias in roteadores():
-        app.include_router(router, prefix=PREFIXO_API, dependencies=dependencias)
+        app.include_router(router, prefix=PREFIXO_API, dependencies=[documentar, *dependencias])
 
     # Site público (/, /imoveis, /imovel/{codigo}...), sem login.
     from app.modules.site.publico import PASTA, router as site_publico
@@ -55,18 +59,26 @@ def create_app() -> FastAPI:
 
     @app.get("/saude/banco", tags=["Sistema"])
     def saude_banco():
+        """Banco central e, se a requisição identificar a imobiliária, o dela."""
         if not get_settings().banco_configurado:
             return JSONResponse(
                 {"status": "erro", "detail": "Banco não configurado (.env)."}, 503
             )
         try:
-            with get_engine().connect() as c:
-                versao = c.scalar(sa.text("SELECT VERSION()"))
-            return {"status": "ok", "versao": versao}
+            resposta = {"status": "ok", "central": _versao(motor_central())}
+            if imob := imobiliarias.identificada():
+                resposta |= {"imobiliaria": imob.slug, "banco": _versao(motor(imob))}
+            return resposta
         except Exception as e:  # noqa: BLE001 - diagnóstico da conexão
             return JSONResponse({"status": "erro", "detail": str(e)}, 503)
 
     return app
+
+
+def _versao(engine: sa.Engine) -> str:
+    with engine.connect() as c:
+        c.execute(sa.text("SELECT 1"))
+        return ".".join(map(str, c.dialect.server_version_info or ()))
 
 
 app = create_app()

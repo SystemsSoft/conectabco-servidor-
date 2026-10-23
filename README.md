@@ -1,7 +1,12 @@
-# Servidor – Marcelo Bonifácio Gestão Imobiliária
+# Servidor – Gestão Imobiliária (várias imobiliárias)
 
 API em **Python + FastAPI** que alimenta o front-end Flutter (`marceloimob_gestao`).
 Banco: **MySQL 8.4 no AWS Lightsail** (SQLAlchemy 2 + migrações Alembic).
+
+O mesmo servidor atende **várias imobiliárias**: todas usam as mesmas regras
+de negócio (o código de `app/modules`), mas cada uma tem o **seu banco de
+dados**, a sua pasta de arquivos, os seus usuários e o seu site. Veja
+[Várias imobiliárias](#várias-imobiliárias).
 
 Módulos prontos:
 - **Cadastros e CRM** — imóveis, contatos com perfil de interesse, cruzamento
@@ -23,6 +28,50 @@ Módulos prontos:
 - **Personalização** — logotipo e dados da imobiliária usados nos documentos.
 - **Manutenção** — pauta e diário de manutenção (usada na Locação e nas Vendas).
 
+## Várias imobiliárias
+
+```
+banco central (conectabco_central)      imobiliarias: slug, nome, banco, site, ativa
+                                        dominios:     domínio -> imobiliária
+imob_marcelo, imob_<slug>, ...          um banco por imobiliária (mesmas tabelas)
+ARQUIVOS_DIR/<slug>/                    arquivos enviados de cada uma
+```
+
+Cada requisição diz de qual imobiliária é, nesta ordem:
+
+1. cabeçalho **`X-Imobiliaria: <slug>`** — o app de gestão;
+2. parâmetro **`?imob=<slug>`** — os links assinados (arquivos, relatório e
+   QR codes das auditorias) já saem com ele, pois o navegador não manda o
+   cabeçalho;
+3. **domínio** acessado (`Host`) — o site público e os portais do inquilino e
+   do proprietário de cada imobiliária;
+4. `IMOBILIARIA_PADRAO` do `.env`, se definida.
+
+Sem identificação a API responde 400; slug ou domínio de imobiliária
+desconhecida ou desativada, 404. Tokens de login e links são assinados com
+uma chave própria de cada imobiliária (derivada do `JWT_SECRET`), e a sessão
+fica no banco dela: o login de uma nunca vale em outra. A imobiliária padrão
+continua com a chave original, então logins, links e QR codes emitidos antes
+do multi-imobiliária seguem valendo.
+
+O cadastro fica no banco central e é mantido pelo `gerenciar.py` (o servidor
+relê o cadastro a cada 30 s, sem reiniciar):
+
+```bash
+# cria o banco imob_<slug>, aplica as migrações e pede o administrador
+.venv/bin/python gerenciar.py imobiliaria criar --slug joao --nome "João Imóveis" \
+    --dominio joaoimoveis.com.br
+.venv/bin/python gerenciar.py imobiliaria listar
+.venv/bin/python gerenciar.py imobiliaria dominio joao --adicionar joao.inovacloud.app
+.venv/bin/python gerenciar.py imobiliaria editar joao --site-url https://joaoimoveis.com.br
+.venv/bin/python gerenciar.py imobiliaria desativar joao      # dados ficam no banco
+.venv/bin/python gerenciar.py migrar                          # central + todas
+```
+
+`--site-url` é o endereço público do site (sitemap, QR codes, cookie seguro);
+sem ele, vale o primeiro domínio. Domínios com `www.` não precisam de cadastro
+à parte: `www.joaoimoveis.com.br` abre a imobiliária de `joaoimoveis.com.br`.
+
 ## Instalação
 
 ```bash
@@ -35,18 +84,23 @@ cp .env .env           # preencha usuário, senha e nome do banco
 
 1. No console do Lightsail, em **Networking** do banco, ative o **modo público**
    (ou rode o servidor numa instância Lightsail na mesma região).
-2. Crie o schema, se ainda não existir:
-   ```sql
-   CREATE DATABASE marceloimob CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
-   ```
+2. No `.env`, informe `DB_HOST`, `DB_USER` e `DB_PASSWORD` (o usuário precisa
+   poder criar bancos: o `gerenciar.py` cria o central e o de cada
+   imobiliária) e, se quiser outro nome, `DB_CENTRAL` (padrão
+   `conectabco_central`).
 3. (Recomendado) baixe o certificado da região e informe em `DB_SSL_CA`:
    `https://truststore.pki.rds.amazonaws.com/us-east-2/us-east-2-bundle.pem`
-4. Crie as tabelas:
+4. Cadastre a primeira imobiliária (cria o banco central, o dela e as tabelas):
    ```bash
-   .venv/bin/alembic upgrade head
+   .venv/bin/python gerenciar.py imobiliaria criar --slug marcelo --nome "Marcelo Bonifácio"
    ```
 
-Teste a conexão em `GET /saude/banco` com o servidor rodando.
+Teste a conexão em `GET /saude/banco` (com `X-Imobiliaria`, testa também o
+banco da imobiliária).
+
+Para desenvolver sem MySQL, use SQLite: `CENTRAL_DATABASE_URL=sqlite:///dados/central.db`
+e `DATABASE_URL=sqlite:///dados/{banco}.db` (`{banco}` vira o banco de cada
+imobiliária). No SQLite o banco novo nasce direto dos models.
 
 ## Primeiro acesso (login)
 
@@ -57,11 +111,11 @@ que assina os tokens; sem ela, todos precisam entrar de novo a cada reinício):
 python -c "import secrets;print(secrets.token_urlsafe(48))"
 ```
 
-Crie o administrador (pede nome, usuário de login — ex.: Marcelo — e senha;
-também serve para redefinir a senha dele se esquecer):
+O `imobiliaria criar` já pede o administrador. Para criar outro ou redefinir
+a senha dele (pede nome, usuário de login — ex.: Marcelo — e senha):
 
 ```bash
-.venv/bin/python gerenciar.py criar-admin
+.venv/bin/python gerenciar.py criar-admin --imobiliaria marcelo
 ```
 
 Os demais usuários são criados no app, em Equipe e Segurança > Usuários.
@@ -83,22 +137,49 @@ redirecionados para o domínio com HTTPS.
 | O quê | Onde |
 |---|---|
 | Código e `.env` (dono `marceloimob`, permissão 600) | `/opt/marceloimob` |
-| Fotos, vídeos e arquivos enviados | `/var/lib/marceloimob/arquivos` |
+| Fotos, vídeos e arquivos enviados (uma subpasta por imobiliária) | `/var/lib/marceloimob/arquivos/<slug>` |
 | Serviço (uvicorn, 2 workers, 127.0.0.1:8000) | `systemctl status marceloimob` · `journalctl -u marceloimob -f` |
 | nginx: rotas para o serviço (uploads até 300 MB) | `/etc/nginx/snippets/marceloimob-proxy.conf` |
 | nginx: domínio + HTTPS (gerido pelo certbot) | `/etc/nginx/conf.d/inovacloud.conf` |
 | nginx: IP/HTTP → `https://api.inovacloud.app` | `/etc/nginx/default.d/redireciona-dominio.conf` |
 | Certificado Let's Encrypt (renova sozinho) | `certbot-renew.timer` · teste: `sudo certbot renew --dry-run` |
-| Limpeza diária de arquivos sem uso (03:30) | `/etc/cron.d/marceloimob` |
+| Limpeza diária de arquivos sem uso (03:30), de todas as imobiliárias | `/etc/cron.d/marceloimob` |
 
 Para publicar uma nova versão (envia o código, instala dependências, aplica
-as migrações e reinicia):
+as migrações no banco central e no de todas as imobiliárias e reinicia):
 
 ```bash
 ./deploy.sh
 ```
 
 A chave `key-aws.pem` nunca vai para o git (`*.pem` no `.gitignore`).
+
+### Passando o servidor atual para várias imobiliárias
+
+Uma vez, na primeira publicação desta versão (o sistema fica fora do ar entre
+os passos 2 e 3, cerca de um minuto):
+
+1. Defina a imobiliária padrão no `.env` do servidor: o banco de hoje vira o
+   da imobiliária `marcelo`, e o app atual, que ainda não manda
+   `X-Imobiliaria`, continua funcionando:
+   ```bash
+   ssh -i key-aws.pem ec2-user@18.191.168.173 \
+       "printf '\nIMOBILIARIA_PADRAO=marcelo\n' | sudo tee -a /opt/marceloimob/.env"
+   ```
+2. Publique: `./deploy.sh` (cria o banco central).
+3. No servidor (`cd /opt/marceloimob`), registre o banco que já existe (o
+   `DB_NAME` de hoje) e passe os arquivos para a subpasta da imobiliária:
+   ```bash
+   sudo -u marceloimob .venv/bin/python gerenciar.py imobiliaria criar \
+       --slug marcelo --nome "Marcelo Bonifácio" --banco marceloimob --existente
+   cd /var/lib/marceloimob/arquivos && sudo -u marceloimob mkdir -p marcelo && \
+       sudo -u marceloimob find . -mindepth 1 -maxdepth 1 ! -name marcelo -exec mv {} marcelo/ \;
+   ```
+
+Logins, links e QR codes já emitidos continuam valendo. `DB_NAME` deixa de
+ser usado (o banco de cada imobiliária fica no cadastro). Para o site de cada
+imobiliária abrir pelo domínio dela, o nginx precisa repassar o domínio
+acessado (`proxy_set_header Host $host;` no snippet).
 
 ### Domínio e HTTPS
 
@@ -114,6 +195,14 @@ domínio principal, crie o registro **A** `@` → `18.191.168.173` (e o
 `www`) e rode `./configurar_https.sh "" key-aws.pem ec2-user@18.191.168.173 inovacloud.app`.
 `.app` só abre em HTTPS nos navegadores.
 
+Domínio do site de uma imobiliária (registro **A** apontando para o servidor):
+o 5º argumento é o slug dela — o domínio é cadastrado para a imobiliária e o
+`SITE_URL` do servidor não muda:
+
+```bash
+./configurar_https.sh "" key-aws.pem ec2-user@18.191.168.173 joaoimoveis.com.br joao
+```
+
 ## App Flutter
 
 O app de gestão usa `https://api.inovacloud.app` por padrão
@@ -126,17 +215,25 @@ flutter run -d chrome --dart-define=API_URL=http://localhost:8000
 Publicando o app web em outro endereço (ex.: `https://gestao.inovacloud.app`),
 inclua esse endereço em `CORS_ORIGINS` no `.env`.
 
+O app deve mandar o cabeçalho `X-Imobiliaria: <slug>` em toda chamada à API
+(e manter o token por imobiliária). Enquanto não manda, as chamadas vão para
+a `IMOBILIARIA_PADRAO`.
+
 ## Testes
 
 ```bash
 .venv/bin/python -m pytest
 ```
 
-Os testes usam um SQLite em memória descartável; não tocam no MySQL.
+Os testes usam SQLite em memória descartável (um banco central e um por
+imobiliária); não tocam no MySQL. `tests/imobiliarias` cobre o isolamento
+entre imobiliárias.
 
 ## Convenções da API
 
 - Prefixo `/api/v1/<módulo>/...` (ex.: `/api/v1/crm/imoveis`).
+- Cabeçalho `X-Imobiliaria: <slug>` em todas as rotas (ver
+  [Várias imobiliárias](#várias-imobiliárias)); sem ele, 400.
 - JSON em **camelCase**, com os mesmos nomes de campos das entidades Dart.
 - Enums trafegam pelo **nome usado no Dart** (`"casaCondominio"`, `"locacao"`).
   `GET /api/v1/crm/catalogos` devolve todos com o rótulo em português.
@@ -297,19 +394,20 @@ campos `{{empresa_...}}` dos modelos de contrato.
 
 Limites: fotos até 15 MB (JPG, PNG, WEBP, GIF), vídeos até 300 MB (MP4, MOV,
 WEBM) e arquivos até 30 MB (PDF, Office, TXT, CSV, ZIP, DWG e imagens). Enviar
-exige gravar em Cadastros e CRM. O conteúdo fica na pasta `ARQUIVOS_DIR`
-(padrão `dados/arquivos`, fora do git) — inclua essa pasta no backup do
-servidor. No imóvel, o anexo guarda `arquivo:<id>` no lugar do link; os links
+exige gravar em Cadastros e CRM. O conteúdo fica na pasta `ARQUIVOS_DIR/<slug>`
+(padrão `dados/arquivos`, fora do git), uma por imobiliária — inclua essa
+pasta no backup do servidor. No imóvel, o anexo guarda `arquivo:<id>` no lugar do link; os links
 assinados valem pelo tempo do login (`TOKEN_HORAS`).
 
 Arquivos que nenhum imóvel usa mais (anexo removido ou imóvel excluído) são
-apagados com `.venv/bin/python gerenciar.py limpar-arquivos` (ex.: cron
-diário). Atrás de um proxy (nginx), libere uploads grandes:
+apagados com `.venv/bin/python gerenciar.py limpar-arquivos`, em todas as
+imobiliárias (ex.: cron diário; `--imobiliaria <slug>` limpa só uma). Atrás de um proxy (nginx), libere uploads grandes:
 `client_max_body_size 300m;`.
 
 ## Site público (leads e atendimento)
 
-O próprio servidor hospeda o site da imobiliária, sem login:
+O próprio servidor hospeda o site de cada imobiliária, sem login, aberto
+pelo domínio dela (cadastrado com `gerenciar.py imobiliaria dominio`):
 
 | Página | O que mostra |
 |---|---|
@@ -333,8 +431,10 @@ campo-isca contra robôs e limite de 5 envios a cada 10 minutos por endereço.
 
 Textos, contatos, redes, funcionalidades (busca, destaques, valores, visita,
 WhatsApp...) e a distribuição dos leads são editados no app em **Site e
-Leads**. Em produção, `SITE_URL` (hoje `https://api.inovacloud.app`) define
-o endereço do sitemap e liga o cookie seguro da Área do inquilino.
+Leads**. O endereço do site de cada imobiliária (`--site-url` no cadastro;
+sem ele, `SITE_URL` do `.env`, hoje `https://api.inovacloud.app`) define o
+sitemap e os QR codes e liga o cookie seguro das áreas do inquilino e do
+proprietário.
 
 | Método | Rota | Descrição |
 |---|---|---|
@@ -411,7 +511,8 @@ A transcrição roda num processo separado (não trava a API):
 
 ```bash
 pip install -r requirements-transcricao.txt
-python gerenciar.py transcrever          # fica rodando (no servidor: serviço marceloimob-transcricao)
+python gerenciar.py transcrever          # fica rodando, atende a fila de todas as imobiliárias
+                                         # (no servidor: serviço marceloimob-transcricao)
 python gerenciar.py transcrever --uma-vez
 ```
 
@@ -474,9 +575,13 @@ O token do Sandbox fica só no banco do servidor e nunca volta na API.
 main.py                      inicia o servidor (python main.py)
 app/
   main.py                    cria a aplicação, CORS, rotas de saúde
+  central/                   banco central: cadastro das imobiliárias
+    models.py                imobiliarias e dominios
+    services.py              cadastrar, criar o banco, migrar
   core/                      infraestrutura comum a todos os módulos
     config.py                configurações (.env)
-    database.py              conexão MySQL e sessão por requisição
+    imobiliarias.py          imobiliária da requisição (cabeçalho/domínio)
+    database.py              um banco por imobiliária e sessão por requisição
     errors.py                RegraNegocio (422) / NaoEncontrado (404)
     schemas.py               base camelCase e paginação
     enums.py                 enums com rótulo
@@ -492,7 +597,8 @@ app/
       services.py            regras de negócio
       cruzamento.py          pontuação do cruzamento de perfil
       api/                   rotas
-migrations/                  Alembic (versions/ = histórico do banco)
+migrations/                  Alembic dos bancos das imobiliárias
+migrations_central/          Alembic do banco central (alembic -n central ...)
 tests/                       pytest, um diretório por módulo
 ```
 
@@ -501,10 +607,11 @@ tests/                       pytest, um diretório por módulo
 1. Crie `app/modules/locacao/` copiando a divisão do `crm`.
 2. Em `app/modules/__init__.py`, importe os models em `carregar_models()` e
    inclua o router em `roteadores()`.
-3. Gere e aplique a migração:
+3. Gere a migração comparando com o banco de uma imobiliária e aplique em
+   todas:
    ```bash
-   .venv/bin/alembic revision --autogenerate -m "locacao"
-   .venv/bin/alembic upgrade head
+   .venv/bin/alembic -x imobiliaria=marcelo revision --autogenerate -m "locacao"
+   .venv/bin/python gerenciar.py migrar
    ```
 4. Escreva os testes em `tests/locacao/`.
 

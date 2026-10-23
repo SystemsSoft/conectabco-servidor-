@@ -53,7 +53,7 @@
 <body>
   <article class="folha">
     <header class="cab">
-      <img src="/logo" alt="">
+      <img src="{{ com_imobiliaria('/logo') }}" alt="">
       <div><h1>{{ empresa.nome }}</h1><small>{{ empresa.atividade }}{% if empresa.creci %} · {{ empresa.creci }}{% endif %}</small></div>
       <div class="doc">RELATÓRIO DE AUDITORIA<small>{{ a.numero }} · {{ a.tipo.rotulo }}</small></div>
     </header>

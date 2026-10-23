@@ -16,8 +16,8 @@ from fastapi.responses import FileResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
-from app.core.config import get_settings
 from app.core.database import get_db
+from app.core.imobiliarias import com_imobiliaria, url_site
 from app.core.errors import RegraNegocio
 from app.modules.arquivos.models import Arquivo
 from app.modules.arquivos.services import caminho as caminho_arquivo
@@ -60,6 +60,8 @@ templates.env.globals["versao_css"] = max(
     int((PASTA / "static" / nome).stat().st_mtime) for nome in ("site.css", "site.js")
 )
 templates.env.filters["numero"] = numero
+# Links que precisam abrir a imobiliária certa pelo endereço compartilhado.
+templates.env.globals["com_imobiliaria"] = com_imobiliaria
 
 
 def _midia(url: str) -> str | None:
@@ -423,11 +425,11 @@ def logo(db: Db):
             media_type=e.logo_tipo,
             headers={"Cache-Control": "public, max-age=3600"},
         )
-    return FileResponse(PASTA / "static" / "logo.png")
+    return FileResponse(PASTA / "static" / "icone.png")
 
 
 def _url_site(request: Request) -> str:
-    return (get_settings().site_url or str(request.base_url)).rstrip("/")
+    return url_site(request)
 
 
 @router.get("/robots.txt")

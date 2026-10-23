@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.database import get_db
+from app.core.imobiliarias import com_imobiliaria, url_site
 from app.core.seguranca import assinar, assinatura_valida
 from app.modules.arquivos.api import resposta_arquivo
 from app.modules.arquivos.models import Arquivo
@@ -33,7 +34,7 @@ Db = Annotated[Session, Depends(get_db)]
 
 def link(auditoria_id: str) -> str:
     expira = int(time.time()) + get_settings().token_horas * 3600
-    return f"/relatorio-auditoria/{auditoria_id}?expira={expira}&assinatura={assinar(f'relatorio:{auditoria_id}:{expira}')}"
+    return com_imobiliaria(f"/relatorio-auditoria/{auditoria_id}?expira={expira}&assinatura={assinar(f'relatorio:{auditoria_id}:{expira}')}")
 
 
 def token_midia(midia_id: str) -> str:
@@ -41,13 +42,12 @@ def token_midia(midia_id: str) -> str:
 
 
 def endereco_base(request: Request) -> str:
-    base = get_settings().site_url or str(request.base_url)
-    return base if base.endswith("/") else base + "/"
+    return url_site(request) + "/"
 
 
 def link_publico(base: str, midia_id: str) -> str:
     """Link de compartilhamento da mídia (o do QR code)."""
-    return f"{base}auditoria/midia/{midia_id}?t={token_midia(midia_id)}"
+    return com_imobiliaria(f"{base}auditoria/midia/{midia_id}?t={token_midia(midia_id)}")
 
 
 @lru_cache(maxsize=512)
@@ -124,7 +124,7 @@ def midia_publica(midia_id: str, request: Request, db: Db, t: str = ""):
         return Response("Link inválido ou mídia removida.", status_code=404)
     a = db.get(m.Auditoria, midia.auditoria_id)
     item = next((i for i in a.itens if i.id == midia.item_id), None)
-    arquivo = f"/auditoria/midia/{midia.id}/arquivo?t={t}"
+    arquivo = com_imobiliaria(f"/auditoria/midia/{midia.id}/arquivo?t={t}")
     ctx = _base(request, db) | {
         "a": a, "midia": midia, "item": item, "imovel": db.get(Imovel, a.imovel_id),
         "arquivo": arquivo, "Transcricao": StatusTranscricao,

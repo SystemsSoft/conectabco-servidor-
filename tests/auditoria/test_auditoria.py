@@ -110,7 +110,7 @@ def test_ciclo_da_auditoria_bloqueio_e_publicacao(client):
     assert (reaberta["status"], reaberta["publicada"]) == ("emAndamento", False)
 
 
-def test_videos_fila_de_transcricao_e_relatorio(client, banco):
+def test_videos_fila_de_transcricao_e_relatorio(client, banco, imobiliaria):
     _, _, im, cid = _cenario(client)
     a = _auditoria(client, im, cid)
     video, foto = novo_id(), novo_id()
@@ -129,7 +129,7 @@ def test_videos_fila_de_transcricao_e_relatorio(client, banco):
     assert client.post(f"{API}/{a['id']}/midias/{video}/transcrever").status_code == 422
 
     falso = TranscritorFalso()
-    assert transcricao.rodar(banco, falso, uma_vez=True) == 1
+    assert transcricao.rodar(lambda: [(imobiliaria, banco)], falso, uma_vez=True) == 1
     assert len(falso.chamadas) == 1 and falso.chamadas[0].endswith(ref_video.removeprefix("arquivo:"))
     v = next(x for x in client.get(f"{API}/{a['id']}").json()["midias"] if x["id"] == video)
     assert (v["transcricaoStatus"], v["transcricaoTexto"]) == ("concluida", falso.texto)
@@ -147,7 +147,7 @@ def test_videos_fila_de_transcricao_e_relatorio(client, banco):
         m.transcricao_status = m.transcricao_status.__class__.processando
         db.commit()
         assert transcricao.recuperar_interrompidas(db) == 1
-    transcricao.rodar(banco, falso, uma_vez=True)
+    transcricao.rodar(lambda: [(imobiliaria, banco)], falso, uma_vez=True)
     v = next(x for x in client.get(f"{API}/{a['id']}").json()["midias"] if x["id"] == video)
     assert v["transcricaoStatus"] == "erro" and "não encontrado" in v["transcricaoErro"]
 

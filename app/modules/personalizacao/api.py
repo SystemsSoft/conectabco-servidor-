@@ -10,6 +10,7 @@ from app.core.auth import UsuarioLogado, exigir_modulo
 from app.core.database import get_db
 from app.core.documentos import validar_cpf_cnpj
 from app.core.errors import NaoEncontrado, RegraNegocio
+from app.core.imobiliarias import atual
 from app.core.schemas import Esquema
 from app.core.tempo import agora
 from app.modules.personalizacao.models import DadosEmpresa
@@ -17,8 +18,6 @@ from app.modules.personalizacao.models import DadosEmpresa
 router = APIRouter(prefix="/personalizacao", tags=["Personalização"])
 Db = Annotated[Session, Depends(get_db)]
 LOGO_MAX = 2 * 1024 * 1024
-_PADRAO = {"nome": "Marcelo Bonifácio", "atividade": "Corretor de Imóveis",
-           "creci": "CRECI 065655 RJ"}  # fmt: skip
 
 
 def Texto(n: int):  # noqa: N802
@@ -53,7 +52,7 @@ def _registro(db: Session) -> DadosEmpresa | None:
 
 def _saida(d: DadosEmpresa | None) -> EmpresaSaida:
     if d is None:
-        return EmpresaSaida(**_PADRAO)
+        return EmpresaSaida(nome=atual().nome)
     return EmpresaSaida(
         **{k: getattr(d, k) for k in Empresa.model_fields},
         tem_logo=d.logo is not None,
@@ -64,7 +63,7 @@ def _saida(d: DadosEmpresa | None) -> EmpresaSaida:
 def _obter_ou_criar(db: Session) -> DadosEmpresa:
     d = _registro(db)
     if d is None:
-        d = DadosEmpresa(id=1, **_PADRAO)
+        d = DadosEmpresa(id=1, nome=atual().nome)
         db.add(d)
     return d
 

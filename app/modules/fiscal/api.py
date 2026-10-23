@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.documentos import validar_cpf, validar_cpf_cnpj
 from app.core.errors import RegraNegocio
+from app.core.imobiliarias import atual
 from app.core.schemas import Esquema
 from app.modules.fiscal.models import DeclaranteDimob
 
@@ -18,7 +19,7 @@ class Declarante(Esquema):
     documento: Annotated[str, Field(max_length=18)] = Field(
         "", description="CNPJ ou CPF do declarante"
     )
-    nome: Annotated[str, Field(max_length=200)] = "Marcelo Bonifácio"
+    nome: Annotated[str, Field(max_length=200)] = ""
     responsavel_nome: Annotated[str, Field(max_length=200)] = ""
     responsavel_cpf: Annotated[str, Field(max_length=14)] = ""
     retificadora: bool = False
@@ -29,7 +30,7 @@ class Declarante(Esquema):
 def obter_declarante(db: Db):
     """Dados do declarante da DIMOB (padrão até ser salvo)."""
     d = db.get(DeclaranteDimob, 1)
-    return Declarante.model_validate(d) if d else Declarante()
+    return Declarante.model_validate(d) if d else Declarante(nome=atual().nome)
 
 
 @router.put("/declarante", response_model=Declarante)

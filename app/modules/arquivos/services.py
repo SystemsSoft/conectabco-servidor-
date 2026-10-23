@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.errors import RegraNegocio
+from app.core.imobiliarias import atual, com_imobiliaria
 from app.core.seguranca import assinar, assinatura_valida
 from app.core.tempo import agora
 from app.modules.arquivos.models import Arquivo
@@ -57,7 +58,8 @@ _EXIBIVEIS = ("image/", "video/", "application/pdf")
 
 
 def pasta() -> Path:
-    return Path(get_settings().arquivos_dir)
+    """Pasta da imobiliária atual (cada uma tem a sua)."""
+    return atual().pasta_arquivos
 
 
 def caminho(arquivo_id: str) -> Path:
@@ -196,7 +198,7 @@ def link(arquivo_id: str, validade_s: int | None = None) -> str:
     validade_s = validade_s or get_settings().token_horas * 3600
     expira = int(time.time()) + validade_s
     assinatura = assinar(f"{arquivo_id}:{expira}")
-    return (
+    return com_imobiliaria(
         f"/api/v1/arquivos/{arquivo_id}/conteudo"
         f"?expira={expira}&assinatura={assinatura}"
     )

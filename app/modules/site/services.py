@@ -9,6 +9,7 @@ import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
 from app.core.errors import RegraNegocio
+from app.core.imobiliarias import atual
 from app.core.tempo import agora
 from app.modules.crm import models as crm
 from app.modules.crm.enums import (
@@ -61,9 +62,9 @@ def contatos_do_site(db: Session, cfg: s.ConfiguracaoSite) -> dict:
 
     e = db.get(DadosEmpresa, 1)
     empresa = {
-        "nome": e.nome if e else "Marcelo Bonifácio",
-        "atividade": e.atividade if e else "Corretor de Imóveis",
-        "creci": e.creci if e else "CRECI 065655 RJ",
+        "nome": e.nome if e else atual().nome,
+        "atividade": e.atividade if e else "",
+        "creci": e.creci if e else "",
         "documento": e.documento if e else "",
         "tem_logo": bool(e and e.logo),
     }

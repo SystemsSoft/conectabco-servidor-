@@ -17,7 +17,8 @@ def _corretor(client):
 
 
 def test_dados_padrao_e_gravacao(client):
-    assert client.get(f"{URL}/empresa").json()["creci"] == "CRECI 065655 RJ"
+    padrao = client.get(f"{URL}/empresa").json()
+    assert (padrao["nome"], padrao["creci"]) == ("Imobiliária Teste", "")  # nome do cadastro
     dados = {"nome": "Marcelo Bonifácio Imóveis", "atividade": "Corretor de Imóveis",
              "creci": "CRECI 065655 RJ", "documento": "11.222.333/0001-81",
              "endereco": "Rua Moreira César, 100 - Icaraí, Niterói/RJ",

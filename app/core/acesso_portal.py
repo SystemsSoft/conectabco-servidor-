@@ -13,7 +13,7 @@ import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
 from app.core.errors import NaoEncontrado, RegraNegocio
-from app.core.seguranca import _segredo, assinar, hash_senha, verificar_senha
+from app.core.seguranca import assinar, chave, hash_senha, verificar_senha
 from app.core.tempo import agora
 
 TENTATIVAS = 5
@@ -111,7 +111,7 @@ def criar_token(acesso, tipo: str) -> str:
     return jwt.encode(
         {"sub": acesso.id, "v": acesso.versao, "tipo": tipo,
          "iat": momento, "exp": momento + timedelta(hours=SESSAO_HORAS)},
-        _segredo(),
+        chave(),
         algorithm="HS256",
     )  # fmt: skip
 
@@ -120,7 +120,7 @@ def acesso_do_token(db: Session, modelo, token: str | None, tipo: str):
     if not token:
         return None
     try:
-        dados = jwt.decode(token, _segredo(), algorithms=["HS256"])
+        dados = jwt.decode(token, chave(), algorithms=["HS256"])
     except jwt.PyJWTError:
         return None
     if dados.get("tipo") != tipo:

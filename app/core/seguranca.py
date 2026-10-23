@@ -1,4 +1,7 @@
-"""Senhas (PBKDF2-SHA256 com sal) e tokens de acesso (JWT)."""
+"""Senhas (PBKDF2-SHA256 com sal) e tokens de acesso (JWT).
+
+Tokens e links são assinados com uma chave própria de cada imobiliária
+(derivada do JWT_SECRET): o que uma emite não vale nas outras."""
 
 import base64
 import hashlib
@@ -10,6 +13,7 @@ from functools import lru_cache
 import jwt
 
 from app.core.config import get_settings
+from app.core.imobiliarias import atual
 
 _ITERACOES = 600_000
 
@@ -44,6 +48,17 @@ def _segredo() -> str:
     return secrets.token_urlsafe(48)
 
 
+def chave() -> str:
+    """Chave de assinatura da imobiliária atual. A padrão (IMOBILIARIA_PADRAO,
+    a de antes do multi-imobiliária) segue com o JWT_SECRET puro: logins,
+    links e QR codes já impressos continuam valendo."""
+    slug = atual().slug
+    if slug == get_settings().imobiliaria_padrao:
+        return _segredo()
+    mac = hmac.new(_segredo().encode(), f"imobiliaria:{slug}".encode(), hashlib.sha256)
+    return mac.hexdigest()
+
+
 def criar_token(usuario_id: str, sessao_id: str) -> str:
     agora = datetime.now(UTC)
     return jwt.encode(
@@ -53,21 +68,21 @@ def criar_token(usuario_id: str, sessao_id: str) -> str:
             "iat": agora,
             "exp": agora + timedelta(hours=get_settings().token_horas),
         },
-        _segredo(),
+        chave(),
         algorithm="HS256",
     )
 
 
 def ler_token(token: str) -> dict | None:
     try:
-        return jwt.decode(token, _segredo(), algorithms=["HS256"])
+        return jwt.decode(token, chave(), algorithms=["HS256"])
     except jwt.PyJWTError:
         return None
 
 
 def assinar(texto: str) -> str:
     """Assinatura HMAC (links de arquivos que o navegador abre sem token)."""
-    mac = hmac.new(_segredo().encode(), texto.encode(), hashlib.sha256).digest()
+    mac = hmac.new(chave().encode(), texto.encode(), hashlib.sha256).digest()
     return base64.urlsafe_b64encode(mac).decode().rstrip("=")
 
 

@@ -12,7 +12,7 @@ def test_validacao_de_documentos():
 
 
 def test_declarante_padrao_salvar_e_validar(client):
-    assert client.get(URL).json()["nome"] == "Marcelo Bonifácio"
+    assert client.get(URL).json()["nome"] == "Imobiliária Teste"  # nome do cadastro
     dados = {"documento": "11.222.333/0001-81", "nome": "Marcelo Bonifácio Imóveis",
              "responsavelNome": "Marcelo Bonifácio", "responsavelCpf": "529.982.247-25",
              "retificadora": True, "numeroRecibo": "12.34.56.78.90-12"}  # fmt: skip

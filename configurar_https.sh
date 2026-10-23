@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Liga o HTTPS (Let's Encrypt) no servidor de produção para o domínio:
-#   ./configurar_https.sh [email] [chave.pem] [usuario@host] [dominio]
+#   ./configurar_https.sh [email] [chave.pem] [usuario@host] [dominio] [imobiliaria]
+# Com [imobiliaria] (o slug dela), o domínio é o do site de uma imobiliária:
+# fica cadastrado para ela e o SITE_URL do servidor não muda.
 # Sem e-mail, o certificado é emitido sem cadastro de avisos de expiração
 # (a renovação é automática). Rodar o script aceita os termos de uso do
 # Let's Encrypt em nome de quem o executa.
@@ -18,12 +20,13 @@ EMAIL=${1:-}
 CHAVE=${2:-key-aws.pem}
 HOST=${3:-ec2-user@18.191.168.173}
 DOMINIO=${4:-api.inovacloud.app}
+IMOBILIARIA=${5:-}
 # Domínio principal (exemplo.app) também atende pelo www; subdomínio não.
 NOMES=$DOMINIO
 [[ $DOMINIO == *.*.* ]] || NOMES="$DOMINIO www.$DOMINIO"
 SSH="ssh -i $CHAVE -o BatchMode=yes"
 
-$SSH "$HOST" DOMINIO="$DOMINIO" NOMES="'$NOMES'" EMAIL="'$EMAIL'" 'bash -s' <<'REMOTO'
+$SSH "$HOST" DOMINIO="$DOMINIO" NOMES="'$NOMES'" EMAIL="'$EMAIL'" IMOBILIARIA="'$IMOBILIARIA'" 'bash -s' <<'REMOTO'
 set -euo pipefail
 
 command -v certbot >/dev/null || sudo dnf install -y -q certbot python3-certbot-nginx
@@ -60,17 +63,22 @@ sudo certbot --nginx -n --agree-tos "${CONTA[@]}" --redirect --keep-until-expiri
   --expand -d "${NOMES// /,}"
 sudo systemctl enable --now certbot-renew.timer
 
-# Endereço público: sitemap e cookie seguro da área do inquilino. O .env é
-# lido pelo usuário do serviço: dono e permissão voltam ao lugar.
 cd /opt/marceloimob
-if sudo grep -q '^SITE_URL=' .env; then
-  sudo sed -i "s|^SITE_URL=.*|SITE_URL=https://$DOMINIO|" .env
+if [ -n "$IMOBILIARIA" ]; then
+  # Site da imobiliária: o domínio passa a abri-la (o servidor relê em até 30 s).
+  sudo -u marceloimob .venv/bin/python gerenciar.py imobiliaria dominio "$IMOBILIARIA" --adicionar "$DOMINIO"
 else
-  echo "SITE_URL=https://$DOMINIO" | sudo tee -a .env >/dev/null
+  # Endereço público do servidor: sitemap e cookie seguro das áreas do site.
+  # O .env é lido pelo usuário do serviço: dono e permissão voltam ao lugar.
+  if sudo grep -q '^SITE_URL=' .env; then
+    sudo sed -i "s|^SITE_URL=.*|SITE_URL=https://$DOMINIO|" .env
+  else
+    echo "SITE_URL=https://$DOMINIO" | sudo tee -a .env >/dev/null
+  fi
+  sudo chown marceloimob:marceloimob .env
+  sudo chmod 600 .env
+  sudo systemctl restart marceloimob
 fi
-sudo chown marceloimob:marceloimob .env
-sudo chmod 600 .env
-sudo systemctl restart marceloimob
 sleep 3
 curl -fsS "https://$DOMINIO/saude" && echo
 curl -fsS -o /dev/null -w "http://$DOMINIO -> %{http_code} %{redirect_url}\n" "http://$DOMINIO/saude"
