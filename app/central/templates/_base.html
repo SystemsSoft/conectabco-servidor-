@@ -79,6 +79,18 @@
     .dominio { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 12px 0; border-bottom: 1px solid var(--linha); }
     .dominio:last-child { border-bottom: 0; }
     .dominio strong { word-break: break-all; }
+    header.topo .abas { display: flex; gap: 4px; margin-left: 12px; }
+    header.topo .abas a { color: #fff; opacity: .7; padding: 6px 10px; border-radius: 8px; font-size: 14px; }
+    header.topo .abas a:hover { opacity: 1; text-decoration: none; background: rgba(255,255,255,.08); }
+    header.topo .abas a.atual { opacity: 1; background: rgba(255,255,255,.14); }
+    @media (max-width: 560px) { header.topo .dentro { flex-wrap: wrap; } header.topo .abas { order: 3; margin-left: 0; width: 100%; } }
+    .numero { font-size: 28px; font-weight: 700; letter-spacing: -.01em; line-height: 1.2; }
+    .rotulo { color: var(--suave); font-size: 12.5px; }
+    .medidor { height: 8px; border-radius: 999px; background: var(--linha); overflow: hidden; margin: 6px 0 2px; }
+    .medidor span { display: block; height: 100%; background: var(--marca); }
+    .medidor.alto span { background: var(--aviso); }
+    .medidor.critico span { background: var(--perigo); }
+    td.valor, th.valor { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
     details summary { cursor: pointer; color: var(--marca); font-size: 13px; margin-top: 6px; }
   </style>
 </head>
@@ -87,6 +99,10 @@
     <div class="dentro">
       <a class="logo" href="/plataforma">Gestão Imobiliária<small>Plataforma</small></a>
       {% if admin %}
+      <nav class="abas">
+        <a href="/plataforma"{% if not request.url.path.startswith('/plataforma/infraestrutura') %} class="atual"{% endif %}>Imobiliárias</a>
+        <a href="/plataforma/infraestrutura"{% if request.url.path.startswith('/plataforma/infraestrutura') %} class="atual"{% endif %}>Infraestrutura</a>
+      </nav>
       <div class="quem">
         <span>{{ admin.nome }}</span>
         <form method="post" action="/plataforma/sair"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="link" type="submit">Sair</button></form>

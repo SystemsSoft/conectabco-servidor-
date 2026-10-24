@@ -1,0 +1,151 @@
+{% extends "_base.html" %}
+{% block titulo %}Infraestrutura{% endblock %}
+{% macro medidor(parte, todo) %}
+{% set p = porcento(parte, todo) %}
+<div class="medidor{% if p >= 90 %} critico{% elif p >= 75 %} alto{% endif %}"><span style="width: {{ p }}%"></span></div>
+<span class="rotulo">{{ parte | tamanho }} de {{ todo | tamanho }} ({{ p }}%)</span>
+{% endmacro %}
+{% macro estado(valor) %}
+{% if valor in ("running", "available") %}<span class="selo ok">{{ "Ligada" if valor == "running" else "Disponível" }}</span>{% else %}<span class="selo atencao">{{ valor }}</span>{% endif %}
+{% endmacro %}
+{% macro porcentagem(valor) %}{% if valor is none %}—{% else %}{{ "%.0f" | format(valor) }}%{% endif %}{% endmacro %}
+{% macro situacao(valor) %}
+{% if valor == "active" %}<span class="selo ok">Rodando</span>{% elif valor %}<span class="selo atencao">{{ valor }}</span>{% else %}<span class="selo off">—</span>{% endif %}
+{% endmacro %}
+{% block conteudo %}
+<div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 20px;">
+  <div>
+    <h1>Infraestrutura</h1>
+    <p class="sub" style="margin: 0;">Gasto na AWS, servidor e banco no Lightsail e arquivos no S3 — só leitura.</p>
+  </div>
+  <form method="post" action="/plataforma/infraestrutura" style="margin-left: auto;" data-demora>
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <button class="secundario" type="submit" data-enviando="Consultando a AWS...">Atualizar</button>
+  </form>
+</div>
+
+{% set c = aws.custos %}
+<div class="cartao">
+  <h2>Gasto na AWS{% if c.mes %} — {{ c.mes | mes }}{% endif %}</h2>
+  {% if c.erro %}
+  <div class="aviso atencao" style="margin: 0;">{{ c.erro }}</div>
+  {% else %}
+  <div class="grade" style="margin-bottom: 18px;">
+    <div><div class="rotulo">Até agora</div><div class="numero">{{ c.total | dinheiro(c.moeda) }}</div></div>
+    <div><div class="rotulo">Previsão para o mês</div><div class="numero">{{ c.previsao | dinheiro(c.moeda) }}</div>{% if c.previsao is none %}<span class="ajuda">A AWS ainda não tem histórico para prever.</span>{% endif %}</div>
+    <div><div class="rotulo">Mês passado</div><div class="numero">{{ c.anterior | dinheiro(c.moeda) }}</div></div>
+  </div>
+  {% if c.servicos %}
+  <table>
+    <thead><tr><th>Serviço</th><th class="valor">Até agora</th><th class="valor esconder-celular">Parte</th></tr></thead>
+    <tbody>
+      {% for s in c.servicos %}
+      <tr><td>{{ s.nome }}</td><td class="valor">{{ s.valor | dinheiro(c.moeda) }}</td><td class="valor esconder-celular">{{ porcento(s.valor, c.total) }}%</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="vazio" style="padding: 16px 0;">Nenhum gasto registrado neste mês.</div>
+  {% endif %}
+  <p class="ajuda" style="margin-top: 14px;">Toda a conta AWS, pelo Cost Explorer (atualizado pela AWS algumas vezes por dia, sem impostos locais). Cada consulta custa US$ 0,01 — por isso fica guardado por 12 horas. Consultado em {{ c._em }}.</p>
+  {% endif %}
+</div>
+
+<div class="duas">
+  <div class="cartao">
+    {% set i = aws.instancia %}
+    <h2>Servidor{% if i.nome %} <code style="font-weight: 400;">{{ i.nome }}</code>{% endif %} {% if i.estado %}{{ estado(i.estado) }}{% endif %}</h2>
+    {% if i.erro %}
+    <div class="aviso atencao" style="margin: 0 0 14px;">Lightsail: {{ i.erro }}</div>
+    {% else %}
+    <p class="sub" style="margin: -6px 0 14px;"><code>{{ i.ip }}</code>{% if i.ip_fixo %} (IP fixo){% endif %} · {{ i.zona }} · {{ i.sistema }}<br>
+      Plano <code>{{ i.plano }}</code> — {{ i.cpus }} vCPU, {{ "%g" | format(i.ram_gb) | replace(".", ",") }} GB RAM, {{ i.disco_gb }} GB · <strong>{{ i.preco | dinheiro }}/mês</strong></p>
+    <div class="grade" style="grid-template-columns: 1fr 1fr 1fr; margin-bottom: 16px;">
+      <div><div class="rotulo">CPU</div><div class="numero">{{ porcentagem(i.cpu) }}</div></div>
+      <div><div class="rotulo">Crédito de burst</div><div class="numero">{{ porcentagem(i.burst) }}</div></div>
+      <div><div class="rotulo">Falhas de status</div><div class="numero">{% if i.falhas is none %}—{% else %}{{ i.falhas | int }}{% endif %}</div></div>
+    </div>
+    <p class="ajuda" style="margin: -6px 0 16px;">Métricas do Lightsail (últimos 5 min; a CPU acima do plano gasta o crédito de burst). Consultado em {{ i._em }}.</p>
+    {% endif %}
+    <div class="grade" style="grid-template-columns: 1fr 1fr;">
+      <div><div class="rotulo">Carga (1 min)</div><div class="numero">{% if maquina.carga %}{{ "%.2f" | format(maquina.carga[0]) | replace(".", ",") }}{% else %}—{% endif %}</div><span class="rotulo">{{ maquina.cpus }} CPU{{ "s" if maquina.cpus > 1 }}</span></div>
+      <div><div class="rotulo">Ligado há</div><div class="numero">{{ maquina.ligada | duracao }}</div></div>
+    </div>
+    <div style="margin-top: 16px;">
+      <div class="rotulo">Memória</div>
+      {% if maquina.memoria %}{{ medidor(maquina.memoria.usado, maquina.memoria.total) }}{% else %}<span class="rotulo">—</span>{% endif %}
+    </div>
+    {% if maquina.swap %}
+    <div style="margin-top: 12px;"><div class="rotulo">Swap</div>{{ medidor(maquina.swap.usado, maquina.swap.total) }}</div>
+    {% endif %}
+    <div style="margin-top: 12px;"><div class="rotulo">Disco</div>{{ medidor(maquina.disco.usado, maquina.disco.total) }}</div>
+    {% if maquina.servicos %}
+    <table style="margin-top: 14px;">
+      <tbody>
+        {% for nome, valor in maquina.servicos.items() %}
+        <tr><td><code>{{ nome }}</code></td><td class="valor">{{ situacao(valor) }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
+  </div>
+
+  <div class="cartao">
+    <h2>Bucket S3</h2>
+    {% set b = aws.bucket %}
+    <p class="sub" style="margin: -6px 0 14px;"><code>{{ b.nome or bucket_nome }}</code>{% if b.regiao %} · {{ b.regiao }}{% endif %}</p>
+    {% if b.erro %}
+    <div class="aviso atencao" style="margin: 0;">{{ b.erro }}</div>
+    {% else %}
+    <div class="grade" style="grid-template-columns: 1fr 1fr;">
+      <div><div class="rotulo">Tamanho</div><div class="numero">{{ b.bytes | tamanho }}</div></div>
+      <div><div class="rotulo">Arquivos</div><div class="numero">{% if b.arquivos is none %}—{% else %}{{ "{:,.0f}".format(b.arquivos) | replace(",", ".") }}{% endif %}</div></div>
+    </div>
+    <p class="ajuda" style="margin-top: 14px;">{% if b.bytes is none and b.arquivos is none %}Ainda sem medição: a AWS mede o bucket uma vez por dia (e não mede bucket vazio).{% else %}Medição diária da AWS (CloudWatch); o tamanho é o da classe Standard.{% endif %}</p>
+    {% endif %}
+  </div>
+</div>
+
+<div class="cartao">
+  {% set d = aws.banco %}
+  <h2>Banco de dados{% if d.nome %} <code style="font-weight: 400;">{{ d.nome }}</code>{% endif %} {% if d.estado %}{{ estado(d.estado) }}{% endif %}</h2>
+  {% if d.erro %}
+  <div class="aviso atencao" style="margin: 0 0 14px;">Lightsail: {{ d.erro }}</div>
+  {% else %}
+  <p class="sub" style="margin: -6px 0 14px;">{{ d.motor }} · {{ d.zona }} · {{ "acesso público" if d.publico else "só rede privada" }}<br>
+    Plano <code>{{ d.plano }}</code> — {{ d.cpus }} vCPU, {{ "%g" | format(d.ram_gb) | replace(".", ",") }} GB RAM · <strong>{{ d.preco | dinheiro }}/mês</strong></p>
+  <div class="grade" style="margin-bottom: 16px;">
+    <div><div class="rotulo">CPU</div><div class="numero">{{ porcentagem(d.cpu) }}</div></div>
+    <div><div class="rotulo">Conexões</div><div class="numero">{% if d.conexoes is none %}—{% else %}{{ d.conexoes | round | int }}{% endif %}</div></div>
+    <div><div class="rotulo">Memória livre</div><div class="numero">{{ d.memoria_livre | tamanho }}</div></div>
+    <div><div class="rotulo">Backup automático</div><div class="numero" style="font-size: 18px; padding-top: 6px;">{% if d.backup %}Ligado{% if d.restauravel %} <span class="rotulo">até {{ d.restauravel }}</span>{% endif %}{% else %}<span style="color: var(--perigo);">Desligado</span>{% endif %}</div></div>
+  </div>
+  <div style="margin-bottom: 16px;"><div class="rotulo">Armazenamento</div>{% if d.livre is not none and d.disco %}{{ medidor(d.disco - d.livre, d.disco) }}{% else %}<span class="rotulo">—</span>{% endif %}</div>
+  <p class="ajuda" style="margin: -6px 0 18px;">Métricas do Lightsail (últimos 5 min). Consultado em {{ d._em }}.</p>
+  {% endif %}
+  {% if banco.erro %}
+  <div class="aviso atencao" style="margin: 0;">{{ banco.erro }}</div>
+  {% else %}
+  <p class="sub" style="margin: 0 0 14px;">MySQL {{ banco.versao }} · <code>{{ banco.host }}</code>{% if d.endereco and banco.host != d.endereco %} <span class="selo atencao">não é o endereço do {{ d.nome }}</span>{% endif %}</p>
+  <div class="grade" style="margin-bottom: 18px;">
+    <div><div class="rotulo">Dados ocupados</div><div class="numero">{{ banco.total | tamanho }}</div></div>
+    <div><div class="rotulo">Conexões abertas</div><div class="numero">{{ banco.conexoes }} <span class="rotulo">de {{ banco.max_conexoes }}</span></div></div>
+    <div><div class="rotulo">Ligado há</div><div class="numero">{{ banco.ligado | duracao }}</div></div>
+  </div>
+  <table>
+    <thead><tr><th>Banco</th><th class="esconder-celular">De quem</th><th class="valor esconder-celular">Tabelas</th><th class="valor">Tamanho</th></tr></thead>
+    <tbody>
+      {% for b in banco.bancos %}
+      <tr>
+        <td><code>{{ b.banco }}</code></td>
+        <td class="esconder-celular">{{ b.dono or "—" }}</td>
+        <td class="valor esconder-celular">{{ b.tabelas }}</td>
+        <td class="valor">{{ b.bytes | tamanho }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <p class="ajuda" style="margin-top: 14px;">Tamanho estimado pelo MySQL (dados + índices).</p>
+  {% endif %}
+</div>
+{% endblock %}

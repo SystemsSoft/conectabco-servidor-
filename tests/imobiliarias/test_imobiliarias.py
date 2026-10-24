@@ -118,12 +118,12 @@ def test_validacoes_do_cadastro(outra):
         for dados, erro in (
             (("Ruim!", "X"), "Identificador inválido"),
             (("outra", "X"), "Já existe"),
-            (("nova", " "), "Informe o nome"),
-            (("nova", "X", "imob_outra"), "já é de outra imobiliária"),
-            (("nova", "X", "", "ftp://x"), "Endereço do site inválido"),
-            (("nova", "X", "", "", ["www.Outra.com.br"]), None),
-            (("nova", "X", "", "", ["https://outra.com.br/"]), "já é da imobiliária 'outra'"),
-            (("nova", "X", "", "", ["dominio inválido"]), "Domínio inválido"),
+            (("terceira", " "), "Informe o nome"),
+            (("terceira", "X", "imob_outra"), "já é de outra imobiliária"),
+            (("terceira", "X", "", "ftp://x"), "Endereço do site inválido"),
+            (("terceira", "X", "", "", ["www.Outra.com.br"]), None),
+            (("terceira", "X", "", "", ["https://outra.com.br/"]), "já é da imobiliária 'outra'"),
+            (("terceira", "X", "", "", ["dominio inválido"]), "Domínio inválido"),
         ):
             if erro is None:
                 assert central.validar_nova(db, *dados).dominios == ("www.outra.com.br",)

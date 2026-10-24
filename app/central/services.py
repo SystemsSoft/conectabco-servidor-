@@ -18,6 +18,8 @@ from app.core.tempo import agora
 
 RAIZ = Path(__file__).resolve().parents[2]
 _SLUG = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$")
+# Caminhos do painel (/plataforma/<slug>) que não podem virar imobiliária.
+_RESERVADOS = {"nova", "entrar", "sair", "infraestrutura"}
 _BANCO = re.compile(r"^[a-z0-9_]{1,64}$")
 _DOMINIO = re.compile(r"^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)*$")
 _COR = re.compile(r"^#[0-9a-f]{6}$")
@@ -106,6 +108,8 @@ def validar_nova(
         raise RegraNegocio(
             "Identificador inválido: use letras minúsculas, números e hífen (ex.: marcelo)."
         )
+    if slug in _RESERVADOS:
+        raise RegraNegocio(f"O identificador '{slug}' é reservado pelo painel: escolha outro.")
     if not nome.strip():
         raise RegraNegocio("Informe o nome da imobiliária.")
     banco = (banco or banco_padrao(slug)).strip()

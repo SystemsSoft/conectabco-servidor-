@@ -15,14 +15,19 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from app.central import acesso
+from app.central import infraestrutura as infra
 from app.central import models as m
 from app.central import services as central
+from app.core.config import get_settings
 from app.core.database import fabrica
 from app.core.errors import RegraNegocio
 from app.core.imobiliarias import Imobiliaria, buscar, identificada, normalizar_dominio, usar
 
 PASTA = Path(__file__).parent
 templates = Jinja2Templates(directory=PASTA / "templates")
+templates.env.filters.update(tamanho=infra.tamanho, dinheiro=infra.dinheiro,
+                             duracao=infra.duracao, mes=infra.mes)  # fmt: skip
+templates.env.globals["porcento"] = infra.porcento
 COR_PRIMARIA, COR_DESTAQUE = "#061a48", "#f5c432"  # a paleta padrão do site
 
 MENSAGENS = {
@@ -35,6 +40,7 @@ MENSAGENS = {
     "ativada": "Imobiliária ativada.",
     "desativada": "Imobiliária desativada: API, site e portais deixam de abrir.",
     "admin": "Administrador salvo: ele já pode entrar no app de gestão.",
+    "aws": "Dados da AWS atualizados (consultados no máximo a cada 10 minutos).",
 }
 
 
@@ -196,6 +202,23 @@ def nova(
     except RegraNegocio as e:
         return _pagina(request, "nova.html", _base(request, admin, dados=dados, erro=e.mensagem), 422)
     return _ir(f"/plataforma/{imob.slug}", "criada")
+
+
+# ------------------------------------------------------- Infraestrutura
+
+
+@router.get("/infraestrutura")
+def infraestrutura(request: Request, db: Db, admin: Admin):
+    ctx = _base(request, admin, aws=infra.da_aws(), maquina=infra.maquina(),
+                banco=infra.banco(db), bucket_nome=get_settings().aws_bucket)  # fmt: skip
+    return _pagina(request, "infraestrutura.html", ctx)
+
+
+@router.post("/infraestrutura")
+def atualizar_infraestrutura(admin: Admin, csrf: Annotated[str, Form()] = ""):
+    _conferir(admin, csrf)
+    infra.da_aws(forcar=True)
+    return _ir("/plataforma/infraestrutura", "aws")
 
 
 def _cor(cor: str, padrao: str) -> str:

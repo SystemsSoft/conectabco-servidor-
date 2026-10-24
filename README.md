@@ -80,6 +80,64 @@ cd /opt/marceloimob && sudo -u marceloimob .venv/bin/python gerenciar.py platafo
 O painel não abre pelos domínios das imobiliárias, só pelo endereço do
 servidor; tem bloqueio após 5 senhas erradas, sessão de 8 h e proteção CSRF.
 
+#### Infraestrutura (`/plataforma/infraestrutura`)
+
+Aba só de leitura com:
+
+- **gasto na AWS** do mês (por serviço, a conta inteira), do mês passado e a
+  previsão do fechamento (Cost Explorer, em dólar);
+- **servidor**: a instância do Lightsail `AssociacaoServer` (estado, IP, plano
+  e preço, CPU, crédito de burst, falhas de status) e, lidos na própria
+  máquina, carga, memória, swap, disco e se `marceloimob` e `nginx` rodam;
+- **banco**: o banco do Lightsail `AssociacaoDatabase` (estado, plano e preço,
+  CPU, conexões, memória livre, armazenamento, backup) e o tamanho de cada
+  banco MySQL, com a imobiliária dona;
+- **bucket S3** `associacao-conecta`: tamanho e número de arquivos (métrica
+  diária do CloudWatch).
+
+Só esses recursos são consultados — os nomes ficam no `.env`
+(`LIGHTSAIL_INSTANCIA`, `LIGHTSAIL_BANCO`, `AWS_BUCKET`, região em
+`AWS_REGIAO`, padrão `us-east-1`). O que vem da AWS fica guardado em
+`dados/infraestrutura.json` (`INFRA_CACHE`): o gasto por 12 h (cada consulta
+ao Cost Explorer custa US$ 0,01), o Lightsail por 5 min e o bucket por 1 h. O
+botão **Atualizar** consulta tudo de novo, no máximo a cada 10 min.
+
+O Lightsail não aceita role IAM: as credenciais são de um **usuário IAM só de
+leitura**, com a chave no `.env` do servidor. No console da AWS:
+
+1. **Billing → Cost Explorer**: abra uma vez para ativar (os dados aparecem
+   em até 24 h).
+2. **IAM → Users → Create user** (ex.: `painel-plataforma`, sem acesso ao
+   console), com esta política inline:
+   ```json
+   {
+     "Version": "2012-10-17",
+     "Statement": [
+       {"Effect": "Allow", "Resource": "*",
+        "Action": ["ce:GetCostAndUsage", "ce:GetCostForecast", "cloudwatch:GetMetricStatistics",
+                   "lightsail:GetInstance", "lightsail:GetInstanceMetricData", "lightsail:GetBundles",
+                   "lightsail:GetRelationalDatabase", "lightsail:GetRelationalDatabaseMetricData",
+                   "lightsail:GetRelationalDatabaseBundles"]},
+       {"Effect": "Allow", "Resource": "arn:aws:s3:::associacao-conecta",
+        "Action": "s3:GetBucketLocation"}
+     ]
+   }
+   ```
+3. No usuário, **Security credentials → Create access key** (*Application
+   running outside AWS*) e, no `.env` do servidor:
+   ```bash
+   AWS_ACCESS_KEY_ID=AKIA...
+   AWS_SECRET_ACCESS_KEY=...
+   ```
+   e `sudo systemctl restart marceloimob`.
+
+A política só permite leitura (nenhuma ação altera ou apaga recursos); o
+painel consulta apenas a instância e o banco com os nomes do `.env`.
+
+Sem a chave, cada bloco da AWS mostra o que falta; a máquina e os bancos
+MySQL aparecem do mesmo jeito. Os identificadores `nova`, `entrar`, `sair` e
+`infraestrutura` são reservados (não podem virar imobiliária).
+
 ### App de gestão em cada domínio (`/gestao`)
 
 O servidor publica o app de gestão (Flutter web, repositório
@@ -630,6 +688,7 @@ app/
     services.py              cadastrar, criar o banco, migrar, logotipo
     acesso.py                login do painel da plataforma
     painel.py                painel web (/plataforma) e templates/
+    infraestrutura.py        aba Infraestrutura: gasto AWS, Lightsail, banco, S3
   core/                      infraestrutura comum a todos os módulos
     config.py                configurações (.env)
     imobiliarias.py          imobiliária da requisição (cabeçalho/domínio)

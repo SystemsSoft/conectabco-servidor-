@@ -54,6 +54,16 @@ class Settings(BaseSettings):
     # Endereço público deste servidor; vale para a imobiliária sem site próprio.
     site_url: str = ""
 
+    # Painel da plataforma > Infraestrutura: usuário IAM só de leitura (o
+    # Lightsail não aceita role IAM) e os recursos acompanhados.
+    aws_access_key_id: str = ""
+    aws_secret_access_key: str = ""
+    aws_regiao: str = "us-east-1"
+    lightsail_instancia: str = "AssociacaoServer"
+    lightsail_banco: str = "AssociacaoDatabase"
+    aws_bucket: str = "associacao-conecta"
+    infra_cache: str = "dados/infraestrutura.json"
+
     cors_origins: str = ""
     host: str = "0.0.0.0"
     port: int = 8000
