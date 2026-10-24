@@ -70,6 +70,8 @@ class _NaoEncontrada(Exception):
 
 
 _atual: ContextVar[Imobiliaria | None] = ContextVar("imobiliaria", default=None)
+# Como a requisição disse qual é: cabecalho, parametro, dominio ou padrao.
+_origem: ContextVar[str] = ContextVar("origem_imobiliaria", default="")
 
 
 def atual() -> Imobiliaria:
@@ -82,6 +84,12 @@ def atual() -> Imobiliaria:
 def identificada() -> Imobiliaria | None:
     """A imobiliária atual, se a requisição identificou alguma."""
     return _atual.get()
+
+
+def origem() -> str:
+    """Como a imobiliária foi identificada: cabecalho, parametro, dominio ou
+    padrao (IMOBILIARIA_PADRAO)."""
+    return _origem.get()
 
 
 @contextmanager
@@ -155,21 +163,25 @@ def normalizar_dominio(texto: str) -> str:
     return texto.split("/", 1)[0].split(":", 1)[0].rstrip(".")
 
 
-def _identificar(cadastro: _Cadastro, scope: Scope) -> Imobiliaria | None:
+def _identificar(cadastro: _Cadastro, scope: Scope) -> tuple[Imobiliaria | None, str]:
     cabecalhos = Headers(scope=scope)
-    pedida = cabecalhos.get(CABECALHO) or QueryParams(scope["query_string"]).get(PARAMETRO)
+    if pedida := cabecalhos.get(CABECALHO):
+        origem = "cabecalho"
+    elif pedida := QueryParams(scope["query_string"]).get(PARAMETRO):
+        origem = "parametro"
     if pedida:
         imob = cadastro.por_slug.get(pedida.strip().lower())
     else:
         host = cabecalhos.get("x-forwarded-host", "").split(",")[0] or cabecalhos.get("host", "")
         host = normalizar_dominio(host)
         imob = cadastro.por_dominio.get(host) or cadastro.por_dominio.get(host.removeprefix("www."))
+        origem = "dominio"
         if imob is None:
             padrao = cadastro.por_slug.get(get_settings().imobiliaria_padrao)
-            return padrao if padrao and padrao.ativa else None
+            return (padrao, "padrao") if padrao and padrao.ativa else (None, "")
     if imob is None or not imob.ativa:
         raise _NaoEncontrada
-    return imob
+    return imob, origem
 
 
 class IdentificarImobiliaria:
@@ -187,7 +199,7 @@ class IdentificarImobiliaria:
                 if _vencido()
                 else _cadastro_atual()
             )
-            imob = _identificar(cadastro, scope)
+            imob, origem = _identificar(cadastro, scope)
         except _NaoEncontrada:
             resposta = JSONResponse({"detail": "Imobiliária não encontrada."}, 404)
             return await resposta(scope, receive, send)
@@ -198,12 +210,13 @@ class IdentificarImobiliaria:
                     {"detail": "Sistema temporariamente indisponível. Tente novamente."}, 503
                 )
                 return await resposta(scope, receive, send)
-            imob = None
-        token = _atual.set(imob)
+            imob, origem = None, ""
+        token, token_origem = _atual.set(imob), _origem.set(origem)
         try:
             await self.app(scope, receive, send)
         finally:
             _atual.reset(token)
+            _origem.reset(token_origem)
 
 
 def cabecalho(

@@ -10,7 +10,7 @@ from app.core.auth import UsuarioLogado, exigir_modulo
 from app.core.database import get_db
 from app.core.documentos import validar_cpf_cnpj
 from app.core.errors import NaoEncontrado, RegraNegocio
-from app.core.imobiliarias import atual, com_imobiliaria
+from app.core.imobiliarias import atual, com_imobiliaria, origem
 from app.core.schemas import Esquema
 from app.core.tempo import agora
 from app.modules.personalizacao.models import DadosEmpresa
@@ -131,6 +131,8 @@ def remover_logo(db: Db):
 
 
 class Marca(Esquema):
+    imobiliaria: str = Field(description="Identificador (vai no cabeçalho X-Imobiliaria)")
+    origem: str = Field(description="Como foi identificada: dominio, cabecalho, parametro ou padrao")
     nome: str
     cor_primaria: str = Field(description="#rrggbb (topo, fundos escuros)")
     cor_destaque: str = Field(description="#rrggbb (botões e realces)")
@@ -147,6 +149,8 @@ def obter_marca(db: Db):
     imob = atual()
     d = _registro(db)
     return Marca(
+        imobiliaria=imob.slug,
+        origem=origem(),
         nome=(d.nome if d else "") or imob.nome,
         cor_primaria=imob.cor_primaria or COR_PRIMARIA,
         cor_destaque=imob.cor_destaque or COR_DESTAQUE,

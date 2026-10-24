@@ -10,10 +10,22 @@ CHAVE=${1:-key_aws.pem}
 HOST=${2:-ec2-user@44.223.83.147}
 SSH="ssh -i $CHAVE -o BatchMode=yes"
 
+# App de gestão (Flutter web), servido em /gestao: gerado de ../gestao
+# (APP_GESTAO=outra/pasta; SEM_APP=1 mantém o que já está no servidor).
+APP=${APP_GESTAO:-../gestao}
+MANTER_APP=()
+if [ -z "${SEM_APP:-}" ] && [ -d "$APP" ] && command -v flutter >/dev/null; then
+  echo "Gerando o app de gestão ($APP)..."
+  (cd "$APP" && flutter build web --release --base-href /gestao/ >/dev/null)
+  rm -rf web_gestao && cp -R "$APP/build/web" web_gestao
+elif [ ! -d web_gestao ]; then
+  MANTER_APP=(--exclude web_gestao)
+fi
+
 rsync -az --delete -e "$SSH" \
   --exclude .venv --exclude .env --exclude '*.pem' --exclude dados \
   --exclude __pycache__ --exclude .pytest_cache --exclude .git --exclude .idea \
-  --exclude .DS_Store --exclude .senha-inicial-admin.txt \
+  --exclude .DS_Store --exclude .senha-inicial-admin.txt ${MANTER_APP[@]+"${MANTER_APP[@]}"} \
   ./ "$HOST:/opt/marceloimob/"
 
 $SSH "$HOST" 'set -e

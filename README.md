@@ -80,6 +80,17 @@ cd /opt/marceloimob && sudo -u marceloimob .venv/bin/python gerenciar.py platafo
 O painel não abre pelos domínios das imobiliárias, só pelo endereço do
 servidor; tem bloqueio após 5 senhas erradas, sessão de 8 h e proteção CSRF.
 
+### App de gestão em cada domínio (`/gestao`)
+
+O servidor publica o app de gestão (Flutter web, repositório
+`gestao_imobiliaria`) em `/gestao` de todos os endereços: em
+`https://joaoimoveis.com.br/gestao/` ele já abre como a João (nome, cores e
+logotipo de `GET /api/v1/marca`, que informa o identificador e a `origem`
+— `dominio`, `cabecalho`, `parametro` ou `padrao`). Fora do domínio de uma
+imobiliária, o app pede o código dela. O manifesto (app instalado no
+celular) sai com o nome e a cor dela. O `deploy.sh` gera o build a partir de
+`../gestao` (`SEM_APP=1` publica só o servidor) para a pasta `web_gestao/`.
+
 ### Pela linha de comando
 
 O mesmo cadastro também é mantido pelo `gerenciar.py` (o servidor relê o

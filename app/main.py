@@ -56,6 +56,10 @@ def create_app() -> FastAPI:
     from app.central.painel import router as painel
 
     app.include_router(painel)
+    # App de gestão (Flutter web), em todos os domínios.
+    from app.core.app_gestao import router as app_gestao
+
+    app.include_router(app_gestao)
 
     @app.get("/saude", tags=["Sistema"])
     def saude() -> dict:

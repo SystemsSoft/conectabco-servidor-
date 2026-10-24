@@ -86,8 +86,13 @@ def test_cria_imobiliaria_com_banco_dominio_cores_e_logo(painel):
     login = {"usuario": "joao", "senha": "senha-do-joao"}
     assert painel.post("/api/v1/auth/entrar", json=login, headers=app_joao).status_code == 200
     marca = painel.get("/api/v1/marca", headers=app_joao).json()
-    assert marca == {"nome": "João Imóveis", "corPrimaria": "#123456", "corDestaque": "#ff6600",
+    assert marca == {"imobiliaria": "joao", "origem": "cabecalho", "nome": "João Imóveis",
+                     "corPrimaria": "#123456", "corDestaque": "#ff6600",
                      "temLogo": True, "logo": "/logo?imob=joao"}  # fmt: skip
+    # O app aberto pelo domínio dela descobre quem é sem cabeçalho.
+    pelo_dominio = painel.get("/api/v1/marca", headers={"host": "www.joaoimoveis.com.br"}).json()
+    assert (pelo_dominio["imobiliaria"], pelo_dominio["origem"]) == ("joao", "dominio")
+    assert painel.get("/api/v1/marca").status_code == 400  # endereço sem imobiliária
     assert painel.get(marca["logo"]).content == PNG
     # O site, pelo domínio dela, sai com a paleta dela.
     site = painel.get("/", headers={"host": "joaoimoveis.com.br"}).text

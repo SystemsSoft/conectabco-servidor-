@@ -44,6 +44,9 @@ class Settings(BaseSettings):
     # cada imobiliária usa a subpasta com o seu identificador.
     arquivos_dir: str = "dados/arquivos"
 
+    # Build do app de gestão (Flutter web), servido em /gestao.
+    gestao_web_dir: str = "web_gestao"
+
     # Transcrição dos vídeos de auditoria (faster-whisper em CPU).
     transcricao_modelo: str = "small"
     transcricao_threads: int = 2
