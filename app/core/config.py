@@ -55,6 +55,10 @@ class Settings(BaseSettings):
 
     # Endereço público deste servidor; vale para a imobiliária sem site próprio.
     site_url: str = ""
+    # Site institucional (ex.: https://xn--associaoconectabci-7sb3f.com.br/).
+    # Se informado, as páginas do site público abertas pelo endereço do
+    # servidor (imobiliária padrão, sem domínio próprio) redirecionam para ele.
+    site_principal_url: str = ""
 
     # Painel da plataforma > Infraestrutura: usuário IAM só de leitura (o
     # Lightsail não aceita role IAM) e os recursos acompanhados.

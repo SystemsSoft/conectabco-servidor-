@@ -28,6 +28,9 @@ def plataforma(monkeypatch, tmp_path) -> Iterator[None]:
         "imobiliaria_padrao": "",
         "site_url": "",
         "arquivos_dir": str(tmp_path / "arquivos"),
+        # Nunca o S3 nem o redirecionamento do .env local.
+        "arquivos_armazenamento": "disco",
+        "site_principal_url": "",
     }.items():
         monkeypatch.setattr(s, campo, valor)
     descartar_motores()

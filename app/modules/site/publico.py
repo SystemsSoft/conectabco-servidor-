@@ -11,15 +11,16 @@ from pathlib import Path
 from typing import Annotated
 from urllib.parse import quote, urlencode
 
-from fastapi import APIRouter, Depends, Form, Request
+from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import FileResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 from markupsafe import Markup
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.core.database import get_db
 from app.core.errors import RegraNegocio
-from app.core.imobiliarias import com_imobiliaria, estilo_marca, url_site
+from app.core.imobiliarias import com_imobiliaria, estilo_marca, origem, url_site
 from app.modules.arquivos.models import Arquivo
 from app.modules.arquivos.api import resposta_arquivo
 from app.modules.arquivos.services import existe as arquivo_existe
@@ -35,6 +36,22 @@ router = APIRouter(include_in_schema=False)
 Db = Annotated[Session, Depends(get_db)]
 POR_PAGINA = 12
 _ID = re.compile(r"^[0-9a-f-]{36}$")
+
+
+def _no_endereco_do_servidor() -> bool:
+    """Aberto pelo endereço do servidor (sem domínio, cabeçalho ou ?imob=),
+    com o site institucional configurado."""
+    return bool(get_settings().site_principal_url) and origem() == "padrao"
+
+
+def _site_da_imobiliaria() -> None:
+    """O site público só abre pelo domínio da imobiliária; no endereço do
+    servidor, quem aparece é o site institucional (SITE_PRINCIPAL_URL)."""
+    if _no_endereco_do_servidor():
+        raise HTTPException(302, headers={"Location": get_settings().site_principal_url})
+
+
+Pagina = [Depends(_site_da_imobiliaria)]
 _YOUTUBE = re.compile(
     r"(?:youtube\.com/(?:watch\?v=|shorts/|embed/)|youtu\.be/)([\w-]{11})"
 )
@@ -195,7 +212,7 @@ def _pagina(nome: str, ctx: dict, status: int = 200) -> Response:
 # ----------------------------------------------------------------- Páginas
 
 
-@router.get("/")
+@router.get("/", dependencies=Pagina)
 def inicio(request: Request, db: Db):
     ctx = _base(request, db)
     cfg = ctx["cfg"]
@@ -234,7 +251,7 @@ def _int(texto: str | None) -> int | None:
     return int(digitos) if digitos else None
 
 
-@router.get("/imoveis")
+@router.get("/imoveis", dependencies=Pagina)
 def imoveis(
     request: Request,
     db: Db,
@@ -299,7 +316,7 @@ def imoveis(
     return _pagina("imoveis.html", ctx)
 
 
-@router.get("/imovel/{codigo}")
+@router.get("/imovel/{codigo}", dependencies=Pagina)
 def imovel(request: Request, codigo: str, db: Db):
     ctx = _base(request, db, pagina_atual="imoveis")
     i = services.imovel_publicado(db, codigo)
@@ -317,7 +334,7 @@ def imovel(request: Request, codigo: str, db: Db):
     return _pagina("imovel.html", ctx)
 
 
-@router.get("/anuncie")
+@router.get("/anuncie", dependencies=Pagina)
 def anuncie(request: Request, db: Db):
     ctx = _base(request, db, pagina_atual="anuncie")
     if not ctx["cfg"].mostrar_anuncie:
@@ -325,12 +342,12 @@ def anuncie(request: Request, db: Db):
     return _pagina("anuncie.html", ctx)
 
 
-@router.get("/contato")
+@router.get("/contato", dependencies=Pagina)
 def contato(request: Request, db: Db):
     return _pagina("contato.html", _base(request, db, pagina_atual="contato"))
 
 
-@router.get("/obrigado")
+@router.get("/obrigado", dependencies=Pagina)
 def obrigado(request: Request, db: Db):
     return _pagina("obrigado.html", _base(request, db))
 
@@ -342,7 +359,7 @@ def _ip(request: Request) -> str:
     )
 
 
-@router.post("/enviar")
+@router.post("/enviar", dependencies=Pagina)
 def enviar(
     request: Request,
     db: Db,
@@ -430,6 +447,8 @@ def _url_site(request: Request) -> str:
 
 @router.get("/robots.txt")
 def robots(request: Request):
+    if _no_endereco_do_servidor():  # o endereço do servidor não tem site para indexar
+        return Response("User-agent: *\nDisallow: /\n", media_type="text/plain")
     return Response(
         f"User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /docs\nDisallow: /inquilino\nDisallow: /proprietario\nDisallow: /relatorio-auditoria\nDisallow: /plataforma\nDisallow: /gestao\nDisallow: /auditoria/\n"
         f"Sitemap: {_url_site(request)}/sitemap.xml\n",
@@ -437,7 +456,7 @@ def robots(request: Request):
     )
 
 
-@router.get("/sitemap.xml")
+@router.get("/sitemap.xml", dependencies=Pagina)
 def sitemap(request: Request, db: Db):
     base = _url_site(request)
     caminhos = ["/", "/imoveis", "/contato"]

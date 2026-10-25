@@ -217,3 +217,31 @@ def test_gestao_dos_leads_e_permissoes(client):
 
     assert client.delete(f"{API}/leads/{lead['id']}").status_code == 204
     assert client.get(f"{API}/leads").json()["total"] == 0
+
+
+def test_endereco_do_servidor_leva_ao_site_da_associacao(client, imobiliaria, monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from app.main import create_app
+
+    principal = "https://xn--associaoconectabci-7sb3f.com.br/"
+    imovel = _imovel(client)  # antes: a imobiliária padrão muda a assinatura dos logins
+    s = get_settings()
+    monkeypatch.setattr(s, "imobiliaria_padrao", imobiliaria.slug)
+    monkeypatch.setattr(s, "site_principal_url", principal)
+    with TestClient(create_app(), follow_redirects=False) as servidor:  # sem X-Imobiliaria
+        for caminho in ("/", "/imoveis", f"/imovel/{imovel['codigo']}", "/contato", "/sitemap.xml"):
+            r = servidor.get(caminho)
+            assert (r.status_code, r.headers["location"]) == (302, principal), caminho
+        assert servidor.post("/enviar", data={"nome": "x"}).status_code == 302
+        assert servidor.get("/robots.txt").text == "User-agent: *\nDisallow: /\n"
+        # API, app de gestão, logo e portais seguem no endereço do servidor.
+        assert servidor.get("/api/v1/marca").status_code == 200
+        assert servidor.get("/logo").status_code == 200
+        assert servidor.get("/inquilino/entrar").status_code == 200
+    # Pelo domínio/cabeçalho da imobiliária, o site dela continua abrindo.
+    assert client.get("/").status_code == 200
+    assert "Disallow: /\n" not in client.get("/robots.txt").text
+    monkeypatch.setattr(s, "site_principal_url", "")
+    with TestClient(create_app(), follow_redirects=False) as servidor:
+        assert servidor.get("/").status_code == 200  # sem o site institucional, como antes
