@@ -7,7 +7,6 @@ from datetime import date
 import uuid
 import unicodedata
 from dataclasses import dataclass
-from pathlib import Path
 
 import sqlalchemy as sa
 from sqlalchemy.orm import Session
@@ -207,7 +206,7 @@ def arquivos_visiveis(db: Session, contrato: loc.ContratoLocacao) -> list[m.Arqu
     ))  # fmt: skip
 
 
-def arquivo_do_inquilino(db: Session, acesso: m.AcessoInquilino, id_: str) -> tuple[m.ArquivoContrato, Path, str, str]:
+def arquivo_do_inquilino(db: Session, acesso: m.AcessoInquilino, id_: str) -> "Arquivo":
     """Só arquivos visíveis de contratos do próprio inquilino."""
     a = db.get(m.ArquivoContrato, id_)
     ids = {c.id for c in contratos_do(db, acesso)}
@@ -216,10 +215,9 @@ def arquivo_do_inquilino(db: Session, acesso: m.AcessoInquilino, id_: str) -> tu
     from app.modules.arquivos.models import Arquivo
 
     original = db.get(Arquivo, a.arquivo_id)
-    caminho = arquivos.caminho(a.arquivo_id)
-    if original is None or not caminho.is_file():
+    if original is None or not arquivos.existe(original):
         raise NaoEncontrado("Arquivo não encontrado.")
-    return a, caminho, original.tipo_mime, original.nome
+    return original
 
 
 def categorias(db: Session, itens: list[m.ArquivoContrato]) -> dict[str, str]:

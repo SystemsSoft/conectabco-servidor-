@@ -40,8 +40,10 @@ class Settings(BaseSettings):
     jwt_secret: str = ""
     token_horas: int = 12
 
-    # Fotos, vídeos e arquivos enviados (pasta no servidor, fora do git);
-    # cada imobiliária usa a subpasta com o seu identificador.
+    # Fotos, vídeos e arquivos enviados: "s3" (bucket AWS_BUCKET, produção)
+    # ou "disco" (a pasta ARQUIVOS_DIR, desenvolvimento e testes). A pasta
+    # também guarda os envios em andamento e os arquivos de antes do S3.
+    arquivos_armazenamento: str = "disco"
     arquivos_dir: str = "dados/arquivos"
 
     # Build do app de gestão (Flutter web), servido em /gestao.

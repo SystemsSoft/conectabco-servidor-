@@ -21,7 +21,8 @@ from app.core.database import get_db
 from app.core.errors import RegraNegocio
 from app.core.imobiliarias import com_imobiliaria, estilo_marca, url_site
 from app.modules.arquivos.models import Arquivo
-from app.modules.arquivos.services import caminho as caminho_arquivo
+from app.modules.arquivos.api import resposta_arquivo
+from app.modules.arquivos.services import existe as arquivo_existe
 from app.modules.crm.enums import AnexoTipo, Finalidade, TipoImovel
 from app.modules.crm.models import Imovel
 from app.modules.site import schemas as s
@@ -404,17 +405,9 @@ def midia(arquivo_id: str, db: Db):
     if not _ID.match(arquivo_id) or not services.midia_publica(db, arquivo_id):
         return Response("Não encontrado.", status_code=404)
     a = db.get(Arquivo, arquivo_id)
-    caminho = caminho_arquivo(arquivo_id)
-    if a is None or not caminho.is_file():
+    if a is None or not arquivo_existe(a):
         return Response("Não encontrado.", status_code=404)
-    return FileResponse(
-        caminho,
-        media_type=a.tipo_mime,
-        headers={
-            "Cache-Control": "public, max-age=86400",
-            "X-Content-Type-Options": "nosniff",
-        },
-    )
+    return resposta_arquivo(a, cache="public, max-age=86400")
 
 
 @router.get("/logo")

@@ -32,6 +32,12 @@ Imobiliárias (mesmas regras de negócio; cada uma com o seu banco de dados):
       (anexo removido ou imóvel excluído), de todas as imobiliárias (ou de
       uma). Pode rodar diariamente (cron).
 
+  python gerenciar.py migrar-arquivos [--imobiliaria <slug>]
+      Envia ao armazenamento atual (S3, com ARQUIVOS_ARMAZENAMENTO=s3) os
+      arquivos de antes do S3, que estão na pasta ARQUIVOS_DIR/<slug>. Cada
+      um ganha a chave imobiliarias/<ULID da imobiliária>/<categoria>/<ULID>.
+      Pode repetir (só leva os que faltam); a pasta antiga fica intacta.
+
   python gerenciar.py transcrever [--uma-vez]
       Processa as filas de transcrição dos vídeos das auditorias de todas as
       imobiliárias (roda como serviço no servidor; com --uma-vez, para quando
@@ -91,7 +97,7 @@ def imobiliaria_criar(args: argparse.Namespace) -> None:
     except RegraNegocio as e:
         sys.exit(e.mensagem)
     print(f"Imobiliária pronta: {imob.nome} ({imob.slug})")
-    print(f"  banco: {imob.banco}  ·  arquivos: {imob.pasta_arquivos}")
+    print(f"  banco: {imob.banco}  ·  arquivos: imobiliarias/{imob.chave}/")
     if imob.dominios:
         print(f"  domínios: {', '.join(imob.dominios)}  ·  site: {imob.site_url}")
     print(f"  app de gestão: cabeçalho X-Imobiliaria: {imob.slug}")
@@ -206,6 +212,19 @@ def limpar_arquivos(args: argparse.Namespace) -> None:
             print(f"{imob.slug}: arquivos sem uso apagados: {limpar_orfaos(db)}")
 
 
+def migrar_arquivos(args: argparse.Namespace) -> None:
+    from app.modules.arquivos.services import migrar_para_armazenamento
+
+    destino = get_settings().arquivos_armazenamento
+    if destino != "s3":
+        print("Atenção: ARQUIVOS_ARMAZENAMENTO não é s3; os arquivos vão para a pasta local.")
+    for imob in _alvos(args.imobiliaria, somente_ativas=False):
+        with usar(imob), fabrica(imob)() as db:
+            levados, faltando = migrar_para_armazenamento(db)
+        aviso = f" ({faltando} sem conteúdo na pasta antiga)" if faltando else ""
+        print(f"{imob.slug}: {levados} arquivo(s) levados para {destino}{aviso}")
+
+
 def transcrever(args: argparse.Namespace) -> None:
     import logging
 
@@ -270,6 +289,9 @@ def main() -> None:
     la = sub.add_parser("limpar-arquivos", help="apaga arquivos enviados sem uso")
     la.add_argument("--imobiliaria", help="só esta imobiliária")
     la.set_defaults(func=limpar_arquivos)
+    ma = sub.add_parser("migrar-arquivos", help="envia ao S3 os arquivos de antes do S3")
+    ma.add_argument("--imobiliaria", help="só esta imobiliária")
+    ma.set_defaults(func=migrar_arquivos)
     t = sub.add_parser("transcrever", help="processa as filas de transcrição de vídeos")
     t.add_argument("--uma-vez", action="store_true", help="para quando as filas esvaziarem")
     t.set_defaults(func=transcrever)

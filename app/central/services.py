@@ -15,6 +15,7 @@ from app.core.database import Base, BaseCentral, criar_engine, fabrica, motor, m
 from app.core.errors import NaoEncontrado, RegraNegocio
 from app.core.imobiliarias import Imobiliaria, limpar_cadastro, normalizar_dominio
 from app.core.tempo import agora
+from app.core.ulid import novo_ulid
 
 RAIZ = Path(__file__).resolve().parents[2]
 _SLUG = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$")
@@ -40,6 +41,7 @@ def _para_contexto(r: m.Imobiliaria) -> Imobiliaria:
         ativa=r.ativa,
         cor_primaria=r.cor_primaria,
         cor_destaque=r.cor_destaque,
+        chave=r.chave,
     )
 
 
@@ -122,13 +124,14 @@ def validar_nova(
     dominios = tuple(dict.fromkeys(_validar_dominio(db, d, slug) for d in dominios))
     site_url = _validar_site(site_url) or (f"https://{dominios[0]}" if dominios else "")
     return Imobiliaria(slug, nome.strip(), banco, site_url, dominios, True,
-                       _validar_cor(cor_primaria), _validar_cor(cor_destaque))  # fmt: skip
+                       _validar_cor(cor_primaria), _validar_cor(cor_destaque), novo_ulid())  # fmt: skip
 
 
 def registrar(db: Session, imob: Imobiliaria) -> None:
     r = m.Imobiliaria(slug=imob.slug, nome=imob.nome, banco=imob.banco,
                       site_url=imob.site_url, ativa=True, cor_primaria=imob.cor_primaria,
-                      cor_destaque=imob.cor_destaque, criada_em=agora())  # fmt: skip
+                      cor_destaque=imob.cor_destaque, chave=imob.chave or novo_ulid(),
+                      criada_em=agora())  # fmt: skip
     r.dominios = [m.Dominio(dominio=d) for d in imob.dominios]
     db.add(r)
     db.commit()
@@ -232,7 +235,6 @@ def criar_imobiliaria(
             db.commit()
     if logo:
         definir_logo(imob, logo)
-    imob.pasta_arquivos.mkdir(parents=True, exist_ok=True)
     with sessao() as db:
         registrar(db, imob)
     return imob

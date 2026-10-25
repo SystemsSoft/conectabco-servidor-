@@ -31,10 +31,11 @@ Módulos prontos:
 ## Várias imobiliárias
 
 ```
-banco central (conectabco_central)      imobiliarias: slug, nome, banco, site, ativa
+banco central (conectabco_central)      imobiliarias: slug, nome, banco, site, ativa,
+                                                      chave (ULID dos arquivos)
                                         dominios:     domínio -> imobiliária
 imob_marcelo, imob_<slug>, ...          um banco por imobiliária (mesmas tabelas)
-ARQUIVOS_DIR/<slug>/                    arquivos enviados de cada uma
+s3://associacao-conecta/imobiliarias/<ULID>/   arquivos enviados de cada uma
 ```
 
 Cada requisição diz de qual imobiliária é, nesta ordem:
@@ -502,10 +503,78 @@ campos `{{empresa_...}}` dos modelos de contrato.
 
 Limites: fotos até 15 MB (JPG, PNG, WEBP, GIF), vídeos até 300 MB (MP4, MOV,
 WEBM) e arquivos até 30 MB (PDF, Office, TXT, CSV, ZIP, DWG e imagens). Enviar
-exige gravar em Cadastros e CRM. O conteúdo fica na pasta `ARQUIVOS_DIR/<slug>`
-(padrão `dados/arquivos`, fora do git), uma por imobiliária — inclua essa
-pasta no backup do servidor. No imóvel, o anexo guarda `arquivo:<id>` no lugar do link; os links
-assinados valem pelo tempo do login (`TOKEN_HORAS`).
+exige gravar em Cadastros e CRM. No imóvel, o anexo guarda `arquivo:<id>` no
+lugar do link; os links assinados valem pelo tempo do login (`TOKEN_HORAS`).
+
+### Armazenamento no S3
+
+O conteúdo fica no bucket **`associacao-conecta`** (`AWS_BUCKET`), privado,
+com chaves **ULID** — únicas e em ordem de criação:
+
+```
+imobiliarias/<ULID da imobiliária>/<foto|video|arquivo>/<ULID do arquivo>
+imobiliarias/<ULID da imobiliária>/miniaturas/<ULID do arquivo>-<320|640|1280>.jpg
+```
+
+- O ULID da imobiliária (`chave` no banco central) é criado no cadastro, é
+  único e nunca muda — nem se o slug mudar. Cada arquivo guarda a sua chave
+  (`arquivos.chave`, também única) e o objeto leva nos metadados a
+  imobiliária (ULID e slug), o id do arquivo e a categoria.
+- Antes de abrir, copiar ou apagar, o servidor confere se a chave está sob o
+  prefixo da imobiliária da requisição; se não estiver, responde 404, não
+  apaga nada e registra o erro no log (`armazenamento`).
+- O link do app (`/conteudo?expira=…&assinatura=…`) confere a assinatura e
+  **redireciona** (307) para um link assinado do S3 de 6 h: o S3 entrega o
+  conteúdo, inclusive o avanço dos vídeos, e o servidor não carrega os bytes.
+- O envio passa por `ARQUIVOS_DIR/.envios` (no disco, não na memória) só
+  enquanto é conferido; a transcrição dos vídeos baixa o vídeo ali e apaga
+  depois.
+
+Em desenvolvimento e nos testes, `ARQUIVOS_ARMAZENAMENTO=disco` (padrão)
+grava as mesmas chaves na pasta `ARQUIVOS_DIR` (padrão `dados/arquivos`).
+O logotipo de cada imobiliária continua no banco dela (Personalização).
+
+**Produção** — no `.env` do servidor, além das chaves da AWS:
+
+```bash
+ARQUIVOS_ARMAZENAMENTO=s3
+```
+
+O usuário IAM do servidor precisa desta política (além da do painel, em
+[Infraestrutura](#infraestrutura-plataformainfraestrutura)):
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {"Effect": "Allow", "Resource": "arn:aws:s3:::associacao-conecta/imobiliarias/*",
+     "Action": ["s3:PutObject", "s3:GetObject", "s3:DeleteObject"]},
+    {"Effect": "Allow", "Resource": "arn:aws:s3:::associacao-conecta",
+     "Action": ["s3:GetBucketLocation", "s3:ListBucket"]}
+  ]
+}
+```
+
+E, no bucket, **Permissions → Cross-origin resource sharing (CORS)**, para o
+app web (Flutter) exibir as fotos vindas do S3:
+
+```json
+[{"AllowedOrigins": ["*"], "AllowedMethods": ["GET", "HEAD"], "AllowedHeaders": ["*"],
+  "ExposeHeaders": ["Content-Length", "Content-Range", "Accept-Ranges"], "MaxAgeSeconds": 3600}]
+```
+
+(`*` é seguro aqui: o bucket continua privado e só abre por link assinado.)
+Deixe ligado o **Block all public access** do bucket.
+
+Os arquivos de antes do S3 (na pasta `ARQUIVOS_DIR/<slug>`) continuam
+abrindo até serem levados ao bucket:
+
+```bash
+sudo -u marceloimob .venv/bin/python gerenciar.py migrar-arquivos
+```
+
+O comando pode ser repetido (só leva os que faltam) e não apaga a pasta
+antiga — confira no app e apague depois (`dados/arquivos/<slug>`).
 
 Arquivos que nenhum imóvel usa mais (anexo removido ou imóvel excluído) são
 apagados com `.venv/bin/python gerenciar.py limpar-arquivos`, em todas as
@@ -697,6 +766,9 @@ app/
     schemas.py               base camelCase e paginação
     enums.py                 enums com rótulo
     sequencias.py            numeração sequencial (códigos, nº de contrato)
+    armazenamento.py         arquivos no S3 (ou disco): chaves ULID por imobiliária
+    ulid.py                  gerador de ULID
+    aws.py                   clientes boto3 com as credenciais do .env
   modules/
     __init__.py              registro dos módulos
     crm/

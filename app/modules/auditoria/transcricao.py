@@ -19,7 +19,8 @@ from sqlalchemy.orm import Session, sessionmaker
 from app.core.config import get_settings
 from app.core.imobiliarias import Imobiliaria, usar
 from app.core.tempo import agora
-from app.modules.arquivos.services import caminho as caminho_arquivo
+from app.modules.arquivos import services as arquivos
+from app.modules.arquivos.models import Arquivo
 from app.modules.auditoria.enums import StatusTranscricao, TipoMidia
 from app.modules.auditoria.models import MidiaAuditoria
 
@@ -60,10 +61,11 @@ def processar(db: Session, transcritor: Transcritor, midia: MidiaAuditoria) -> N
     midia.transcricao_status = StatusTranscricao.processando
     db.commit()
     try:
-        arquivo = caminho_arquivo(midia.arquivo_id)
-        if not arquivo.is_file():
-            raise FileNotFoundError("arquivo do vídeo não encontrado no servidor")
-        texto = transcritor.transcrever(str(arquivo))
+        original = db.get(Arquivo, midia.arquivo_id)
+        if original is None or not arquivos.existe(original):
+            raise FileNotFoundError("arquivo do vídeo não encontrado no armazenamento")
+        with arquivos.local(original) as caminho:  # baixado do S3 só durante a transcrição
+            texto = transcritor.transcrever(str(caminho))
         midia.transcricao_texto = texto or "(sem fala identificada no vídeo)"
         midia.transcricao_status = StatusTranscricao.concluida
         midia.transcricao_erro = ""

@@ -1,12 +1,15 @@
 import re
 from datetime import timedelta
+from pathlib import Path
 
 import pytest
 import sqlalchemy as sa
 
 from app.core.config import get_settings
 from app.core.tempo import agora
+from app.core.imobiliarias import usar
 from app.modules.arquivos import services as arquivos
+from app.modules.arquivos.models import Arquivo
 from app.modules.auditoria import transcricao
 from app.modules.auditoria.models import MidiaAuditoria
 from app.modules.equipe.enums import PerfilAcesso, permissoes_do_perfil
@@ -130,7 +133,10 @@ def test_videos_fila_de_transcricao_e_relatorio(client, banco, imobiliaria):
 
     falso = TranscritorFalso()
     assert transcricao.rodar(lambda: [(imobiliaria, banco)], falso, uma_vez=True) == 1
-    assert len(falso.chamadas) == 1 and falso.chamadas[0].endswith(ref_video.removeprefix("arquivo:"))
+    with banco() as db:
+        chave = db.get(Arquivo, ref_video.removeprefix("arquivo:")).chave
+    assert chave.startswith(f"imobiliarias/{imobiliaria.chave}/video/")
+    assert len(falso.chamadas) == 1 and falso.chamadas[0].endswith(chave)
     v = next(x for x in client.get(f"{API}/{a['id']}").json()["midias"] if x["id"] == video)
     assert (v["transcricaoStatus"], v["transcricaoTexto"]) == ("concluida", falso.texto)
 
@@ -143,7 +149,8 @@ def test_videos_fila_de_transcricao_e_relatorio(client, banco, imobiliaria):
     # Erro (arquivo sumiu) fica registrado; processando preso volta à fila.
     with banco() as db:
         m = db.get(MidiaAuditoria, video)
-        arquivos.caminho(m.arquivo_id).unlink()
+        with usar(imobiliaria):
+            arquivos.remover_arquivo(db.get(Arquivo, m.arquivo_id))
         m.transcricao_status = m.transcricao_status.__class__.processando
         db.commit()
         assert transcricao.recuperar_interrompidas(db) == 1
@@ -293,8 +300,8 @@ def test_miniaturas_das_fotos(client):
     r = client.post("/api/v1/arquivos", data={"categoria": "foto"},
                     files={"arquivo": ("cozinha.jpg", _jpeg(orientacao=6))}).json()  # fmt: skip
     # Gerada em segundo plano logo após o envio (largura 320 e 640).
-    for w in (320, 640):
-        assert arquivos.caminho_miniatura(r["id"], w).is_file()
+    miniaturas = Path(get_settings().arquivos_dir).rglob("miniaturas/*.jpg")
+    assert sorted(p.name.rsplit("-", 1)[1] for p in miniaturas) == ["320.jpg", "640.jpg"]
     leve = client.get(r["link"] + "&largura=300")
     assert leve.status_code == 200 and leve.headers["content-type"] == "image/jpeg"
     assert "immutable" in leve.headers["cache-control"]

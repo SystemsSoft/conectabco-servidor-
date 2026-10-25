@@ -182,8 +182,7 @@ class DocumentoService:
         no nome ("(cópia 2)", "(cópia 3)"... se já existir)."""
         d = self._documento(id)
         original = self.db.get(Arquivo, d.arquivo_id)
-        caminho = arquivos.caminho(d.arquivo_id)
-        if original is None or not caminho.is_file():
+        if original is None or not arquivos.existe(original):
             raise NaoEncontrado("Arquivo não encontrado.")
         nomes = set(self.db.scalars(
             sa.select(m.DocumentoFinanceiro.nome).where(m.DocumentoFinanceiro.pasta_id == d.pasta_id)
@@ -195,8 +194,7 @@ class DocumentoService:
             sufixo = f" (cópia {n})"
         nome = f"{d.nome[: 255 - len(sufixo)]}{sufixo}"
         base = Path(original.nome)
-        with caminho.open("rb") as conteudo:
-            a = arquivos.salvar(self.db, conteudo, f"{base.stem}{sufixo}{base.suffix}", "arquivo", usuario_id)
+        a = arquivos.duplicar(self.db, original, f"{base.stem}{sufixo}{base.suffix}", usuario_id)
         copia = m.DocumentoFinanceiro(pasta_id=d.pasta_id, nome=nome, arquivo_id=a.id)
         self.db.add(copia)
         self.db.commit()
@@ -238,8 +236,8 @@ class DocumentoService:
 
     def _apagar_arquivo(self, arquivo_id: str) -> None:
         if a := self.db.get(Arquivo, arquivo_id):
+            arquivos.remover_arquivo(a)
             self.db.delete(a)
-        arquivos.remover_arquivo(arquivo_id)
 
     def _pasta_saida(self, p: m.PastaDocumento) -> s.PastaSaida:
         n = self.db.scalar(
@@ -300,6 +298,6 @@ def documento_do_contato(db: Session, contato_id: str, documento_id: str) -> Arq
     if d is None or db.get(m.CompartilhamentoPasta, (d.pasta_id, contato_id)) is None:
         raise NaoEncontrado("Arquivo não encontrado.")
     a = db.get(Arquivo, d.arquivo_id)
-    if a is None or not arquivos.caminho(a.id).is_file():
+    if a is None or not arquivos.existe(a):
         raise NaoEncontrado("Arquivo não encontrado.")
     return a

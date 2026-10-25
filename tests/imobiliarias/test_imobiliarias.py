@@ -14,6 +14,7 @@ from app.core.database import descartar_motores, fabrica, motor
 from app.core.errors import RegraNegocio
 from app.core.imobiliarias import normalizar_dominio, usar
 from app.core.seguranca import _segredo, chave
+from app.core.ulid import ulid_valido
 from app.main import create_app
 from app.modules.personalizacao.models import DadosEmpresa
 from tests.apoio import contato
@@ -94,8 +95,12 @@ def test_arquivos_e_links_de_cada_imobiliaria(client, servidor, outra):
     pasta = Path(get_settings().arquivos_dir)
     da_teste = enviar()
     da_outra = enviar(_entrar(client, **{"X-Imobiliaria": "outra"}))
-    assert (pasta / "teste" / da_teste["id"][:2] / da_teste["id"]).is_file()
-    assert (pasta / "outra" / da_outra["id"][:2] / da_outra["id"]).is_file()
+    # Cada imobiliária grava sob o seu ULID (imobiliarias/<ULID>/foto/<ULID>).
+    chaves = {s: imobiliarias.buscar(s).chave for s in ("teste", "outra")}
+    assert len(set(chaves.values())) == 2 and all(map(ulid_valido, chaves.values()))
+    for slug in chaves:
+        fotos = list((pasta / "imobiliarias" / chaves[slug] / "foto").iterdir())
+        assert len(fotos) == 1 and ulid_valido(fotos[0].name)
 
     # O link assinado diz a imobiliária: abre no navegador, sem cabeçalho.
     assert "imob=teste" in da_teste["link"]
@@ -143,7 +148,7 @@ def test_criar_imobiliaria_com_banco_proprio(plataforma, tmp_path, monkeypatch):
 
     imob = central.criar_imobiliaria("nova-imob", "Nova Imobiliária", dominios=["nova.com.br"])
     assert (imob.banco, imob.site_url) == ("imob_nova_imob", "https://nova.com.br")
-    assert (tmp_path / "imob_nova_imob.db").is_file() and imob.pasta_arquivos.is_dir()
+    assert (tmp_path / "imob_nova_imob.db").is_file() and ulid_valido(imob.chave)
     assert imobiliarias.buscar("nova-imob") == imob
     with fabrica(imob)() as db:
         assert db.get(DadosEmpresa, 1).nome == "Nova Imobiliária"

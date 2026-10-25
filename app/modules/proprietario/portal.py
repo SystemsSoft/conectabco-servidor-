@@ -16,7 +16,7 @@ from app.core.errors import NaoEncontrado, RegraNegocio
 from app.core.tempo import agora
 from app.modules.arquivos.api import resposta_arquivo
 from app.modules.arquivos.models import Arquivo
-from app.modules.arquivos.services import caminho as caminho_arquivo
+from app.modules.arquivos.services import existe as arquivo_existe
 from app.modules.auditoria import relatorio
 from app.modules.crm.models import Contato, Imovel
 from app.modules.financeiro.documentos import documento_do_contato, pastas_do_contato
@@ -248,6 +248,6 @@ def midia(midia_id: str, request: Request, db: Db,
     except NaoEncontrado:
         return Response("Arquivo não encontrado.", status_code=404)
     arquivo = db.get(Arquivo, m.arquivo_id)
-    if arquivo is None or not caminho_arquivo(m.arquivo_id).is_file():
+    if arquivo is None or not arquivo_existe(arquivo):
         return Response("Arquivo não encontrado.", status_code=404)
     return resposta_arquivo(arquivo, largura)

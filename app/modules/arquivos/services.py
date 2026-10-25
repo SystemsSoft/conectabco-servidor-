@@ -1,8 +1,11 @@
-"""Armazenamento dos arquivos enviados e links assinados para abri-los."""
+"""Arquivos enviados (no S3, com chave ULID por imobiliária e por arquivo)
+e links assinados para abri-los."""
 
-import os
+import shutil
 import time
 import uuid
+from collections.abc import Iterator
+from contextlib import contextmanager
 from datetime import timedelta
 from pathlib import Path
 from typing import BinaryIO
@@ -10,8 +13,19 @@ from typing import BinaryIO
 import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
+from app.core.armazenamento import (
+    S3,
+    Disco,
+    armazenamento,
+    chave_miniatura,
+    conferir,
+    metadados,
+    no_s3,
+    nova_chave,
+)
+from app.core.armazenamento import temporario as armazenamento_temporario
 from app.core.config import get_settings
-from app.core.errors import RegraNegocio
+from app.core.errors import NaoEncontrado, RegraNegocio
 from app.core.imobiliarias import atual, com_imobiliaria
 from app.core.seguranca import assinar, assinatura_valida
 from app.core.tempo import agora
@@ -57,17 +71,45 @@ _MAGICOS = {
 _EXIBIVEIS = ("image/", "video/", "application/pdf")
 
 
-def pasta() -> Path:
-    """Pasta da imobiliária atual (cada uma tem a sua)."""
-    return atual().pasta_arquivos
+def _antigo(arquivo_id: str) -> tuple[Disco, str]:
+    """Arquivo de antes do S3: pasta da imobiliária no disco do servidor."""
+    return Disco(Path(get_settings().arquivos_dir)), f"{atual().slug}/{arquivo_id[:2]}/{arquivo_id}"
 
 
-def caminho(arquivo_id: str) -> Path:
-    return pasta() / arquivo_id[:2] / arquivo_id
+def _origem(arquivo_id: str, chave: str | None) -> tuple[Disco | S3, str]:
+    """Onde está o conteúdo — sempre dentro da imobiliária atual."""
+    if chave:
+        return armazenamento(), conferir(chave)
+    return _antigo(arquivo_id)
+
+
+def existe(a: Arquivo) -> bool:
+    try:
+        if a.chave and no_s3():
+            conferir(a.chave)
+            return True  # gravado só depois do envio ao S3 (evita uma consulta por acesso)
+        loja, chave = _origem(a.id, a.chave)
+    except NaoEncontrado:
+        return False
+    return loja.existe(chave)
+
+
+@contextmanager
+def local(a: Arquivo) -> Iterator[Path]:
+    """O arquivo no disco (cópia temporária, se estiver no S3)."""
+    loja, chave = _origem(a.id, a.chave)
+    with loja.local(chave) as caminho:
+        yield caminho
+
+
+def onde(a: Arquivo) -> tuple[Disco | S3, str]:
+    """Armazenamento e chave do arquivo (para entregar ao navegador)."""
+    return _origem(a.id, a.chave)
 
 
 # Larguras das miniaturas de fotos (a tela pede a mais próxima).
 LARGURAS = (320, 640, 1280)
+_MINIATURAS_PRONTAS: set[str] = set()  # evita perguntar ao S3 se já existe
 
 
 def largura_miniatura(pedida: int | None) -> int | None:
@@ -77,23 +119,26 @@ def largura_miniatura(pedida: int | None) -> int | None:
     return next((w for w in LARGURAS if w >= pedida), LARGURAS[-1])
 
 
-def caminho_miniatura(arquivo_id: str, largura: int) -> Path:
-    return pasta() / "miniaturas" / arquivo_id[:2] / f"{arquivo_id}-{largura}.jpg"
+def _chave_miniatura(arquivo_id: str, chave: str | None, largura: int) -> str:
+    if chave:
+        return chave_miniatura(chave, largura)
+    return f"{atual().slug}/miniaturas/{arquivo_id[:2]}/{arquivo_id}-{largura}.jpg"
 
 
-def miniatura(arquivo_id: str, largura: int) -> Path | None:
-    """JPEG reduzido da foto (gerado uma vez e guardado em disco). Corrige a
-    rotação das fotos de celular. Nenhuma se não for uma imagem legível."""
-    destino = caminho_miniatura(arquivo_id, largura)
-    if destino.is_file():
-        return destino
-    origem = caminho(arquivo_id)
-    if not origem.is_file():
-        return None
+def miniatura(arquivo_id: str, chave: str | None, largura: int) -> tuple[Disco | S3, str] | None:
+    """JPEG reduzido da foto (gerado uma vez e guardado junto do original).
+    Corrige a rotação das fotos de celular. Nenhuma se não for uma imagem
+    legível."""
+    loja, original = _origem(arquivo_id, chave)
+    destino = _chave_miniatura(arquivo_id, chave, largura)
+    if destino in _MINIATURAS_PRONTAS or loja.existe(destino):
+        _MINIATURAS_PRONTAS.add(destino)
+        return loja, destino
     from PIL import Image, ImageOps
 
+    temporario = armazenamento_temporario(".jpg")
     try:
-        with Image.open(origem) as img:
+        with loja.local(original) as origem, Image.open(origem) as img:
             img.draft("RGB", (largura * 2, largura * 2))  # JPEG: decodifica já reduzido
             img = ImageOps.exif_transpose(img)
             if getattr(img, "is_animated", False):
@@ -103,25 +148,33 @@ def miniatura(arquivo_id: str, largura: int) -> Path | None:
                 fundo = Image.new("RGB", img.size, (255, 255, 255))
                 fundo.paste(img, mask=img.convert("RGBA").getchannel("A"))
                 img = fundo
-            destino.parent.mkdir(parents=True, exist_ok=True)
-            temporario = destino.with_suffix(f".{uuid.uuid4().hex}.parcial")
             img.save(temporario, "JPEG", quality=82, optimize=True, progressive=True)
-            os.replace(temporario, destino)
+        loja.gravar(destino, temporario, "image/jpeg", metadados(atual(), arquivo_id, "miniatura"))
     except (OSError, ValueError, Image.DecompressionBombError):
         return None
-    return destino
+    finally:
+        temporario.unlink(missing_ok=True)
+    if len(_MINIATURAS_PRONTAS) > 20000:
+        _MINIATURAS_PRONTAS.clear()
+    _MINIATURAS_PRONTAS.add(destino)
+    return loja, destino
 
 
-def gerar_miniaturas(arquivo_id: str) -> None:
+def gerar_miniaturas(arquivo_id: str, chave: str | None) -> None:
     """Prepara as miniaturas em segundo plano logo após o envio da foto."""
     for largura in LARGURAS[:2]:
-        miniatura(arquivo_id, largura)
+        miniatura(arquivo_id, chave, largura)
 
 
-def remover_arquivo(arquivo_id: str) -> None:
-    caminho(arquivo_id).unlink(missing_ok=True)
-    for largura in LARGURAS:
-        caminho_miniatura(arquivo_id, largura).unlink(missing_ok=True)
+def remover_arquivo(a: Arquivo) -> None:
+    """Apaga o conteúdo e as miniaturas (o registro fica com quem chamou)."""
+    try:
+        loja, chave = _origem(a.id, a.chave)
+    except NaoEncontrado:
+        return  # chave de outra imobiliária: não apaga nada
+    for c in (chave, *(_chave_miniatura(a.id, a.chave, w) for w in LARGURAS)):
+        loja.apagar(c)
+        _MINIATURAS_PRONTAS.discard(c)
 
 
 def exibivel(tipo_mime: str) -> bool:
@@ -161,9 +214,7 @@ def salvar(
         enviado_por_id=usuario_id,
         criado_em=agora(),
     )
-    destino = caminho(novo.id)
-    destino.parent.mkdir(parents=True, exist_ok=True)
-    temporario = destino.with_suffix(".parcial")
+    temporario = armazenamento_temporario()
     tamanho = 0
     try:
         with temporario.open("wb") as saida:
@@ -180,17 +231,75 @@ def salvar(
                 saida.write(parte)
         if tamanho == 0:
             raise RegraNegocio("O arquivo está vazio.")
-        os.replace(temporario, destino)
+        novo.chave = nova_chave(categoria)
+        armazenamento().gravar(novo.chave, temporario, tipo, metadados(atual(), novo.id, categoria))
     finally:
         temporario.unlink(missing_ok=True)
     novo.tamanho = tamanho
+    _registrar(db, novo)
+    return novo
+
+
+def _registrar(db: Session, novo: Arquivo) -> None:
+    """Grava o registro; se não der, o conteúdo enviado não fica solto."""
     db.add(novo)
     try:
         db.commit()
     except Exception:
-        destino.unlink(missing_ok=True)
+        db.rollback()
+        armazenamento().apagar(novo.chave)
         raise
-    return novo
+
+
+def duplicar(db: Session, original: Arquivo, nome: str, usuario_id: str | None) -> Arquivo:
+    """Cópia independente do arquivo (outro ULID, mesma imobiliária)."""
+    copia = Arquivo(
+        id=str(uuid.uuid4()), nome=nome[:255], categoria=original.categoria,
+        tipo_mime=original.tipo_mime, tamanho=original.tamanho,
+        enviado_por_id=usuario_id, criado_em=agora(), chave=nova_chave(original.categoria),
+    )  # fmt: skip
+    dados = metadados(atual(), copia.id, copia.categoria)
+    loja, chave = _origem(original.id, original.chave)
+    if original.chave:
+        loja.copiar(chave, copia.chave, dados)
+    else:  # de antes do S3: copia do disco para o armazenamento atual
+        temporario = armazenamento_temporario()
+        try:
+            with loja.local(chave) as caminho:
+                shutil.copyfile(caminho, temporario)
+            armazenamento().gravar(copia.chave, temporario, copia.tipo_mime, dados)
+        finally:
+            temporario.unlink(missing_ok=True)
+    _registrar(db, copia)
+    return copia
+
+
+def migrar_para_armazenamento(db: Session) -> tuple[int, int]:
+    """Leva os arquivos de antes do S3 (pasta no disco) para o armazenamento
+    atual, um a um, com chave ULID. Devolve (levados, sem conteúdo no disco).
+    Os originais ficam na pasta antiga (apague depois de conferir)."""
+    levados = faltando = 0
+    for a in db.scalars(sa.select(Arquivo).where(Arquivo.chave.is_(None))).all():
+        disco, antigo = _antigo(a.id)
+        if not disco.existe(antigo):
+            faltando += 1
+            continue
+        chave = nova_chave(a.categoria)
+        temporario = armazenamento_temporario()
+        try:
+            shutil.copyfile(disco.caminho(antigo), temporario)
+            armazenamento().gravar(chave, temporario, a.tipo_mime, metadados(atual(), a.id, a.categoria))
+        finally:
+            temporario.unlink(missing_ok=True)
+        a.chave = chave
+        try:
+            db.commit()
+        except Exception:
+            db.rollback()
+            armazenamento().apagar(chave)
+            raise
+        levados += 1
+    return levados, faltando
 
 
 def link(arquivo_id: str, validade_s: int | None = None) -> str:
@@ -235,7 +344,7 @@ def limpar_orfaos(db: Session, carencia: timedelta = timedelta(days=1)) -> int:
         )
     ).all()
     for a in orfaos:
-        remover_arquivo(a.id)
+        remover_arquivo(a)
         db.delete(a)
     db.commit()
     return len(orfaos)

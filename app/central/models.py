@@ -4,6 +4,7 @@ import sqlalchemy as sa
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import BaseCentral
+from app.core.ulid import novo_ulid
 
 
 class Imobiliaria(BaseCentral):
@@ -21,6 +22,8 @@ class Imobiliaria(BaseCentral):
     cor_primaria: Mapped[str] = mapped_column(sa.String(7), default="")
     cor_destaque: Mapped[str] = mapped_column(sa.String(7), default="")
     criada_em: Mapped[datetime] = mapped_column(sa.DateTime)
+    # ULID fixo e único: prefixo dos arquivos dela (imobiliarias/<chave>/...).
+    chave: Mapped[str] = mapped_column(sa.String(26), unique=True, default=novo_ulid)
     dominios: Mapped[list["Dominio"]] = relationship(
         back_populates="imobiliaria",
         cascade="all, delete-orphan",

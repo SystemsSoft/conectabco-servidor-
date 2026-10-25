@@ -21,6 +21,7 @@ import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
 from app.central import models as m
+from app.core import aws
 from app.core.config import get_settings
 from app.core.tempo import agora
 
@@ -35,16 +36,7 @@ _SISTEMA = {"information_schema", "mysql", "performance_schema", "sys"}
 
 def _cliente(servico: str, regiao: str):
     """Cliente boto3 (os testes trocam por um falso)."""
-    import boto3
-    from botocore.config import Config
-
-    s = get_settings()
-    config = Config(connect_timeout=5, read_timeout=15, retries={"max_attempts": 2})
-    chaves = {}
-    if s.aws_access_key_id:
-        chaves = {"aws_access_key_id": s.aws_access_key_id,
-                  "aws_secret_access_key": s.aws_secret_access_key}  # fmt: skip
-    return boto3.client(servico, region_name=regiao, config=config, **chaves)
+    return aws.cliente(servico, regiao)
 
 
 def _explicar(e: Exception) -> str:

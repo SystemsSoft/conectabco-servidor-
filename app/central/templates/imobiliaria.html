@@ -6,7 +6,7 @@
   {% if tem_logo %}<img class="miniatura" style="width: 56px; height: 56px;" src="/plataforma/{{ r.slug }}/logo" alt="">{% endif %}
   <div>
     <h1>{{ r.nome }} {% if r.ativa %}<span class="selo ok">Ativa</span>{% else %}<span class="selo off">Desativada</span>{% endif %}</h1>
-    <p class="sub" style="margin: 0;"><code>{{ r.slug }}</code> · banco <code>{{ r.banco }}</code> · arquivos <code>{{ imob.pasta_arquivos }}</code></p>
+    <p class="sub" style="margin: 0;"><code>{{ r.slug }}</code> · banco <code>{{ r.banco }}</code> · arquivos <code>imobiliarias/{{ imob.chave }}/</code></p>
   </div>
 </div>
 

@@ -49,9 +49,12 @@ class Imobiliaria:
     ativa: bool = True
     cor_primaria: str = ""
     cor_destaque: str = ""
+    # ULID fixo e único: prefixo de todos os arquivos dela no armazenamento.
+    chave: str = ""
 
     @property
     def pasta_arquivos(self) -> Path:
+        """Pasta dos arquivos de antes do S3 (gerenciar.py migrar-arquivos)."""
         return Path(get_settings().arquivos_dir) / self.slug
 
 

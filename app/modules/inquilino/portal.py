@@ -8,7 +8,7 @@ from typing import Annotated
 from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
-from fastapi.responses import FileResponse, RedirectResponse, Response
+from fastapi.responses import RedirectResponse, Response
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -274,17 +274,12 @@ async def documentos_enviar(request: Request, db: Db, descricao: Annotated[str, 
 def arquivo(id: str, request: Request, db: Db):
     try:
         acesso = _acesso(request, db)
-        a, caminho, mime, nome = s.arquivo_do_inquilino(db, acesso, id)
+        original = s.arquivo_do_inquilino(db, acesso, id)
     except _Redirecionar as r:
         return _ir(r.destino)
     except NaoEncontrado:
         return Response("Arquivo não encontrado.", status_code=404)
-    inline = mime.startswith(("image/", "video/", "application/pdf"))
-    return FileResponse(
-        caminho, media_type=mime, filename=nome,
-        content_disposition_type="inline" if inline else "attachment",
-        headers={"Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff"},
-    )  # fmt: skip
+    return resposta_arquivo(original, cache="private, no-store")
 
 
 @router.get("/chamados")

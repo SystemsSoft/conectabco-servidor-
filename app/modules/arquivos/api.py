@@ -1,8 +1,9 @@
 from datetime import datetime
+from pathlib import Path
 from typing import Annotated
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Form, Query, UploadFile
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from pydantic import Field
 from sqlalchemy.orm import Session
 
@@ -67,7 +68,7 @@ def enviar(
         db, arquivo.file, arquivo.filename or "", categoria, usuario.id
     )
     if novo.tipo_mime.startswith("image/"):
-        tarefas.add_task(services.gerar_miniaturas, novo.id)
+        tarefas.add_task(services.gerar_miniaturas, novo.id, novo.chave)
     return _saida(novo)
 
 
@@ -98,32 +99,37 @@ def conteudo(
     if not services.link_valido(arquivo_id, expira, assinatura):
         raise NaoEncontrado("Link expirado ou inválido.")
     a = db.get(Arquivo, validar_id(arquivo_id))
-    caminho = services.caminho(arquivo_id) if a else None
-    if a is None or not caminho.is_file():
+    if a is None or not services.existe(a):
         raise NaoEncontrado("Arquivo não encontrado.")
     return resposta_arquivo(a, largura)
 
 
-def resposta_arquivo(a: Arquivo, largura: int | None = None):
-    """O arquivo (ou a miniatura da foto, com `largura`)."""
-    caminho = services.caminho(a.id)
-    if not caminho.is_file():
+CACHE_ARQUIVO = "private, max-age=3600"
+CACHE_MINIATURA = "private, max-age=604800, immutable"
+
+
+def resposta_arquivo(a: Arquivo, largura: int | None = None, cache: str = CACHE_ARQUIVO):
+    """O arquivo (ou a miniatura da foto, com `largura`). No S3, redireciona
+    para um link assinado de curta duração: o S3 entrega o conteúdo (vídeos
+    com avanço inclusive) e o bucket continua privado."""
+    if not services.existe(a):
         raise NaoEncontrado("Arquivo não encontrado.")
+    tipo, nome, inline = a.tipo_mime, a.nome, services.exibivel(a.tipo_mime)
+    loja, chave = services.onde(a)
     if largura and a.tipo_mime.startswith("image/"):
-        if mini := services.miniatura(a.id, services.largura_miniatura(largura)):
-            return FileResponse(mini, media_type="image/jpeg", headers={
-                "Cache-Control": "private, max-age=604800, immutable",
-                "X-Content-Type-Options": "nosniff",
-            })  # fmt: skip
+        if mini := services.miniatura(a.id, a.chave, services.largura_miniatura(largura)):
+            loja, chave = mini
+            tipo, nome, inline, cache = "image/jpeg", f"{Path(a.nome).stem}.jpg", True, CACHE_MINIATURA
+    if url := loja.link(chave, tipo, nome, inline, cache):
+        # O redirecionamento vale menos que o link (que expira em horas).
+        return RedirectResponse(url, status_code=307, headers={
+            "Cache-Control": "private, max-age=600" if cache.startswith("private") else "public, max-age=3600",
+            "Referrer-Policy": "no-referrer",
+        })  # fmt: skip
     return FileResponse(
-        caminho,
-        media_type=a.tipo_mime,
-        filename=a.nome,
-        content_disposition_type="inline"
-        if services.exibivel(a.tipo_mime)
-        else "attachment",
-        headers={
-            "Cache-Control": "private, max-age=3600",
-            "X-Content-Type-Options": "nosniff",
-        },
+        loja.caminho(chave),
+        media_type=tipo,
+        filename=nome,
+        content_disposition_type="inline" if inline else "attachment",
+        headers={"Cache-Control": cache, "X-Content-Type-Options": "nosniff"},
     )

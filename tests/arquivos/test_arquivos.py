@@ -1,9 +1,11 @@
 from datetime import timedelta
+from pathlib import Path
 
 import pytest
 
 from app.core.config import get_settings
 from app.modules.arquivos import services
+from app.modules.arquivos.models import Arquivo
 from app.modules.equipe.enums import PerfilAcesso, permissoes_do_perfil
 from tests.apoio import novo_id
 
@@ -71,7 +73,8 @@ def test_validacoes(client, monkeypatch):
     assert erro("a.png", PNG, "musica") == "Categoria inválida (use foto, video ou arquivo)."
     monkeypatch.setitem(services.CATEGORIAS, "foto", (services._FOTOS, 50))
     assert erro("grande.png", PNG) == "Arquivo grande demais (máximo 0 MB para fotos)."
-    assert not list(get_settings().arquivos_dir and services.pasta().rglob("*.parcial"))
+    assert not list(Path(get_settings().arquivos_dir).rglob("*.parcial"))
+    assert not list((Path(get_settings().arquivos_dir) / "imobiliarias").rglob("*"))
 
 
 def test_corretor_envia_mas_sem_cadastros_nao(client):
@@ -93,8 +96,9 @@ def test_limpa_os_que_nenhum_imovel_usa(client, banco):
     assert client.put(f"/api/v1/crm/imoveis/{novo_id()}", json=imovel).status_code in (200, 201)
 
     with banco() as db:
+        chave = db.get(Arquivo, solto["id"]).chave
         assert services.limpar_orfaos(db) == 0  # ainda na carência
         assert services.limpar_orfaos(db, carencia=timedelta(0)) == 1
     assert client.get(f"{URL}/{solto['id']}").status_code == 404
-    assert not services.caminho(solto["id"]).exists()
+    assert not (Path(get_settings().arquivos_dir) / chave).exists()
     assert client.get(usado["link"]).content == PNG
