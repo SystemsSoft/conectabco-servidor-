@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 from app.central import acesso
 from app.central import infraestrutura as infra
 from app.central import models as m
+from app.central import representantes as rep
 from app.central import services as central
 from app.core.config import get_settings
 from app.core.database import fabrica
@@ -28,6 +29,22 @@ templates = Jinja2Templates(directory=PASTA / "templates")
 templates.env.filters.update(tamanho=infra.tamanho, dinheiro=infra.dinheiro,
                              duracao=infra.duracao, mes=infra.mes)  # fmt: skip
 templates.env.globals["porcento"] = infra.porcento
+
+
+def _digitos(texto: str) -> str:
+    return "".join(c for c in texto or "" if c.isdigit())
+
+
+def _cpf_cnpj(texto: str) -> str:
+    d = _digitos(texto)
+    if len(d) == 11:
+        return f"{d[:3]}.{d[3:6]}.{d[6:9]}-{d[9:]}"
+    if len(d) == 14:
+        return f"{d[:2]}.{d[2:5]}.{d[5:8]}/{d[8:12]}-{d[12:]}"
+    return texto
+
+
+templates.env.filters.update(digitos=_digitos, cpf_cnpj=_cpf_cnpj)
 COR_PRIMARIA, COR_DESTAQUE = "#061a48", "#f5c432"  # a paleta padrão do site
 
 MENSAGENS = {
@@ -41,6 +58,9 @@ MENSAGENS = {
     "desativada": "Imobiliária desativada: API, site e portais deixam de abrir.",
     "admin": "Administrador salvo: ele já pode entrar no app de gestão.",
     "aws": "Dados da AWS atualizados (consultados no máximo a cada 10 minutos).",
+    "solicitacao": "Solicitação atualizada: o representante já vê a nova situação.",
+    "representante": "Representante salvo.",
+    "representante-criado": "Representante cadastrado: envie a ele o usuário, a senha e o endereço /representante.",
 }
 
 
@@ -99,8 +119,13 @@ def _ir(caminho: str, msg: str = "", erro: str = "") -> RedirectResponse:
 
 
 def _base(request: Request, admin: m.Administrador | None, **extra) -> dict:
+    novas = 0
+    if admin:  # contador de solicitações novas na aba
+        with central.sessao() as db:
+            novas = rep.contagem(db)["nova"]
     return {
         "admin": admin,
+        "novas": novas,
         "csrf": acesso.token_csrf(admin) if admin else "",
         "msg": MENSAGENS.get(request.query_params.get("msg", ""), ""),
         "erro": request.query_params.get("erro", ""),
@@ -162,8 +187,15 @@ def lista(request: Request, db: Db, admin: Admin):
 
 
 @router.get("/nova")
-def nova_pagina(request: Request, admin: Admin):
-    return _pagina(request, "nova.html", _base(request, admin, dados={}))
+def nova_pagina(request: Request, db: Db, admin: Admin, solicitacao: str = ""):
+    """Com ?solicitacao=, já vem preenchida com os dados do corretor."""
+    dados = {}
+    if solicitacao:
+        s = rep.solicitacao(db, solicitacao)
+        dados = {"solicitacao": s.id, "nome": s.nome_imobiliaria, "slug": rep.sugestao_de_slug(s.nome_imobiliaria),
+                 "dominios": s.dominio, "site_url": f"https://{s.dominio}" if s.dominio else "",
+                 "admin_nome": s.nome, "admin_login": s.email.split("@")[0]}  # fmt: skip
+    return _pagina(request, "nova.html", _base(request, admin, dados=dados))
 
 
 @router.post("/nova")
@@ -175,6 +207,7 @@ def nova(
     cor_primaria: Annotated[str, Form()] = "", cor_destaque: Annotated[str, Form()] = "",
     admin_nome: Annotated[str, Form()] = "", admin_login: Annotated[str, Form()] = "",
     admin_senha: Annotated[str, Form()] = "",
+    solicitacao: Annotated[str, Form()] = "",
     logo: UploadFile | None = None,
 ):  # fmt: skip
     """Cria o banco, as tabelas, o cadastro e o administrador da imobiliária."""
@@ -183,7 +216,7 @@ def nova(
     _conferir(admin, csrf)
     dados = {"slug": slug, "nome": nome, "dominios": dominios, "site_url": site_url,
              "cor_primaria": cor_primaria, "cor_destaque": cor_destaque,
-             "admin_nome": admin_nome, "admin_login": admin_login}  # fmt: skip
+             "admin_nome": admin_nome, "admin_login": admin_login, "solicitacao": solicitacao}  # fmt: skip
     try:
         conteudo = logo.file.read(central.LOGO_MAX + 1) if logo and logo.filename else None
         if conteudo:
@@ -201,6 +234,10 @@ def nova(
             criar_administrador(db, admin_nome, admin_login, admin_senha)
     except RegraNegocio as e:
         return _pagina(request, "nova.html", _base(request, admin, dados=dados, erro=e.mensagem), 422)
+    if solicitacao:  # a solicitação do representante vira implantada
+        with central.sessao() as db:
+            rep.atualizar(db, solicitacao, "implantada",
+                          f"Sistema implantado: {imob.nome}.", imobiliaria_slug=imob.slug)  # fmt: skip
     return _ir(f"/plataforma/{imob.slug}", "criada")
 
 
@@ -219,6 +256,81 @@ def atualizar_infraestrutura(admin: Admin, csrf: Annotated[str, Form()] = ""):
     _conferir(admin, csrf)
     infra.da_aws(forcar=True)
     return _ir("/plataforma/infraestrutura", "aws")
+
+
+# ---------------------------------------------- Solicitações de implantação
+
+
+@router.get("/solicitacoes")
+def solicitacoes(request: Request, db: Db, admin: Admin, situacao: str = "nova"):
+    situacao = situacao if situacao in rep.SITUACOES or situacao == "todas" else "nova"
+    lista = rep.solicitacoes(db, "" if situacao == "todas" else situacao)
+    ctx = _base(request, admin, solicitacoes=lista, situacao=situacao,
+                situacoes=rep.SITUACOES, contagem=rep.contagem(db))  # fmt: skip
+    return _pagina(request, "solicitacoes.html", ctx)
+
+
+@router.post("/solicitacoes/{id_}")
+def atualizar_solicitacao(id_: str, db: Db, admin: Admin, csrf: Annotated[str, Form()] = "",
+                          situacao: Annotated[str, Form()] = "", resposta: Annotated[str, Form()] = "",
+                          voltar: Annotated[str, Form()] = "nova"):  # fmt: skip
+    _conferir(admin, csrf)
+    destino = f"/plataforma/solicitacoes?situacao={quote(voltar)}"
+    try:
+        rep.atualizar(db, id_, situacao, resposta)
+    except RegraNegocio as e:
+        return RedirectResponse(f"{destino}&erro={quote(e.mensagem)}", status_code=303)
+    return RedirectResponse(f"{destino}&msg=solicitacao", status_code=303)
+
+
+# ---------------------------------------------------------- Representantes
+
+
+@router.get("/representantes")
+def representantes(request: Request, db: Db, admin: Admin):
+    ctx = _base(request, admin, representantes=rep.representantes(db), dados={})
+    return _pagina(request, "representantes.html", ctx)
+
+
+@router.post("/representantes")
+def criar_representante(
+    request: Request, db: Db, admin: Admin, csrf: Annotated[str, Form()] = "",
+    nome: Annotated[str, Form()] = "", login: Annotated[str, Form()] = "",
+    email: Annotated[str, Form()] = "", telefone: Annotated[str, Form()] = "",
+    regiao: Annotated[str, Form()] = "", senha: Annotated[str, Form()] = "",
+):  # fmt: skip
+    _conferir(admin, csrf)
+    try:
+        rep.salvar_representante(db, None, nome, login, email, telefone, regiao, senha)
+    except RegraNegocio as e:
+        dados = {"nome": nome, "login": login, "email": email, "telefone": telefone, "regiao": regiao}
+        ctx = _base(request, admin, representantes=rep.representantes(db), dados=dados, erro=e.mensagem)
+        return _pagina(request, "representantes.html", ctx, 422)
+    return _ir("/plataforma/representantes", "representante-criado")
+
+
+@router.get("/representantes/{id_}")
+def representante(id_: str, request: Request, db: Db, admin: Admin):
+    r = rep.representante(db, id_)
+    ctx = _base(request, admin, r=r, solicitacoes=rep.solicitacoes(db, representante_id=r.id),
+                situacoes=rep.SITUACOES)  # fmt: skip
+    return _pagina(request, "representante.html", ctx)
+
+
+@router.post("/representantes/{id_}")
+def salvar_representante(
+    id_: str, db: Db, admin: Admin, csrf: Annotated[str, Form()] = "",
+    nome: Annotated[str, Form()] = "", login: Annotated[str, Form()] = "",
+    email: Annotated[str, Form()] = "", telefone: Annotated[str, Form()] = "",
+    regiao: Annotated[str, Form()] = "", senha: Annotated[str, Form()] = "",
+    ativo: Annotated[str, Form()] = "",
+):  # fmt: skip
+    _conferir(admin, csrf)
+    try:
+        rep.salvar_representante(db, id_, nome, login, email, telefone, regiao, senha, ativo == "1")
+    except RegraNegocio as e:
+        return _ir(f"/plataforma/representantes/{id_}", erro=e.mensagem)
+    return _ir(f"/plataforma/representantes/{id_}", "representante")
 
 
 def _cor(cor: str, padrao: str) -> str:

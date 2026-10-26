@@ -1,0 +1,20 @@
+{% extends "representante/_base.html" %}
+{% block titulo %}Área do representante{% endblock %}
+{% block conteudo %}
+<div class="cartao" style="max-width: 400px; margin: 40px auto;">
+  <h1>Área do representante</h1>
+  <p class="sub">Envie corretores para a implantação do sistema e acompanhe cada um.</p>
+  <form method="post" action="/representante/entrar">
+    <div style="margin-bottom: 14px;">
+      <label for="login">Usuário</label>
+      <input type="text" id="login" name="login" value="{{ login or '' }}" autocomplete="username" autofocus required>
+    </div>
+    <div>
+      <label for="senha">Senha</label>
+      <input type="password" id="senha" name="senha" autocomplete="current-password" required>
+    </div>
+    <div class="acoes"><button type="submit" style="width: 100%; justify-content: center;">Entrar</button></div>
+  </form>
+  <p class="ajuda" style="margin-top: 16px;">Não tem acesso? Fale com a associação.</p>
+</div>
+{% endblock %}

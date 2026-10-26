@@ -1,0 +1,59 @@
+{% extends "_base.html" %}
+{% block titulo %}Solicitações{% endblock %}
+{% block conteudo %}
+<div style="margin-bottom: 16px;">
+  <h1>Solicitações de implantação</h1>
+  <p class="sub" style="margin: 0;">Corretores enviados pelos representantes na área do representante.</p>
+</div>
+<nav class="filtros">
+  {% for chave, rotulo in situacoes.items() %}
+  <a href="?situacao={{ chave }}"{% if situacao == chave %} class="atual"{% endif %}>{{ rotulo }} <span>{{ contagem[chave] }}</span></a>
+  {% endfor %}
+  <a href="?situacao=todas"{% if situacao == "todas" %} class="atual"{% endif %}>Todas</a>
+</nav>
+{% for s in solicitacoes %}
+{% set r = s.representante %}
+<div class="cartao solicitacao">
+  <div class="cabeca">
+    <div>
+      <h2 style="margin: 0;">{{ s.nome_imobiliaria }}</h2>
+      <span class="rotulo">{{ s.cidade }}/{{ s.uf }} · enviada em {{ s.criada_em.strftime("%d/%m/%Y %H:%M") }}</span>
+    </div>
+    <span class="selo {{ {'nova': 'off', 'em_andamento': 'atencao', 'implantada': 'ok', 'recusada': 'erro'}[s.situacao] }}">{{ situacoes[s.situacao] }}</span>
+  </div>
+  <div class="duas">
+    <div>
+      <div class="rotulo">Corretor</div>
+      <strong>{{ s.nome }}</strong><br>
+      {{ s.cpf_cnpj | cpf_cnpj }} · CRECI {{ s.creci }}<br>
+      <a href="mailto:{{ s.email }}">{{ s.email }}</a> · <a href="https://wa.me/55{{ s.telefone | digitos }}" target="_blank" rel="noopener">{{ s.telefone }}</a>
+      {% if s.dominio or s.imoveis or s.contratos or s.usuarios %}
+      <div class="ajuda" style="margin-top: 6px;">
+        {% if s.dominio %}Domínio: <code>{{ s.dominio }}</code> · {% endif %}
+        {% if s.imoveis %}{{ s.imoveis }} imóveis · {% endif %}{% if s.contratos %}{{ s.contratos }} contratos · {% endif %}{% if s.usuarios %}{{ s.usuarios }} usuários{% endif %}
+      </div>
+      {% endif %}
+      {% if s.observacoes %}<p class="ajuda" style="margin-top: 6px; white-space: pre-line;">{{ s.observacoes }}</p>{% endif %}
+    </div>
+    <div class="contato-representante">
+      <div class="rotulo">Representante</div>
+      <a href="/plataforma/representantes/{{ r.id }}"><strong>{{ r.nome }}</strong></a>{% if r.regiao %} · {{ r.regiao }}{% endif %}<br>
+      {% if r.email %}<a href="mailto:{{ r.email }}">{{ r.email }}</a><br>{% endif %}
+      {% if r.telefone %}<a href="https://wa.me/55{{ r.telefone | digitos }}" target="_blank" rel="noopener">{{ r.telefone }}</a>{% endif %}
+    </div>
+  </div>
+  <form method="post" action="/plataforma/solicitacoes/{{ s.id }}" class="linha" style="margin-top: 14px;">
+    <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="voltar" value="{{ situacao }}">
+    <div style="flex: 0 1 190px;"><label>Situação</label>
+      <select name="situacao">{% for chave, rotulo in situacoes.items() %}<option value="{{ chave }}"{% if s.situacao == chave %} selected{% endif %}>{{ rotulo }}</option>{% endfor %}</select></div>
+    <div><label>Resposta ao representante <span style="font-weight: 400; color: var(--suave);">(ele vê na área dele)</span></label>
+      <input type="text" name="resposta" value="{{ s.resposta }}" maxlength="2000" placeholder="Ex.: agendada a apresentação para 28/10"></div>
+    <button type="submit" class="secundario">Salvar</button>
+    {% if s.imobiliaria_slug %}<a class="botao secundario" href="/plataforma/{{ s.imobiliaria_slug }}">Ver imobiliária</a>
+    {% elif s.situacao != "recusada" %}<a class="botao" href="/plataforma/nova?solicitacao={{ s.id }}">Implantar</a>{% endif %}
+  </form>
+</div>
+{% else %}
+<div class="cartao"><div class="vazio">Nenhuma solicitação {{ "" if situacao == "todas" else "com a situação " ~ situacoes[situacao] | lower }}.</div></div>
+{% endfor %}
+{% endblock %}

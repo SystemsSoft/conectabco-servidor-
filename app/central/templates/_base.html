@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex">
-  <title>{% block titulo %}Plataforma{% endblock %} · Gestão Imobiliária</title>
+  <title>{% block titulo %}Plataforma{% endblock %}{% block sufixo %} · Gestão Imobiliária{% endblock %}</title>
   <link rel="icon" href="/estatico/icone.png">
   <style>
     :root {
@@ -30,10 +30,10 @@
     .grade { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px 18px; }
     label { display: block; font-weight: 600; font-size: 13px; margin-bottom: 6px; }
     .ajuda { display: block; font-weight: 400; color: var(--suave); font-size: 12.5px; margin-top: 4px; }
-    input[type=text], input[type=password], input[type=url], textarea {
+    input[type=text], input[type=password], input[type=url], input[type=email], input[type=tel], select, textarea {
       width: 100%; padding: 10px 12px; border: 1px solid var(--linha); border-radius: 10px; font: inherit; background: #fff; color: inherit;
     }
-    input:focus, textarea:focus { outline: 2px solid var(--marca); outline-offset: 1px; border-color: transparent; }
+    input:focus, select:focus, textarea:focus { outline: 2px solid var(--marca); outline-offset: 1px; border-color: transparent; }
     input[type=color] { width: 54px; height: 40px; padding: 2px; border: 1px solid var(--linha); border-radius: 10px; background: #fff; cursor: pointer; }
     .cor { display: flex; align-items: center; gap: 10px; }
     .cor code { color: var(--suave); }
@@ -57,6 +57,7 @@
     .selo.ok { background: var(--ok-fundo); color: var(--ok); }
     .selo.off { background: #eceef4; color: var(--suave); }
     .selo.atencao { background: var(--aviso-fundo); color: var(--aviso); }
+    .selo.erro { background: var(--perigo-fundo); color: var(--perigo); }
     table { width: 100%; border-collapse: collapse; }
     th, td { text-align: left; padding: 12px 10px; border-bottom: 1px solid var(--linha); vertical-align: middle; }
     th { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--suave); font-weight: 600; }
@@ -83,6 +84,7 @@
     header.topo .abas a { color: #fff; opacity: .7; padding: 6px 10px; border-radius: 8px; font-size: 14px; }
     header.topo .abas a:hover { opacity: 1; text-decoration: none; background: rgba(255,255,255,.08); }
     header.topo .abas a.atual { opacity: 1; background: rgba(255,255,255,.14); }
+    header.topo .abas .contador { display: inline-block; min-width: 18px; padding: 0 6px; margin-left: 4px; border-radius: 999px; background: #f5c432; color: #151b2e; font-size: 11px; font-weight: 700; line-height: 18px; text-align: center; }
     @media (max-width: 560px) { header.topo .dentro { flex-wrap: wrap; } header.topo .abas { order: 3; margin-left: 0; width: 100%; } }
     .numero { font-size: 28px; font-weight: 700; letter-spacing: -.01em; line-height: 1.2; }
     .rotulo { color: var(--suave); font-size: 12.5px; }
@@ -91,23 +93,39 @@
     .medidor.alto span { background: var(--aviso); }
     .medidor.critico span { background: var(--perigo); }
     td.valor, th.valor { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .filtros { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
+    .filtros a { padding: 6px 12px; border-radius: 999px; border: 1px solid var(--linha); background: #fff; color: var(--tinta); font-size: 13px; }
+    .filtros a span { color: var(--suave); margin-left: 4px; }
+    .filtros a.atual { background: var(--tinta); color: #fff; border-color: var(--tinta); }
+    .filtros a.atual span { color: rgba(255,255,255,.7); }
+    .filtros a:hover { text-decoration: none; }
+    .solicitacao .cabeca { display: flex; align-items: flex-start; gap: 12px; justify-content: space-between; margin-bottom: 14px; }
+    .contato-representante { background: var(--fundo); border-radius: 10px; padding: 12px 14px; }
     details summary { cursor: pointer; color: var(--marca); font-size: 13px; margin-top: 6px; }
   </style>
 </head>
 <body>
   <header class="topo">
     <div class="dentro">
-      <a class="logo" href="/plataforma">Gestão Imobiliária<small>Plataforma</small></a>
+      {% block marca %}<a class="logo" href="/plataforma">Gestão Imobiliária<small>Plataforma</small></a>{% endblock %}
+      {% block menu %}
       {% if admin %}
+      {% set caminho = request.url.path %}
+      {% set secoes = [("/plataforma/solicitacoes", "Solicitações"), ("/plataforma/representantes", "Representantes"), ("/plataforma/infraestrutura", "Infraestrutura")] %}
+      {% set aba = namespace(outra=false) %}
+      {% for destino, _ in secoes %}{% if caminho.startswith(destino) %}{% set aba.outra = true %}{% endif %}{% endfor %}
       <nav class="abas">
-        <a href="/plataforma"{% if not request.url.path.startswith('/plataforma/infraestrutura') %} class="atual"{% endif %}>Imobiliárias</a>
-        <a href="/plataforma/infraestrutura"{% if request.url.path.startswith('/plataforma/infraestrutura') %} class="atual"{% endif %}>Infraestrutura</a>
+        <a href="/plataforma"{% if not aba.outra %} class="atual"{% endif %}>Imobiliárias</a>
+        {% for destino, rotulo in secoes %}
+        <a href="{{ destino }}"{% if caminho.startswith(destino) %} class="atual"{% endif %}>{{ rotulo }}{% if destino.endswith("solicitacoes") and novas %} <span class="contador">{{ novas }}</span>{% endif %}</a>
+        {% endfor %}
       </nav>
       <div class="quem">
         <span>{{ admin.nome }}</span>
         <form method="post" action="/plataforma/sair"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="link" type="submit">Sair</button></form>
       </div>
       {% endif %}
+      {% endblock %}
     </div>
   </header>
   <main>

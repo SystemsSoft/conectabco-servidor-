@@ -56,6 +56,10 @@ def create_app() -> FastAPI:
     from app.central.painel import router as painel
 
     app.include_router(painel)
+    # Área do representante: envia corretores para implantação.
+    from app.central.area_representante import router as area_representante
+
+    app.include_router(area_representante)
     # App de gestão (Flutter web), em todos os domínios.
     from app.core.app_gestao import router as app_gestao
 

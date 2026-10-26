@@ -1,0 +1,31 @@
+{% extends "representante/_base.html" %}
+{% block titulo %}Meus corretores{% endblock %}
+{% block conteudo %}
+<div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 20px;">
+  <div>
+    <h1>Meus corretores</h1>
+    <p class="sub" style="margin: 0;">Corretores que você enviou para a implantação do sistema.</p>
+  </div>
+  <a class="botao" href="/representante/novo" style="margin-left: auto;">+ Cadastrar corretor</a>
+</div>
+<div class="cartao" style="padding: 8px 14px;">
+  {% if solicitacoes %}
+  <table>
+    <thead><tr><th>Corretor / imobiliária</th><th class="esconder-celular">Cidade</th><th class="esconder-celular">Enviado em</th><th>Situação</th></tr></thead>
+    <tbody>
+      {% for s in solicitacoes %}
+      <tr>
+        <td><strong>{{ s.nome }}</strong><br><span class="rotulo">{{ s.nome_imobiliaria }} · CRECI {{ s.creci }}</span>
+          {% if s.resposta %}<div class="ajuda" style="margin-top: 6px;"><strong>Associação:</strong> {{ s.resposta }}</div>{% endif %}</td>
+        <td class="esconder-celular">{{ s.cidade }}/{{ s.uf }}</td>
+        <td class="esconder-celular">{{ s.criada_em.strftime("%d/%m/%Y") }}</td>
+        <td><span class="selo {{ {'nova': 'off', 'em_andamento': 'atencao', 'implantada': 'ok', 'recusada': 'erro'}[s.situacao] }}">{{ situacoes[s.situacao] }}</span></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="vazio">Você ainda não enviou nenhum corretor. <a href="/representante/novo">Cadastre o primeiro</a>.</div>
+  {% endif %}
+</div>
+{% endblock %}

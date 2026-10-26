@@ -450,7 +450,7 @@ def robots(request: Request):
     if _no_endereco_do_servidor():  # o endereço do servidor não tem site para indexar
         return Response("User-agent: *\nDisallow: /\n", media_type="text/plain")
     return Response(
-        f"User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /docs\nDisallow: /inquilino\nDisallow: /proprietario\nDisallow: /relatorio-auditoria\nDisallow: /plataforma\nDisallow: /gestao\nDisallow: /auditoria/\n"
+        f"User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /docs\nDisallow: /inquilino\nDisallow: /proprietario\nDisallow: /relatorio-auditoria\nDisallow: /plataforma\nDisallow: /representante\nDisallow: /gestao\nDisallow: /auditoria/\n"
         f"Sitemap: {_url_site(request)}/sitemap.xml\n",
         media_type="text/plain",
     )

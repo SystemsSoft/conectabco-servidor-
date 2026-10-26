@@ -1,6 +1,7 @@
-"""Login do painel da plataforma: administradores do banco central, senha com
-bloqueio por tentativas, sessão em cookie assinado com uma chave só da
-plataforma (separada da de cada imobiliária) e token CSRF nos formulários."""
+"""Login do painel da plataforma (administradores) e da área do
+representante: contas do banco central, senha com bloqueio por tentativas,
+sessão em cookie assinado com uma chave só da plataforma (separada da de cada
+imobiliária) e token CSRF nos formulários."""
 
 import base64
 import hashlib
@@ -18,6 +19,7 @@ from app.core.seguranca import _segredo, hash_senha, verificar_senha
 from app.core.tempo import agora
 
 COOKIE = "plataforma"
+COOKIE_REPRESENTANTE = "representante"
 SESSAO_HORAS = 8
 TENTATIVAS = 5
 BLOQUEIO = timedelta(minutes=15)
@@ -27,12 +29,13 @@ def _chave() -> str:
     return hmac.new(_segredo().encode(), b"plataforma", hashlib.sha256).hexdigest()
 
 
-def _por_login(db: Session, login: str) -> m.Administrador | None:
-    return db.scalar(
-        sa.select(m.Administrador).where(
-            sa.func.lower(m.Administrador.login) == login.strip().lower()
-        )
-    )
+Conta = m.Administrador | m.Representante
+# Tipo do token de cada conta (um não abre a área do outro).
+_TIPOS = {m.Administrador: "plataforma", m.Representante: "representante"}
+
+
+def _por_login(db: Session, login: str, modelo: type[Conta] = m.Administrador) -> Conta | None:
+    return db.scalar(sa.select(modelo).where(sa.func.lower(modelo.login) == login.strip().lower()))
 
 
 def criar_administrador(db: Session, nome: str, login: str, senha: str) -> m.Administrador:
@@ -56,9 +59,9 @@ def criar_administrador(db: Session, nome: str, login: str, senha: str) -> m.Adm
     return a
 
 
-def autenticar(db: Session, login: str, senha: str) -> m.Administrador:
+def autenticar(db: Session, login: str, senha: str, modelo: type[Conta] = m.Administrador) -> Conta:
     erro = RegraNegocio("Usuário ou senha incorretos.")
-    a = _por_login(db, login)
+    a = _por_login(db, login, modelo)
     if a is None:
         verificar_senha(senha, hash_senha("x"))  # mesmo tempo de resposta
         raise erro
@@ -72,41 +75,41 @@ def autenticar(db: Session, login: str, senha: str) -> m.Administrador:
         db.commit()
         raise erro
     if not a.ativo:
-        raise RegraNegocio("Seu acesso ao painel está desativado.")
+        raise RegraNegocio("Seu acesso está desativado.")
     a.tentativas, a.bloqueado_ate, a.ultimo_acesso = 0, None, momento
     db.commit()
     return a
 
 
-def criar_token(a: m.Administrador) -> str:
+def criar_token(a: Conta) -> str:
     momento = datetime.now(UTC)
     return jwt.encode(
-        {"sub": a.id, "v": a.versao, "tipo": "plataforma",
+        {"sub": a.id, "v": a.versao, "tipo": _TIPOS[type(a)],
          "iat": momento, "exp": momento + timedelta(hours=SESSAO_HORAS)},
         _chave(),
         algorithm="HS256",
     )  # fmt: skip
 
 
-def do_token(db: Session, token: str | None) -> m.Administrador | None:
+def do_token(db: Session, token: str | None, modelo: type[Conta] = m.Administrador) -> Conta | None:
     if not token:
         return None
     try:
         dados = jwt.decode(token, _chave(), algorithms=["HS256"])
     except jwt.PyJWTError:
         return None
-    if dados.get("tipo") != "plataforma":
+    if dados.get("tipo") != _TIPOS[modelo]:
         return None
-    a = db.get(m.Administrador, dados.get("sub"))
+    a = db.get(modelo, dados.get("sub"))
     if a is None or not a.ativo or a.versao != dados.get("v"):
         return None
     return a
 
 
-def token_csrf(a: m.Administrador) -> str:
+def token_csrf(a: Conta) -> str:
     mac = hmac.new(_chave().encode(), f"csrf:{a.id}:{a.versao}".encode(), hashlib.sha256)
     return base64.urlsafe_b64encode(mac.digest()).decode().rstrip("=")
 
 
-def csrf_valido(a: m.Administrador, token: str) -> bool:
+def csrf_valido(a: Conta, token: str) -> bool:
     return hmac.compare_digest(token_csrf(a), token or "")

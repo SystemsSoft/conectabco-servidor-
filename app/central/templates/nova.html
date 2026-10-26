@@ -6,6 +6,10 @@
 <p class="sub">Cria o banco de dados dela no servidor MySQL, aplica as tabelas e cadastra o administrador que vai entrar no app.</p>
 <form method="post" action="/plataforma/nova" enctype="multipart/form-data" data-demora>
   <input type="hidden" name="csrf" value="{{ csrf }}">
+  {% if dados.solicitacao %}
+  <input type="hidden" name="solicitacao" value="{{ dados.solicitacao }}">
+  <div class="aviso atencao">Implantação pedida por um representante: os dados vieram da solicitação. Ao criar, ela passa para <strong>Implantada</strong>.</div>
+  {% endif %}
   <div class="cartao">
     <h2>Identificação</h2>
     <div class="grade">

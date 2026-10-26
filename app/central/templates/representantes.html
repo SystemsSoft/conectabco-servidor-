@@ -1,0 +1,43 @@
+{% extends "_base.html" %}
+{% block titulo %}Representantes{% endblock %}
+{% block conteudo %}
+<div style="margin-bottom: 16px;">
+  <h1>Representantes</h1>
+  <p class="sub" style="margin: 0;">Entram em <code>/representante</code> e enviam corretores para implantação.</p>
+</div>
+<div class="cartao" style="padding: 8px 14px;">
+  {% if representantes %}
+  <table>
+    <thead><tr><th>Representante</th><th class="esconder-celular">Contato</th><th class="valor">Enviados</th><th class="valor esconder-celular">Implantados</th><th>Situação</th></tr></thead>
+    <tbody>
+      {% for r, total, implantadas in representantes %}
+      <tr>
+        <td><a href="/plataforma/representantes/{{ r.id }}"><strong>{{ r.nome }}</strong></a><br><code style="color: var(--suave);">{{ r.login }}</code>{% if r.regiao %} · <span class="rotulo">{{ r.regiao }}</span>{% endif %}</td>
+        <td class="esconder-celular">{{ r.email }}<br><span class="rotulo">{{ r.telefone }}</span></td>
+        <td class="valor">{{ total }}</td>
+        <td class="valor esconder-celular">{{ implantadas }}</td>
+        <td>{% if r.ativo %}<span class="selo ok">Ativo</span>{% else %}<span class="selo off">Desativado</span>{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="vazio">Nenhum representante cadastrado ainda.</div>
+  {% endif %}
+</div>
+<div class="cartao">
+  <h2>Cadastrar representante</h2>
+  <form method="post" action="/plataforma/representantes">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <div class="grade">
+      <div><label for="nome">Nome</label><input type="text" id="nome" name="nome" value="{{ dados.nome or '' }}" required maxlength="150"></div>
+      <div><label for="email">E-mail</label><input type="email" id="email" name="email" value="{{ dados.email or '' }}" required maxlength="200"></div>
+      <div><label for="telefone">Telefone / WhatsApp</label><input type="tel" id="telefone" name="telefone" value="{{ dados.telefone or '' }}" required maxlength="30" placeholder="(21) 99999-9999"></div>
+      <div><label for="regiao">Região de atuação <span style="font-weight: 400; color: var(--suave);">(opcional)</span></label><input type="text" id="regiao" name="regiao" value="{{ dados.regiao or '' }}" maxlength="150" placeholder="Ex.: Niterói e São Gonçalo"></div>
+      <div><label for="login">Usuário</label><input type="text" id="login" name="login" value="{{ dados.login or '' }}" required maxlength="60" autocomplete="off"></div>
+      <div><label for="senha">Senha</label><input type="password" id="senha" name="senha" required minlength="8" autocomplete="new-password"><span class="ajuda">Mínimo de 8 caracteres.</span></div>
+    </div>
+    <div class="acoes"><button type="submit">Cadastrar representante</button></div>
+  </form>
+</div>
+{% endblock %}

@@ -1,0 +1,11 @@
+{% extends "_base.html" %}
+{% block sufixo %} · Associação Conecta{% endblock %}
+{% block marca %}<a class="logo" href="/representante">Associação Conecta<small>Área do representante</small></a>{% endblock %}
+{% block menu %}
+{% if representante %}
+<div class="quem">
+  <span>{{ representante.nome }}</span>
+  <form method="post" action="/representante/sair"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="link" type="submit">Sair</button></form>
+</div>
+{% endif %}
+{% endblock %}

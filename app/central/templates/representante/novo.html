@@ -1,0 +1,43 @@
+{% extends "representante/_base.html" %}
+{% block titulo %}Cadastrar corretor{% endblock %}
+{% block conteudo %}
+<p><a href="/representante">← Meus corretores</a></p>
+<h1>Cadastrar corretor</h1>
+<p class="sub">Dados para a associação implantar o sistema imobiliário. Campos marcados com * são obrigatórios.</p>
+<form method="post" action="/representante/novo" data-demora>
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <div class="cartao">
+    <h2>Corretor responsável</h2>
+    <div class="grade">
+      <div><label for="nome">Nome completo *</label><input type="text" id="nome" name="nome" value="{{ dados.nome }}" required maxlength="150"></div>
+      <div><label for="cpf_cnpj">CPF ou CNPJ *</label><input type="text" id="cpf_cnpj" name="cpf_cnpj" value="{{ dados.cpf_cnpj }}" required maxlength="18" inputmode="numeric" placeholder="000.000.000-00"></div>
+      <div><label for="creci">CRECI *</label><input type="text" id="creci" name="creci" value="{{ dados.creci }}" required maxlength="30" placeholder="Ex.: 12345-F RJ"></div>
+      <div><label for="email">E-mail *</label><input type="email" id="email" name="email" value="{{ dados.email }}" required maxlength="200"></div>
+      <div><label for="telefone">Telefone / WhatsApp *</label><input type="tel" id="telefone" name="telefone" value="{{ dados.telefone }}" required maxlength="30" placeholder="(21) 99999-9999"></div>
+    </div>
+  </div>
+  <div class="cartao">
+    <h2>Imobiliária</h2>
+    <div class="grade">
+      <div><label for="nome_imobiliaria">Nome da imobiliária *</label><input type="text" id="nome_imobiliaria" name="nome_imobiliaria" value="{{ dados.nome_imobiliaria }}" required maxlength="200"><span class="ajuda">Se trabalha sozinho, o nome comercial do corretor.</span></div>
+      <div><label for="cidade">Cidade *</label><input type="text" id="cidade" name="cidade" value="{{ dados.cidade }}" required maxlength="120"></div>
+      <div><label for="uf">Estado *</label>
+        <select id="uf" name="uf" required>
+          <option value="">Escolha</option>
+          {% for uf in ufs %}<option value="{{ uf }}"{% if dados.uf == uf %} selected{% endif %}>{{ uf }}</option>{% endfor %}
+        </select></div>
+      <div><label for="dominio">Domínio do site <span style="font-weight: 400; color: var(--suave);">(se já tiver)</span></label><input type="text" id="dominio" name="dominio" value="{{ dados.dominio }}" maxlength="253" placeholder="joaoimoveis.com.br"></div>
+    </div>
+  </div>
+  <div class="cartao">
+    <h2>Tamanho da operação <span style="font-weight: 400; color: var(--suave); font-size: 14px;">(aproximado)</span></h2>
+    <div class="grade">
+      <div><label for="imoveis">Imóveis na carteira</label><input type="text" id="imoveis" name="imoveis" value="{{ dados.imoveis }}" inputmode="numeric" maxlength="9"></div>
+      <div><label for="contratos">Contratos de locação ativos</label><input type="text" id="contratos" name="contratos" value="{{ dados.contratos }}" inputmode="numeric" maxlength="9"></div>
+      <div><label for="usuarios">Pessoas que vão usar o sistema</label><input type="text" id="usuarios" name="usuarios" value="{{ dados.usuarios }}" inputmode="numeric" maxlength="9"></div>
+    </div>
+    <div style="margin-top: 14px;"><label for="observacoes">Observações</label><textarea id="observacoes" name="observacoes" rows="3" maxlength="2000" placeholder="Melhor horário para contato, sistema que usa hoje, migração de dados...">{{ dados.observacoes }}</textarea></div>
+  </div>
+  <div class="acoes"><button type="submit" data-enviando="Enviando...">Enviar para implantação</button><a href="/representante">Cancelar</a></div>
+</form>
+{% endblock %}

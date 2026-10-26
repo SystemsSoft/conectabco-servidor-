@@ -1,0 +1,45 @@
+{% extends "_base.html" %}
+{% block titulo %}{{ r.nome }} · Representantes{% endblock %}
+{% block conteudo %}
+<p><a href="/plataforma/representantes">← Representantes</a></p>
+<div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 18px;">
+  <h1 style="margin: 0;">{{ r.nome }}</h1>
+  {% if r.ativo %}<span class="selo ok">Ativo</span>{% else %}<span class="selo off">Desativado</span>{% endif %}
+</div>
+<div class="cartao">
+  <h2>Dados e acesso</h2>
+  <form method="post" action="/plataforma/representantes/{{ r.id }}">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <div class="grade">
+      <div><label for="nome">Nome</label><input type="text" id="nome" name="nome" value="{{ r.nome }}" required maxlength="150"></div>
+      <div><label for="email">E-mail</label><input type="email" id="email" name="email" value="{{ r.email }}" required maxlength="200"></div>
+      <div><label for="telefone">Telefone / WhatsApp</label><input type="tel" id="telefone" name="telefone" value="{{ r.telefone }}" required maxlength="30"></div>
+      <div><label for="regiao">Região de atuação</label><input type="text" id="regiao" name="regiao" value="{{ r.regiao }}" maxlength="150"></div>
+      <div><label for="login">Usuário</label><input type="text" id="login" name="login" value="{{ r.login }}" required maxlength="60" autocomplete="off"></div>
+      <div><label for="senha">Nova senha <span style="font-weight: 400; color: var(--suave);">(deixe em branco para manter)</span></label><input type="password" id="senha" name="senha" minlength="8" autocomplete="new-password"><span class="ajuda">Trocar a senha encerra as sessões abertas dele.</span></div>
+    </div>
+    <label style="display: flex; gap: 8px; align-items: center; margin-top: 14px; font-weight: 400;"><input type="checkbox" name="ativo" value="1"{% if r.ativo %} checked{% endif %}> Acesso ativo à área do representante</label>
+    <div class="acoes"><button type="submit">Salvar</button>
+      <span class="rotulo">Último acesso: {{ r.ultimo_acesso.strftime("%d/%m/%Y %H:%M") if r.ultimo_acesso else "nunca" }}</span></div>
+  </form>
+</div>
+<div class="cartao" style="padding: 8px 14px;">
+  <h2 style="padding: 12px 8px 0;">Corretores enviados</h2>
+  {% if solicitacoes %}
+  <table>
+    <thead><tr><th>Imobiliária / corretor</th><th class="esconder-celular">Enviada em</th><th>Situação</th></tr></thead>
+    <tbody>
+      {% for s in solicitacoes %}
+      <tr>
+        <td><strong>{{ s.nome_imobiliaria }}</strong><br><span class="rotulo">{{ s.nome }} · {{ s.cidade }}/{{ s.uf }}</span></td>
+        <td class="esconder-celular">{{ s.criada_em.strftime("%d/%m/%Y") }}</td>
+        <td><span class="selo {{ {'nova': 'off', 'em_andamento': 'atencao', 'implantada': 'ok', 'recusada': 'erro'}[s.situacao] }}">{{ situacoes[s.situacao] }}</span></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="vazio">Nenhum corretor enviado ainda.</div>
+  {% endif %}
+</div>
+{% endblock %}

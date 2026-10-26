@@ -81,6 +81,33 @@ cd /opt/marceloimob && sudo -u marceloimob .venv/bin/python gerenciar.py platafo
 O painel não abre pelos domínios das imobiliárias, só pelo endereço do
 servidor; tem bloqueio após 5 senhas erradas, sessão de 8 h e proteção CSRF.
 
+#### Representantes e solicitações de implantação
+
+Os **representantes** da associação entram na **área do representante**,
+**https://api.xn--associaoconectabci-7sb3f.com.br/representante** (link
+"Área do representante" no site institucional), com usuário e senha, e
+cadastram os corretores para implantação: nome, CPF/CNPJ (conferido), CRECI,
+e-mail, telefone/WhatsApp, imobiliária, cidade/UF e, se houver, domínio,
+número de imóveis, contratos e usuários e observações. Lá acompanham a
+situação de cada um e a resposta da associação.
+
+No painel:
+
+- **Solicitações** (`/plataforma/solicitacoes`, com o número de novas na aba):
+  os dados do corretor e o contato do representante (e-mail e WhatsApp),
+  filtros por situação (nova, em implantação, implantada, recusada), troca da
+  situação com uma resposta ao representante e o botão **Implantar**, que
+  abre a nova imobiliária já preenchida e, ao criá-la, marca a solicitação
+  como implantada.
+- **Representantes** (`/plataforma/representantes`): cadastro (nome, e-mail,
+  telefone, região, usuário e senha), edição, nova senha e ativar/desativar —
+  trocar a senha ou desativar encerra as sessões dele.
+
+O login do representante segue as regras do painel (bloqueio após 5 senhas
+erradas, sessão de 8 h, CSRF) com um cookie próprio: um login não abre a
+área do outro. Ficam no banco central (`representantes` e
+`solicitacoes_implantacao`).
+
 #### Infraestrutura (`/plataforma/infraestrutura`)
 
 Aba só de leitura com:
