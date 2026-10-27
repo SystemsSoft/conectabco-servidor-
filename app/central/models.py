@@ -230,3 +230,33 @@ class LeadAssociacao(BaseCentral):
     )
     criado_em: Mapped[datetime] = mapped_column(sa.DateTime, index=True)
     atualizado_em: Mapped[datetime] = mapped_column(sa.DateTime)
+
+
+class ContratoDigital(BaseCentral):
+    """Contratação pelo site: os dados do contratante, o contrato gerado e a
+    assinatura (eletrônica, aqui, ou gov.br, com o PDF assinado enviado). A
+    pessoa acessa pelo `token` do link; assinado, vira solicitação."""
+
+    __tablename__ = "contratos_digitais"
+
+    id: Mapped[str] = mapped_column(sa.String(36), primary_key=True)
+    token: Mapped[str] = mapped_column(sa.String(64), unique=True)
+    # Campos do contratante (os do contrato) e o endereço do site.
+    dados: Mapped[dict] = mapped_column(sa.JSON)
+    email: Mapped[str] = mapped_column(sa.String(200))
+    # aguardando ou assinado.
+    situacao: Mapped[str] = mapped_column(sa.String(20), default="aguardando", index=True)
+    # eletronica ou govbr.
+    metodo: Mapped[str] = mapped_column(sa.String(20), default="")
+    assinado_em: Mapped[datetime | None] = mapped_column(sa.DateTime)
+    assinatura_nome: Mapped[str] = mapped_column(sa.String(150), default="")
+    ip: Mapped[str] = mapped_column(sa.String(64), default="")
+    navegador: Mapped[str] = mapped_column(sa.String(300), default="")
+    # SHA-256 do contrato aceito (eletrônica) ou do PDF assinado recebido (gov.br).
+    hash_contrato: Mapped[str] = mapped_column(sa.String(64), default="")
+    chave_assinado: Mapped[str] = mapped_column(sa.String(160), default="")
+    solicitacao_id: Mapped[str | None] = mapped_column(
+        sa.ForeignKey("solicitacoes_implantacao.id", ondelete="SET NULL"), index=True
+    )
+    criado_em: Mapped[datetime] = mapped_column(sa.DateTime)
+    atualizado_em: Mapped[datetime] = mapped_column(sa.DateTime)

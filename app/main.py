@@ -64,6 +64,10 @@ def create_app() -> FastAPI:
     from app.central.pre_cadastro import router as pre_cadastro
 
     app.include_router(pre_cadastro)
+    # Contratação do sistema pelo site (contrato digital e assinatura).
+    from app.central.contratar import router as contratar
+
+    app.include_router(contratar)
     # App de gestão (Flutter web), em todos os domínios.
     from app.core.app_gestao import router as app_gestao
 

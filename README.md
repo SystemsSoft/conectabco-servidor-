@@ -153,6 +153,30 @@ Menu **Comercial** (o número é de leads novos):
   **Criar solicitação** abre a solicitação de implantação já preenchida e
   marca o lead como convertido.
 
+#### Contratação pelo site (`/contratar`)
+
+O botão **Contratar o sistema** do site institucional abre
+**https://api.xn--associaoconectabci-7sb3f.com.br/contratar**:
+
+1. O interessado preenche os dados do CONTRATANTE (os do contrato, mais
+   e-mail e site) e aceita a LGPD.
+2. Vê o **contrato da associação preenchido** — o PDF original
+   (`app/central/contrato/modelo.pdf`) com o quadro da página 1 e a data
+   escritos por cima (`contrato_pdf.py`) — num link próprio, válido por 30 dias.
+3. Assina de um dos dois jeitos:
+   - **eletrônica, no site**: nome completo (igual ao do contrato) e aceite;
+     o PDF ganha uma página com o registro (nome digitado, data e hora, IP,
+     navegador e o SHA-256 do contrato aceito);
+   - **gov.br**: baixa o PDF, assina no Assinador do ITI (`assinador.iti.br`)
+     e envia de volta; o servidor confere que é PDF com assinatura digital
+     (a validade se confere no Validador do ITI, link no Financeiro).
+4. Assinado, vira **solicitação de implantação** ("Contratou pelo site"), com
+   o contrato anexado nos documentos do Financeiro, e **lead convertido** no
+   Comercial. No **Implantar**, o contratante já vem do contrato.
+
+Para trocar o contrato, substitua `modelo.pdf` mantendo o quadro da página 1
+no mesmo lugar (ou ajuste as posições em `contrato_pdf._CELULAS`).
+
 #### Infraestrutura (`/plataforma/infraestrutura`)
 
 Aba só de leitura com:

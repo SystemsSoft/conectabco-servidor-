@@ -34,6 +34,20 @@
   {% endif %}
 </div>
 
+{% if contrato_digital %}
+<div class="cartao">
+  <h2>Contrato assinado pelo site</h2>
+  <div class="grade">
+    <div><div class="rotulo">Assinatura</div>{{ metodos[contrato_digital.metodo] }}</div>
+    <div><div class="rotulo">Assinado em</div>{{ contrato_digital.assinado_em.strftime("%d/%m/%Y %H:%M:%S") }}</div>
+    <div><div class="rotulo">IP</div><code>{{ contrato_digital.ip or "—" }}</code></div>
+    {% if contrato_digital.assinatura_nome %}<div><div class="rotulo">Nome digitado</div>{{ contrato_digital.assinatura_nome }}</div>{% endif %}
+  </div>
+  <p class="ajuda" style="margin-top: 12px; word-break: break-all;">SHA-256: <code>{{ contrato_digital.hash_contrato }}</code></p>
+  {% if contrato_digital.metodo == "govbr" %}<p class="ajuda">Confira a assinatura gov.br do PDF (em Documentos) no <a href="{{ validador }}" target="_blank" rel="noopener">Validador do ITI</a>.</p>{% endif %}
+</div>
+{% endif %}
+
 <div class="cartao">
   <h2>Documentos</h2>
   <form method="post" action="/plataforma/financeiro/{{ s.id }}/documentos" enctype="multipart/form-data" class="linha" data-demora>
@@ -85,7 +99,7 @@
       {% if r.telefone %}<a href="https://wa.me/55{{ r.telefone | digitos }}" target="_blank" rel="noopener">{{ r.telefone }}</a>{% endif %}
       {% else %}
       <div class="rotulo">Origem</div>
-      <strong>Cadastrada no painel</strong>{% if s.administrador %} por {{ s.administrador.nome }}{% endif %}
+      {% if s.administrador %}<strong>Cadastrada no painel</strong> por {{ s.administrador.nome }}{% else %}<strong>Contratou pelo site</strong>{% endif %}
       {% endif %}
     </div>
   </div>

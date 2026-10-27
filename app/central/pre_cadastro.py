@@ -2,6 +2,7 @@
 envia os dados para cá, onde viram um lead do Comercial, e o site avisa que
 um representante entrará em contato."""
 
+import logging
 import re
 import time
 import uuid
@@ -18,10 +19,16 @@ from app.core.errors import RegraNegocio
 from app.core.tempo import agora
 
 router = APIRouter(include_in_schema=False)
+log = logging.getLogger("pre_cadastro")
 
 PERFIS = ("Corretor autônomo", "Imobiliária", "Em formação")
 _ROTULOS = {"nome": "Nome completo", "email": "E-mail", "whatsapp": "WhatsApp", "cidade": "Cidade / UF", "perfil": "Perfil"}
 LIMITE_POR_HORA = 5
+# O script do site manda quantos segundos a página ficou aberta antes do envio
+# ("tempo"); robôs que postam direto não mandam ou mandam rápido demais. (Um
+# campo escondido "armadilha" não serve: o preenchimento automático do
+# navegador o completa e o envio de uma pessoa sumia.)
+TEMPO_MINIMO = 1.5
 _EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 _envios: dict[str, deque] = defaultdict(deque)
 
@@ -45,6 +52,13 @@ def _dentro_do_limite(ip: str) -> bool:
         return False
     fila.append(agora_s)
     return True
+
+
+def _parece_pessoa(tempo: str) -> bool:
+    try:
+        return float(tempo) >= TEMPO_MINIMO
+    except ValueError:
+        return False
 
 
 def registrar(dados: dict[str, str]) -> m.LeadAssociacao:
@@ -95,9 +109,10 @@ async def pre_cadastro(request: Request):
     if not _origem_permitida(request):
         return Response(status_code=403)
     dados = {k: str(v) for k, v in (await request.form()).items()}
-    if dados.get("empresa_site"):  # campo escondido: só robôs preenchem (e acham que deu certo)
-        return _resposta(request, 204)
     ip = request.client.host if request.client else ""
+    if not _parece_pessoa(dados.get("tempo", "")):  # robô: "dá certo" para ele, mas não grava
+        log.warning("Pré-cadastro descartado (parece robô): ip=%s tempo=%r", ip, dados.get("tempo"))
+        return _resposta(request, 204)
     if not _dentro_do_limite(ip):
         return _resposta(request, 429, "Muitos envios seguidos. Tente de novo mais tarde.")
     try:

@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 
 from app.central import acesso
 from app.central import comercial as com
+from app.central import contratacao as cc
 from app.central import contratante as ct
 from app.central import financeiro as fin
 from app.central import infraestrutura as infra
@@ -229,7 +230,8 @@ def nova_pagina(request: Request, db: Db, admin: Admin, solicitacao: str = ""):
             fin.exigir_pagamento(s)
         except RegraNegocio as e:
             return _ir("/plataforma/solicitacoes", erro=e.mensagem)
-        contrato = ct.da_solicitacao(s)
+        assinado = cc.da_solicitacao(db, s.id)  # contratou pelo site: o contratante do contrato
+        contrato = cc.dados_para_contratante(assinado) if assinado else ct.da_solicitacao(s)
         dados = {"solicitacao": s.id, "nome": s.nome_imobiliaria, "slug": rep.sugestao_de_slug(s.nome_imobiliaria),
                  "dominios": s.dominio, "site_url": f"https://{s.dominio}" if s.dominio else "",
                  "admin_nome": s.nome, "admin_login": s.email.split("@")[0]}  # fmt: skip
@@ -340,7 +342,8 @@ def financeiro_solicitacao(id_: str, request: Request, db: Db, admin: Admin):
     s = rep.solicitacao(db, id_)
     contratante = ct.obter(db, s.imobiliaria_slug) if s.imobiliaria_slug else None
     ctx = _base(request, admin, s=s, documentos=fin.documentos(db, s), tipos=fin.TIPOS, situacoes=rep.SITUACOES,
-                contratante=contratante, hoje=agora().date().isoformat())  # fmt: skip
+                contratante=contratante, hoje=agora().date().isoformat(), contrato_digital=cc.da_solicitacao(db, s.id),
+                metodos=cc.METODOS, validador=cc.VALIDADOR_ITI)  # fmt: skip
     return _pagina(request, "financeiro_solicitacao.html", ctx)
 
 

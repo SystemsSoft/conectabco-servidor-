@@ -132,7 +132,7 @@ class DadosCorretor:
 
 
 def enviar_solicitacao(
-    db: Session, autor: m.Representante | m.Administrador, d: DadosCorretor
+    db: Session, autor: m.Representante | m.Administrador | None, d: DadosCorretor
 ) -> m.SolicitacaoImplantacao:
     """Confere os dados do corretor e registra a solicitação como nova, em
     nome do representante ou do administrador que a cadastrou no painel."""

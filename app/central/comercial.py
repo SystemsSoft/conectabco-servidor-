@@ -103,15 +103,16 @@ class Desempenho:
 
 
 def desempenho(db: Session, inicio: datetime | None) -> list[Desempenho]:
-    """Um por representante (e "Painel" para as cadastradas lá), do que mais implantou."""
+    """Um por representante (e as cadastradas no painel e as contratadas pelo site), do que mais implantou."""
     s = m.SolicitacaoImplantacao
     linhas = {r.id: Desempenho(r.nome, r) for r in db.scalars(sa.select(m.Representante))}
     painel = Desempenho("Cadastradas no painel", None)
+    site = Desempenho("Contratação pelo site", None)
     consulta = sa.select(s)
     if inicio:
         consulta = consulta.where(s.criada_em >= inicio)
     for x in db.scalars(consulta):
-        d = linhas.get(x.representante_id) if x.representante_id else painel
+        d = linhas.get(x.representante_id) if x.representante_id else (painel if x.administrador_id else site)
         d.enviadas += 1
         d.pagas += x.pago
         d.implantadas += x.situacao == "implantada"
@@ -121,7 +122,7 @@ def desempenho(db: Session, inicio: datetime | None) -> list[Desempenho]:
         if rid in linhas:
             linhas[rid].ultimo_envio = ultimo
     resultado = sorted(linhas.values(), key=lambda d: (-d.implantadas, -d.enviadas, d.nome))
-    return resultado + ([painel] if painel.enviadas else [])
+    return resultado + [d for d in (painel, site) if d.enviadas]
 
 
 def sem_envio(db: Session, dias: int = SEM_ENVIO_DIAS) -> list[tuple[m.Representante, datetime | None]]:

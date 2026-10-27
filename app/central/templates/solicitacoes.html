@@ -49,8 +49,8 @@
       {% if r.telefone %}<a href="https://wa.me/55{{ r.telefone | digitos }}" target="_blank" rel="noopener">{{ r.telefone }}</a>{% endif %}
       {% else %}
       <div class="rotulo">Origem</div>
-      <strong>Cadastrada no painel</strong>{% if s.administrador %} por {{ s.administrador.nome }}{% endif %}<br>
-      <span class="rotulo">Sem representante.</span>
+      {% if s.administrador %}<strong>Cadastrada no painel</strong> por {{ s.administrador.nome }}<br><span class="rotulo">Sem representante.</span>
+      {% else %}<strong>Contratou pelo site</strong><br><span class="rotulo">Contrato assinado — <a href="/plataforma/financeiro/{{ s.id }}">ver no Financeiro</a>.</span>{% endif %}
       {% endif %}
     </div>
   </div>

@@ -18,7 +18,7 @@
       {% for s in solicitacoes %}
       <tr>
         <td><a href="/plataforma/financeiro/{{ s.id }}"><strong>{{ s.nome_imobiliaria }}</strong></a><br><span class="rotulo">{{ s.nome }} · {{ s.cidade }}/{{ s.uf }}</span></td>
-        <td class="esconder-celular">{% if s.representante %}{{ s.representante.nome }}{% else %}<span class="rotulo">Painel</span>{% endif %}</td>
+        <td class="esconder-celular">{% if s.representante %}{{ s.representante.nome }}{% elif s.administrador %}<span class="rotulo">Painel</span>{% else %}<span class="rotulo">Site (contrato)</span>{% endif %}</td>
         <td class="esconder-celular">{{ s.criada_em.strftime("%d/%m/%Y") }}</td>
         <td>{% if s.pago %}<span class="selo ok">1º pagamento em {{ s.primeiro_pagamento_em.strftime("%d/%m/%Y") }}</span>{% elif s.situacao == "recusada" %}<span class="selo off">—</span>{% else %}<span class="selo atencao">Aguardando 1º pagamento</span>{% endif %}</td>
         <td class="esconder-celular"><span class="selo {{ {'nova': 'off', 'em_andamento': 'atencao', 'implantada': 'ok', 'recusada': 'erro'}[s.situacao] }}">{{ situacoes[s.situacao] }}</span></td>

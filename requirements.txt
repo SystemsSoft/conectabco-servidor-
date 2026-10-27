@@ -9,3 +9,5 @@ PyJWT>=2.10,<3     # token de acesso
 Pillow>=11,<13    # miniaturas das fotos
 segno>=1.6,<2     # QR code dos relatórios
 boto3>=1.40,<2     # painel da plataforma: custos e métricas da AWS
+reportlab>=4.2,<5   # contrato da associação preenchido (PDF)
+pypdf>=5,<7        # idem: sobrepõe os dados ao modelo

@@ -16,7 +16,8 @@ from app.core.errors import NaoEncontrado, RegraNegocio
 from app.core.tempo import agora
 from app.core.ulid import novo_ulid
 
-TIPOS = {"boleto": "Boleto de cobrança", "comprovante": "Comprovante de pagamento", "outro": "Outro"}
+TIPOS = {"boleto": "Boleto de cobrança", "comprovante": "Comprovante de pagamento",
+         "contrato": "Contrato assinado", "outro": "Outro"}
 FILTROS = {"aguardando": "Aguardando 1º pagamento", "pago": "1º pagamento confirmado", "todas": "Todas"}
 MB = 1024 * 1024
 LIMITE = 10 * MB
@@ -102,7 +103,7 @@ def documentos(db: Session, s: m.SolicitacaoImplantacao) -> list[m.DocumentoSoli
     ))  # fmt: skip
 
 
-def enviar_documento(db: Session, s: m.SolicitacaoImplantacao, admin: m.Administrador, conteudo: BinaryIO,
+def enviar_documento(db: Session, s: m.SolicitacaoImplantacao, admin: m.Administrador | None, conteudo: BinaryIO,
                      nome: str, tipo: str, descricao: str) -> m.DocumentoSolicitacao:  # fmt: skip
     """PDF, JPG ou PNG de até 10 MB, conferido pelo início do arquivo."""
     if tipo not in TIPOS:
@@ -127,7 +128,7 @@ def enviar_documento(db: Session, s: m.SolicitacaoImplantacao, admin: m.Administ
         d = m.DocumentoSolicitacao(
             id=str(uuid.uuid4()), solicitacao_id=s.id, tipo=tipo, nome=nome,
             descricao=(descricao or "").strip()[:300], tipo_mime=tipo_mime, tamanho=tamanho,
-            chave=f"{_PREFIXO}/{s.id}/{novo_ulid()}", enviado_por_id=admin.id, criado_em=agora(),
+            chave=f"{_PREFIXO}/{s.id}/{novo_ulid()}", enviado_por_id=admin.id if admin else None, criado_em=agora(),
         )  # fmt: skip
         armazenamento().gravar(d.chave, provisorio, tipo_mime,
                                {"origem": "plataforma", "solicitacao": s.id, "documento": d.id, "tipo": tipo})  # fmt: skip

@@ -17,7 +17,8 @@ from tests.central.test_painel import _entrar, painel  # noqa: F401 - fixture
 from tests.central.test_representantes import CORRETOR, _pagar
 
 LEAD = {"nome": "Ana Prado", "email": "Ana@Exemplo.com", "whatsapp": "(24) 99999-1234", "creci": "",
-        "cidade": "Barra do Piraí/RJ", "perfil": "Corretor autônomo", "sistema": "on", "lgpd": "on"}  # fmt: skip
+        "cidade": "Barra do Piraí/RJ", "perfil": "Corretor autônomo", "sistema": "on", "lgpd": "on",
+        "tempo": "12.4"}  # fmt: skip
 URL = "/associacao/pre-cadastro"
 
 
@@ -30,10 +31,15 @@ def test_pre_cadastro_do_site_vira_lead(painel, monkeypatch):  # noqa: F811
     r = painel.post(URL, data=LEAD | {"lgpd": ""})
     assert r.status_code == 422 and "LGPD" in r.json()["detail"]
     assert painel.post(URL, data=LEAD | {"perfil": "Outro"}).status_code == 422
-    assert painel.post(URL, data=LEAD | {"empresa_site": "spam"}).status_code == 204  # robô: ignorado
+    # Robô (sem o tempo de página do script, ou rápido demais): "dá certo" para ele, mas não grava.
+    for robo in ({"tempo": ""}, {"tempo": "0.3"}, {"tempo": "abc"}):
+        assert painel.post(URL, data=LEAD | robo).status_code == 204
+    # O preenchimento automático do navegador em outros campos não atrapalha.
+    assert painel.post(URL, data=LEAD | {"empresa_site": "Minha Empresa"}).status_code == 204
     assert painel.post(URL, data=LEAD).status_code == 204
     with central.sessao() as db:
-        (lead,) = com.leads(db, "todos")
+        assert len(com.leads(db, "todos")) == 2
+        lead = com.leads(db, "todos")[-1]
         assert (lead.nome, lead.email, lead.quer_sistema, lead.situacao) == ("Ana Prado", "ana@exemplo.com", True, "novo")
 
     # Só o site institucional (Origin) e no máximo 5 por hora por IP.
