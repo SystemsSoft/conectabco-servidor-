@@ -20,6 +20,13 @@ def _cadastrar_representante(c, csrf, **extra):
     return c.post("/plataforma/representantes", data=dados)
 
 
+def _pagar(c, csrf, sid):
+    from datetime import date
+
+    r = c.post(f"/plataforma/financeiro/{sid}/pagamento", data={"csrf": csrf, "data_pagamento": date.today().isoformat()})
+    assert r.headers["location"] == f"/plataforma/financeiro/{sid}?msg=pagamento", r.headers["location"]
+
+
 def _entrar_representante(c, **dados) -> str:
     r = c.post("/representante/entrar", data=REP | dados)
     assert r.status_code == 303, r.text
@@ -60,8 +67,14 @@ def test_fluxo_do_representante_ate_a_implantacao(painel):  # noqa: F811
         assert texto in pagina, texto
     sid = pagina.split('action="/plataforma/solicitacoes/')[1].split('"')[0]
 
-    painel.post(f"/plataforma/solicitacoes/{sid}", data={
-        "csrf": csrf, "situacao": "em_andamento", "resposta": "Apresentação marcada para 28/10."})  # fmt: skip
+    # Sem o 1º pagamento confirmado pelo financeiro, a Tecnologia não avança nem implanta.
+    andamento = {"csrf": csrf, "situacao": "em_andamento", "resposta": "Apresentação marcada para 28/10."}
+    r = painel.post(f"/plataforma/solicitacoes/{sid}", data=andamento)
+    assert "financeiro%20ainda%20n%C3%A3o%20confirmou" in r.headers["location"]
+    assert "falta o 1º pagamento" in pagina and f"/plataforma/nova?solicitacao={sid}" not in pagina
+    assert "financeiro" in painel.get(f"/plataforma/nova?solicitacao={sid}").headers["location"].lower()
+    _pagar(painel, csrf, sid)
+    painel.post(f"/plataforma/solicitacoes/{sid}", data=andamento)
     _entrar_representante(painel)
     inicio = painel.get("/representante").text
     assert "Em implantação" in inicio and "Apresentação marcada para 28/10." in inicio
@@ -128,7 +141,7 @@ def test_menu_tecnologia_financeiro_e_comercial(painel):  # noqa: F811
     assert 'class="grupo atual"' in menu
     for caminho, area in (("/plataforma/financeiro", "Financeiro"), ("/plataforma/comercial", "Comercial")):
         r = painel.get(caminho)
-        assert r.status_code == 200 and "Em breve" in r.text
+        assert r.status_code == 200 and ("Em breve" in r.text) == (area == "Comercial")
         menu = r.text.split('aria-label="Áreas da plataforma"')[1].split("</nav>")[0]
         assert f'href="{caminho}" class="atual"' in menu and 'class="grupo atual"' not in menu
     assert 'class="atual">Solicitações' in painel.get("/plataforma/solicitacoes").text.split("</nav>")[0]
@@ -153,9 +166,13 @@ def test_nova_imobiliaria_pelo_fluxo_de_solicitacao(painel):  # noqa: F811
     assert "Lima Imóveis" in pagina and "Cadastrada no painel" in pagina and "Dona da Plataforma" in pagina
     assert 'class="contador">1<' in pagina
     sid = pagina.split('action="/plataforma/solicitacoes/')[1].split('"')[0]
-    r = painel.post("/plataforma/nova", data={
-        "csrf": csrf, "slug": "lima", "nome": "Lima Imóveis", "admin_nome": "Joana Lima",
-        "admin_login": "joana", "admin_senha": "senha-da-joana", "solicitacao": sid} | CONTRATO)  # fmt: skip
+    implantar = {"csrf": csrf, "slug": "lima", "nome": "Lima Imóveis", "admin_nome": "Joana Lima",
+                 "admin_login": "joana", "admin_senha": "senha-da-joana", "solicitacao": sid} | CONTRATO  # fmt: skip
+    r = painel.post("/plataforma/nova", data=implantar)  # sem o 1º pagamento: nada é criado
+    assert r.status_code == 422 and "financeiro ainda não confirmou" in r.text
+    assert painel.get("/plataforma/lima").status_code == 404
+    _pagar(painel, csrf, sid)
+    r = painel.post("/plataforma/nova", data=implantar)
     assert r.headers["location"] == "/plataforma/lima?msg=criada"
     implantadas = painel.get("/plataforma/solicitacoes?situacao=implantada").text
     assert "Lima Imóveis" in implantadas and 'href="/plataforma/lima"' in implantadas

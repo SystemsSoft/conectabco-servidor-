@@ -192,6 +192,10 @@ def atualizar(db: Session, id_: str, situacao: str, resposta: str, imobiliaria_s
     if situacao not in SITUACOES:
         raise RegraNegocio("Situação inválida.")
     s = solicitacao(db, id_)
+    if situacao in ("em_andamento", "implantada") and situacao != s.situacao:
+        from app.central.financeiro import exigir_pagamento
+
+        exigir_pagamento(s)
     s.situacao = situacao
     s.resposta = _texto(resposta, "a resposta", 2000, obrigatorio=False)
     if imobiliaria_slug is not None:

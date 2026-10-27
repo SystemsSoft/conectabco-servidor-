@@ -140,7 +140,7 @@
             {% endfor %}
           </div>
         </details>
-        <a href="/plataforma/financeiro"{% if area == "financeiro" %} class="atual"{% endif %}>Financeiro</a>
+        <a href="/plataforma/financeiro"{% if area == "financeiro" %} class="atual"{% endif %}>Financeiro{% if pendentes %} <span class="contador">{{ pendentes }}</span>{% endif %}</a>
         <a href="/plataforma/comercial"{% if area == "comercial" %} class="atual"{% endif %}>Comercial</a>
       </nav>
       <div class="quem">

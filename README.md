@@ -111,6 +111,25 @@ erradas, sessão de 8 h, CSRF) com um cookie próprio: um login não abre a
 área do outro. Ficam no banco central (`representantes` e
 `solicitacoes_implantacao`).
 
+#### Financeiro (`/plataforma/financeiro`)
+
+Toda solicitação de implantação aparece no Financeiro assim que entra como
+nova (a aba mostra quantas aguardam o 1º pagamento). No painel de controle de
+cada uma:
+
+- **1º pagamento**: data e observação; ao confirmar, a Tecnologia é liberada.
+  Pode ser desfeito enquanto a solicitação ainda estiver como nova.
+- **Documentos**: boletos de cobrança, comprovantes de pagamento e outros
+  (PDF, JPG ou PNG, até 10 MB), guardados no S3 em
+  `plataforma/solicitacoes/<id da solicitação>/<ULID>` e abertos só por quem
+  está logado no painel.
+- **Cadastro**: dados do corretor e da imobiliária, a origem (representante
+  ou painel) e, depois de implantada, o contratante.
+
+**Trava da Tecnologia:** sem o 1º pagamento confirmado, a solicitação não
+passa para "Em implantação" nem "Implantada", e o botão **Implantar** não
+aparece (o servidor recusa mesmo pelo endereço direto, antes de criar o banco).
+
 #### Infraestrutura (`/plataforma/infraestrutura`)
 
 Aba só de leitura com:
@@ -577,7 +596,9 @@ O usuário IAM do servidor precisa desta política (além da do painel, em
 {
   "Version": "2012-10-17",
   "Statement": [
-    {"Effect": "Allow", "Resource": "arn:aws:s3:::associacao-conecta/imobiliarias/*",
+    {"Effect": "Allow",
+     "Resource": ["arn:aws:s3:::associacao-conecta/imobiliarias/*",
+                  "arn:aws:s3:::associacao-conecta/plataforma/*"],
      "Action": ["s3:PutObject", "s3:GetObject", "s3:DeleteObject"]},
     {"Effect": "Allow", "Resource": "arn:aws:s3:::associacao-conecta",
      "Action": ["s3:GetBucketLocation", "s3:ListBucket"]}

@@ -119,10 +119,48 @@ class SolicitacaoImplantacao(BaseCentral):
     imobiliaria_slug: Mapped[str | None] = mapped_column(
         sa.ForeignKey("imobiliarias.slug", ondelete="SET NULL")
     )
+    # Financeiro: sem o 1º pagamento confirmado, a Tecnologia não passa a
+    # solicitação para "em implantação" nem implanta.
+    primeiro_pagamento_em: Mapped[date | None] = mapped_column(sa.Date)
+    primeiro_pagamento_confirmado_em: Mapped[datetime | None] = mapped_column(sa.DateTime)
+    primeiro_pagamento_por_id: Mapped[str | None] = mapped_column(sa.ForeignKey("administradores.id"))
+    observacao_financeira: Mapped[str] = mapped_column(sa.Text, default="")
     criada_em: Mapped[datetime] = mapped_column(sa.DateTime, index=True)
     atualizada_em: Mapped[datetime] = mapped_column(sa.DateTime)
     representante: Mapped[Representante | None] = relationship(lazy="joined")
-    administrador: Mapped[Administrador | None] = relationship(lazy="joined")
+    administrador: Mapped[Administrador | None] = relationship(
+        lazy="joined", foreign_keys="SolicitacaoImplantacao.administrador_id"
+    )
+    pagamento_confirmado_por: Mapped[Administrador | None] = relationship(
+        lazy="joined", foreign_keys="SolicitacaoImplantacao.primeiro_pagamento_por_id"
+    )
+
+    @property
+    def pago(self) -> bool:
+        return self.primeiro_pagamento_confirmado_em is not None
+
+
+class DocumentoSolicitacao(BaseCentral):
+    """Arquivo do financeiro (boleto de cobrança, comprovante...) de uma
+    solicitação. O conteúdo fica no armazenamento, em
+    plataforma/solicitacoes/<id da solicitação>/<ULID>."""
+
+    __tablename__ = "documentos_solicitacao"
+
+    id: Mapped[str] = mapped_column(sa.String(36), primary_key=True)
+    solicitacao_id: Mapped[str] = mapped_column(
+        sa.ForeignKey("solicitacoes_implantacao.id", ondelete="CASCADE"), index=True
+    )
+    # boleto, comprovante ou outro.
+    tipo: Mapped[str] = mapped_column(sa.String(20))
+    nome: Mapped[str] = mapped_column(sa.String(255))
+    descricao: Mapped[str] = mapped_column(sa.String(300), default="")
+    tipo_mime: Mapped[str] = mapped_column(sa.String(120))
+    tamanho: Mapped[int] = mapped_column(sa.BigInteger)
+    chave: Mapped[str] = mapped_column(sa.String(160), unique=True)
+    enviado_por_id: Mapped[str | None] = mapped_column(sa.ForeignKey("administradores.id"))
+    criado_em: Mapped[datetime] = mapped_column(sa.DateTime)
+    enviado_por: Mapped[Administrador | None] = relationship(lazy="joined")
 
 
 class DadosContratante(BaseCentral):

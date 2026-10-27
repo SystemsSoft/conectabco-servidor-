@@ -11,12 +11,13 @@ from urllib.parse import quote
 
 import sqlalchemy as sa
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, UploadFile
-from fastapi.responses import RedirectResponse, Response
+from fastapi.responses import FileResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from app.central import acesso
 from app.central import contratante as ct
+from app.central import financeiro as fin
 from app.central import infraestrutura as infra
 from app.central import models as m
 from app.central import representantes as rep
@@ -24,6 +25,7 @@ from app.central import services as central
 from app.core.config import get_settings
 from app.core.database import fabrica
 from app.core.errors import RegraNegocio
+from app.core.tempo import agora
 from app.core.imobiliarias import Imobiliaria, buscar, identificada, normalizar_dominio, usar
 
 PASTA = Path(__file__).parent
@@ -60,6 +62,10 @@ MENSAGENS = {
     "desativada": "Imobiliária desativada: API, site e portais deixam de abrir.",
     "admin": "Administrador salvo: ele já pode entrar no app de gestão.",
     "contrato": "Dados do contratante salvos.",
+    "pagamento": "1º pagamento confirmado: a Tecnologia já pode iniciar a implantação.",
+    "pagamento-desfeito": "Confirmação do 1º pagamento desfeita.",
+    "documento": "Documento guardado.",
+    "documento-removido": "Documento removido.",
     "aws": "Dados da AWS atualizados (consultados no máximo a cada 10 minutos).",
     "solicitacao-criada": "Solicitação criada: quando for implantar, use o botão Implantar.",
     "solicitacao": "Solicitação atualizada: o representante já vê a nova situação.",
@@ -131,11 +137,12 @@ def _ir(caminho: str, msg: str = "", erro: str = "") -> RedirectResponse:
 
 
 def _base(request: Request, admin: m.Administrador | None, **extra) -> dict:
-    novas = 0
-    if admin:  # contador de solicitações novas na aba
+    novas = pendentes = 0
+    if admin:  # contadores nas abas: solicitações novas e pagamentos a confirmar
         with central.sessao() as db:
-            novas = rep.contagem(db)["nova"]
+            novas, pendentes = rep.contagem(db)["nova"], fin.contagem(db)["aguardando"]
     return {
+        "pendentes": pendentes,
         "admin": admin,
         "novas": novas,
         "csrf": acesso.token_csrf(admin) if admin else "",
@@ -204,6 +211,10 @@ def nova_pagina(request: Request, db: Db, admin: Admin, solicitacao: str = ""):
     dados, contrato = {}, ct.DadosContrato()
     if solicitacao:
         s = rep.solicitacao(db, solicitacao)
+        try:
+            fin.exigir_pagamento(s)
+        except RegraNegocio as e:
+            return _ir("/plataforma/solicitacoes", erro=e.mensagem)
         contrato = ct.da_solicitacao(s)
         dados = {"solicitacao": s.id, "nome": s.nome_imobiliaria, "slug": rep.sugestao_de_slug(s.nome_imobiliaria),
                  "dominios": s.dominio, "site_url": f"https://{s.dominio}" if s.dominio else "",
@@ -234,6 +245,9 @@ def nova(
         conteudo = logo.file.read(central.LOGO_MAX + 1) if logo and logo.filename else None
         if conteudo:
             central.validar_logo(conteudo)
+        if solicitacao:  # antes de criar o banco: a trava do financeiro
+            with central.sessao() as db:
+                fin.exigir_pagamento(rep.solicitacao(db, solicitacao))
         valores_contrato = ct.validar(contrato)
         if not admin_nome.strip():
             raise RegraNegocio("Informe o nome do administrador da imobiliária.")
@@ -268,9 +282,80 @@ def infraestrutura(request: Request, db: Db, admin: Admin):
     return _pagina(request, "infraestrutura.html", ctx)
 
 
+# -------------------------------------------------------------- Financeiro
+
+
 @router.get("/financeiro")
-def financeiro(request: Request, admin: Admin):
-    return _pagina(request, "em_breve.html", _base(request, admin, area="Financeiro"))
+def financeiro(request: Request, db: Db, admin: Admin, filtro: str = "aguardando"):
+    filtro = filtro if filtro in fin.FILTROS else "aguardando"
+    ctx = _base(request, admin, solicitacoes=fin.solicitacoes(db, filtro), filtro=filtro, filtros=fin.FILTROS,
+                contagem=fin.contagem(db), situacoes=rep.SITUACOES)  # fmt: skip
+    return _pagina(request, "financeiro.html", ctx)
+
+
+@router.get("/financeiro/documentos/{doc_id}")
+def abrir_documento(doc_id: str, db: Db, admin: Admin):
+    d = fin.documento(db, doc_id)
+    loja, chave = fin.onde(d)
+    inline = d.tipo_mime.startswith(("image/", "application/pdf"))
+    if url := loja.link(chave, d.tipo_mime, d.nome, inline, "private, no-store"):
+        return RedirectResponse(url, status_code=307, headers={"Cache-Control": "no-store",
+                                                               "Referrer-Policy": "no-referrer"})  # fmt: skip
+    if not loja.existe(chave):
+        raise HTTPException(404)
+    return FileResponse(loja.caminho(chave), media_type=d.tipo_mime, filename=d.nome,
+                        content_disposition_type="inline" if inline else "attachment",
+                        headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"})  # fmt: skip
+
+
+@router.post("/financeiro/documentos/{doc_id}/remover")
+def remover_documento(doc_id: str, db: Db, admin: Admin, csrf: Annotated[str, Form()] = ""):
+    _conferir(admin, csrf)
+    d = fin.documento(db, doc_id)
+    destino = f"/plataforma/financeiro/{d.solicitacao_id}"
+    fin.remover_documento(db, d)
+    return _ir(destino, "documento-removido")
+
+
+@router.get("/financeiro/{id_}")
+def financeiro_solicitacao(id_: str, request: Request, db: Db, admin: Admin):
+    s = rep.solicitacao(db, id_)
+    contratante = ct.obter(db, s.imobiliaria_slug) if s.imobiliaria_slug else None
+    ctx = _base(request, admin, s=s, documentos=fin.documentos(db, s), tipos=fin.TIPOS, situacoes=rep.SITUACOES,
+                contratante=contratante, hoje=agora().date().isoformat())  # fmt: skip
+    return _pagina(request, "financeiro_solicitacao.html", ctx)
+
+
+@router.post("/financeiro/{id_}/pagamento")
+def confirmar_pagamento(id_: str, db: Db, admin: Admin, csrf: Annotated[str, Form()] = "",
+                        data_pagamento: Annotated[str, Form()] = "", observacao: Annotated[str, Form()] = ""):  # fmt: skip
+    _conferir(admin, csrf)
+    try:
+        fin.confirmar_pagamento(db, rep.solicitacao(db, id_), admin, data_pagamento, observacao)
+    except RegraNegocio as e:
+        return _ir(f"/plataforma/financeiro/{id_}", erro=e.mensagem)
+    return _ir(f"/plataforma/financeiro/{id_}", "pagamento")
+
+
+@router.post("/financeiro/{id_}/pagamento/desfazer")
+def desfazer_pagamento(id_: str, db: Db, admin: Admin, csrf: Annotated[str, Form()] = ""):
+    _conferir(admin, csrf)
+    try:
+        fin.desfazer_pagamento(db, rep.solicitacao(db, id_))
+    except RegraNegocio as e:
+        return _ir(f"/plataforma/financeiro/{id_}", erro=e.mensagem)
+    return _ir(f"/plataforma/financeiro/{id_}", "pagamento-desfeito")
+
+
+@router.post("/financeiro/{id_}/documentos")
+def enviar_documento(id_: str, db: Db, admin: Admin, arquivo: UploadFile, csrf: Annotated[str, Form()] = "",
+                     tipo: Annotated[str, Form()] = "", descricao: Annotated[str, Form()] = ""):  # fmt: skip
+    _conferir(admin, csrf)
+    try:
+        fin.enviar_documento(db, rep.solicitacao(db, id_), admin, arquivo.file, arquivo.filename or "", tipo, descricao)
+    except RegraNegocio as e:
+        return _ir(f"/plataforma/financeiro/{id_}", erro=e.mensagem)
+    return _ir(f"/plataforma/financeiro/{id_}", "documento")
 
 
 @router.get("/comercial")

@@ -1,0 +1,33 @@
+{% extends "_base.html" %}
+{% block titulo %}Financeiro{% endblock %}
+{% block conteudo %}
+<div style="margin-bottom: 16px;">
+  <h1>Financeiro</h1>
+  <p class="sub" style="margin: 0;">Cada solicitação de implantação aparece aqui ao entrar como nova. A Tecnologia só implanta depois que o 1º pagamento é confirmado.</p>
+</div>
+<nav class="filtros">
+  {% for chave, rotulo in filtros.items() %}
+  <a href="?filtro={{ chave }}"{% if filtro == chave %} class="atual"{% endif %}>{{ rotulo }} <span>{{ contagem[chave] }}</span></a>
+  {% endfor %}
+</nav>
+<div class="cartao" style="padding: 8px 14px;">
+  {% if solicitacoes %}
+  <table>
+    <thead><tr><th>Imobiliária / corretor</th><th class="esconder-celular">Origem</th><th class="esconder-celular">Entrada</th><th>Financeiro</th><th class="esconder-celular">Tecnologia</th></tr></thead>
+    <tbody>
+      {% for s in solicitacoes %}
+      <tr>
+        <td><a href="/plataforma/financeiro/{{ s.id }}"><strong>{{ s.nome_imobiliaria }}</strong></a><br><span class="rotulo">{{ s.nome }} · {{ s.cidade }}/{{ s.uf }}</span></td>
+        <td class="esconder-celular">{% if s.representante %}{{ s.representante.nome }}{% else %}<span class="rotulo">Painel</span>{% endif %}</td>
+        <td class="esconder-celular">{{ s.criada_em.strftime("%d/%m/%Y") }}</td>
+        <td>{% if s.pago %}<span class="selo ok">1º pagamento em {{ s.primeiro_pagamento_em.strftime("%d/%m/%Y") }}</span>{% elif s.situacao == "recusada" %}<span class="selo off">—</span>{% else %}<span class="selo atencao">Aguardando 1º pagamento</span>{% endif %}</td>
+        <td class="esconder-celular"><span class="selo {{ {'nova': 'off', 'em_andamento': 'atencao', 'implantada': 'ok', 'recusada': 'erro'}[s.situacao] }}">{{ situacoes[s.situacao] }}</span></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="vazio">Nenhuma solicitação {{ "" if filtro == "todas" else "em “" ~ filtros[filtro] ~ "”" }}.</div>
+  {% endif %}
+</div>
+{% endblock %}

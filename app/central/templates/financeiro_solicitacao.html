@@ -1,0 +1,101 @@
+{% extends "_base.html" %}
+{% block titulo %}{{ s.nome_imobiliaria }} · Financeiro{% endblock %}
+{% block conteudo %}
+<p><a href="/plataforma/financeiro">← Financeiro</a></p>
+<div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 18px;">
+  <h1 style="margin: 0;">{{ s.nome_imobiliaria }}</h1>
+  {% if s.pago %}<span class="selo ok">1º pagamento confirmado</span>{% elif s.situacao == "recusada" %}<span class="selo erro">Recusada</span>{% else %}<span class="selo atencao">Aguardando 1º pagamento</span>{% endif %}
+  <span class="selo {{ {'nova': 'off', 'em_andamento': 'atencao', 'implantada': 'ok', 'recusada': 'erro'}[s.situacao] }}">Tecnologia: {{ situacoes[s.situacao] }}</span>
+</div>
+
+<div class="cartao">
+  <h2>1º pagamento</h2>
+  {% if s.pago %}
+  <p style="margin: 0 0 6px;">Pago em <strong>{{ s.primeiro_pagamento_em.strftime("%d/%m/%Y") }}</strong> · confirmado em {{ s.primeiro_pagamento_confirmado_em.strftime("%d/%m/%Y %H:%M") }}{% if s.pagamento_confirmado_por %} por {{ s.pagamento_confirmado_por.nome }}{% endif %}.</p>
+  {% if s.observacao_financeira %}<p class="ajuda" style="white-space: pre-line;">{{ s.observacao_financeira }}</p>{% endif %}
+  {% if s.situacao == "nova" %}
+  <form method="post" action="/plataforma/financeiro/{{ s.id }}/pagamento/desfazer" class="acoes">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <button type="submit" class="perigo" onclick="return confirm('Desfazer a confirmação do 1º pagamento?')">Desfazer confirmação</button>
+    <span class="ajuda">Possível enquanto a Tecnologia não iniciar a implantação.</span>
+  </form>
+  {% endif %}
+  {% elif s.situacao == "recusada" %}
+  <p class="sub" style="margin: 0;">Solicitação recusada pela Tecnologia: não há pagamento a confirmar.</p>
+  {% else %}
+  <p class="sub" style="margin-top: -6px;">Ao confirmar, a Tecnologia é liberada para passar a solicitação para <strong>Em implantação</strong> e implantar.</p>
+  <form method="post" action="/plataforma/financeiro/{{ s.id }}/pagamento" class="linha">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <div style="flex: 0 1 200px;"><label for="data_pagamento">Data do pagamento</label><input type="date" id="data_pagamento" name="data_pagamento" value="{{ hoje }}" max="{{ hoje }}" required></div>
+    <div><label for="observacao">Observação <span style="font-weight: 400; color: var(--suave);">(opcional)</span></label><input type="text" id="observacao" name="observacao" maxlength="2000" placeholder="Ex.: Pix recebido, boleto nº 123"></div>
+    <button type="submit">Confirmar 1º pagamento</button>
+  </form>
+  {% if not documentos | selectattr("tipo", "equalto", "comprovante") | list %}<p class="ajuda" style="margin-top: 10px;">Dica: guarde o comprovante de pagamento abaixo antes de confirmar.</p>{% endif %}
+  {% endif %}
+</div>
+
+<div class="cartao">
+  <h2>Documentos</h2>
+  <form method="post" action="/plataforma/financeiro/{{ s.id }}/documentos" enctype="multipart/form-data" class="linha" data-demora>
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <div style="flex: 0 1 220px;"><label for="tipo">Tipo</label>
+      <select id="tipo" name="tipo" required>{% for chave, rotulo in tipos.items() %}<option value="{{ chave }}">{{ rotulo }}</option>{% endfor %}</select></div>
+    <div><label for="arquivo">Arquivo</label><input type="file" id="arquivo" name="arquivo" accept="application/pdf,image/jpeg,image/png" required><span class="ajuda">PDF, JPG ou PNG, até 10 MB.</span></div>
+    <div><label for="descricao">Descrição <span style="font-weight: 400; color: var(--suave);">(opcional)</span></label><input type="text" id="descricao" name="descricao" maxlength="300" placeholder="Ex.: mensalidade de novembro"></div>
+    <button type="submit" class="secundario" data-enviando="Enviando...">Guardar</button>
+  </form>
+  {% if documentos %}
+  <table style="margin-top: 16px;">
+    <thead><tr><th>Documento</th><th class="esconder-celular">Tipo</th><th class="esconder-celular">Enviado</th><th></th></tr></thead>
+    <tbody>
+      {% for d in documentos %}
+      <tr>
+        <td><a href="/plataforma/financeiro/documentos/{{ d.id }}" target="_blank" rel="noopener"><strong>{{ d.nome }}</strong></a>{% if d.descricao %}<br><span class="rotulo">{{ d.descricao }}</span>{% endif %}</td>
+        <td class="esconder-celular">{{ tipos[d.tipo] }}</td>
+        <td class="esconder-celular"><span class="rotulo">{{ d.criado_em.strftime("%d/%m/%Y %H:%M") }}{% if d.enviado_por %} · {{ d.enviado_por.nome }}{% endif %} · {{ d.tamanho | tamanho }}</span></td>
+        <td class="valor"><form method="post" action="/plataforma/financeiro/documentos/{{ d.id }}/remover"><input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit" class="perigo" onclick="return confirm('Remover este documento?')">Remover</button></form></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="vazio" style="padding: 20px 0 6px;">Nenhum documento guardado ainda.</div>
+  {% endif %}
+</div>
+
+<div class="cartao">
+  <h2>Cadastro</h2>
+  <div class="duas">
+    <div>
+      <div class="rotulo">Corretor</div>
+      <strong>{{ s.nome }}</strong><br>
+      {{ s.cpf_cnpj | cpf_cnpj }} · CRECI {{ s.creci }}<br>
+      <a href="mailto:{{ s.email }}">{{ s.email }}</a> · <a href="https://wa.me/55{{ s.telefone | digitos }}" target="_blank" rel="noopener">{{ s.telefone }}</a>
+      <div class="rotulo" style="margin-top: 12px;">Imobiliária</div>
+      {{ s.nome_imobiliaria }} · {{ s.cidade }}/{{ s.uf }}{% if s.dominio %} · <code>{{ s.dominio }}</code>{% endif %}<br>
+      <span class="ajuda">{% if s.imoveis %}{{ s.imoveis }} imóveis · {% endif %}{% if s.contratos %}{{ s.contratos }} contratos · {% endif %}{% if s.usuarios %}{{ s.usuarios }} usuários · {% endif %}entrada em {{ s.criada_em.strftime("%d/%m/%Y") }}</span>
+      {% if s.observacoes %}<p class="ajuda" style="white-space: pre-line;">{{ s.observacoes }}</p>{% endif %}
+    </div>
+    <div class="contato-representante">
+      {% set r = s.representante %}
+      {% if r %}
+      <div class="rotulo">Representante</div>
+      <strong>{{ r.nome }}</strong>{% if r.regiao %} · {{ r.regiao }}{% endif %}<br>
+      {% if r.email %}<a href="mailto:{{ r.email }}">{{ r.email }}</a><br>{% endif %}
+      {% if r.telefone %}<a href="https://wa.me/55{{ r.telefone | digitos }}" target="_blank" rel="noopener">{{ r.telefone }}</a>{% endif %}
+      {% else %}
+      <div class="rotulo">Origem</div>
+      <strong>Cadastrada no painel</strong>{% if s.administrador %} por {{ s.administrador.nome }}{% endif %}
+      {% endif %}
+    </div>
+  </div>
+  {% if contratante %}
+  <div class="rotulo" style="margin-top: 16px;">Contratante (contrato)</div>
+  <p style="margin: 4px 0 0;"><strong>{{ contratante.nome }}</strong>{% if contratante.nome_comercial %} · {{ contratante.nome_comercial }}{% endif %}<br>
+    {% if contratante.cpf %}CPF {{ contratante.cpf | cpf_cnpj }}{% endif %}{% if contratante.cpf and contratante.cnpj %} · {% endif %}{% if contratante.cnpj %}CNPJ {{ contratante.cnpj | cpf_cnpj }}{% endif %}<br>
+    {{ contratante.endereco }}, {{ contratante.numero }} · {{ contratante.bairro }} · {{ contratante.cidade }}/{{ contratante.uf }}<br>
+    {{ contratante.telefone_1 }}{% if contratante.telefone_2 %} · {{ contratante.telefone_2 }}{% endif %}</p>
+  {% endif %}
+  {% if s.imobiliaria_slug %}<div class="acoes"><a class="botao secundario" href="/plataforma/{{ s.imobiliaria_slug }}">Ver imobiliária</a></div>{% endif %}
+</div>
+{% endblock %}

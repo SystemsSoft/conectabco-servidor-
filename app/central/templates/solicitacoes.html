@@ -22,7 +22,10 @@
       <h2 style="margin: 0;">{{ s.nome_imobiliaria }}</h2>
       <span class="rotulo">{{ s.cidade }}/{{ s.uf }} · enviada em {{ s.criada_em.strftime("%d/%m/%Y %H:%M") }}</span>
     </div>
-    <span class="selo {{ {'nova': 'off', 'em_andamento': 'atencao', 'implantada': 'ok', 'recusada': 'erro'}[s.situacao] }}">{{ situacoes[s.situacao] }}</span>
+    <div style="display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end;">
+      {% if s.pago %}<a class="selo ok" href="/plataforma/financeiro/{{ s.id }}">1º pagamento confirmado</a>{% elif s.situacao != "recusada" %}<a class="selo atencao" href="/plataforma/financeiro/{{ s.id }}">Aguardando 1º pagamento</a>{% endif %}
+      <span class="selo {{ {'nova': 'off', 'em_andamento': 'atencao', 'implantada': 'ok', 'recusada': 'erro'}[s.situacao] }}">{{ situacoes[s.situacao] }}</span>
+    </div>
   </div>
   <div class="duas">
     <div>
@@ -54,12 +57,13 @@
   <form method="post" action="/plataforma/solicitacoes/{{ s.id }}" class="linha" style="margin-top: 14px;">
     <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="voltar" value="{{ situacao }}">
     <div style="flex: 0 1 190px;"><label>Situação</label>
-      <select name="situacao">{% for chave, rotulo in situacoes.items() %}<option value="{{ chave }}"{% if s.situacao == chave %} selected{% endif %}>{{ rotulo }}</option>{% endfor %}</select></div>
+      <select name="situacao">{% for chave, rotulo in situacoes.items() %}<option value="{{ chave }}"{% if s.situacao == chave %} selected{% endif %}{% if chave in ("em_andamento", "implantada") and not s.pago and s.situacao != chave %} disabled{% endif %}>{{ rotulo }}{% if chave in ("em_andamento", "implantada") and not s.pago and s.situacao != chave %} (falta o 1º pagamento){% endif %}</option>{% endfor %}</select></div>
     <div><label>{% if r %}Resposta ao representante <span style="font-weight: 400; color: var(--suave);">(ele vê na área dele)</span>{% else %}Anotação{% endif %}</label>
       <input type="text" name="resposta" value="{{ s.resposta }}" maxlength="2000" placeholder="Ex.: agendada a apresentação para 28/10"></div>
     <button type="submit" class="secundario">Salvar</button>
     {% if s.imobiliaria_slug %}<a class="botao secundario" href="/plataforma/{{ s.imobiliaria_slug }}">Ver imobiliária</a>
-    {% elif s.situacao != "recusada" %}<a class="botao" href="/plataforma/nova?solicitacao={{ s.id }}">Implantar</a>{% endif %}
+    {% elif s.situacao != "recusada" and s.pago %}<a class="botao" href="/plataforma/nova?solicitacao={{ s.id }}">Implantar</a>
+    {% elif s.situacao != "recusada" %}<span class="ajuda">Implantar fica disponível quando o financeiro confirmar o 1º pagamento.</span>{% endif %}
   </form>
 </div>
 {% else %}
