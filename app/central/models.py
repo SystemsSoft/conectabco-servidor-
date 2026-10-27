@@ -1,4 +1,5 @@
 from datetime import date, datetime
+from decimal import Decimal
 
 import sqlalchemy as sa
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -22,6 +23,11 @@ class Imobiliaria(BaseCentral):
     cor_primaria: Mapped[str] = mapped_column(sa.String(7), default="")
     cor_destaque: Mapped[str] = mapped_column(sa.String(7), default="")
     criada_em: Mapped[datetime] = mapped_column(sa.DateTime)
+    # Quando foi desativada (cancelamento); vazio enquanto ativa.
+    desativada_em: Mapped[datetime | None] = mapped_column(sa.DateTime)
+    # Plano do contrato: mensalidade e dia do vencimento.
+    mensalidade: Mapped[Decimal] = mapped_column(sa.Numeric(10, 2), default=Decimal("150.00"))
+    dia_vencimento: Mapped[int] = mapped_column(sa.Integer, default=5)
     # ULID fixo e único: prefixo dos arquivos dela (imobiliarias/<chave>/...).
     chave: Mapped[str] = mapped_column(sa.String(26), unique=True, default=novo_ulid)
     dominios: Mapped[list["Dominio"]] = relationship(
@@ -121,6 +127,7 @@ class SolicitacaoImplantacao(BaseCentral):
     )
     # Financeiro: sem o 1º pagamento confirmado, a Tecnologia não passa a
     # solicitação para "em implantação" nem implanta.
+    implantada_em: Mapped[datetime | None] = mapped_column(sa.DateTime)
     primeiro_pagamento_em: Mapped[date | None] = mapped_column(sa.Date)
     primeiro_pagamento_confirmado_em: Mapped[datetime | None] = mapped_column(sa.DateTime)
     primeiro_pagamento_por_id: Mapped[str | None] = mapped_column(sa.ForeignKey("administradores.id"))
@@ -197,4 +204,29 @@ class DadosContratante(BaseCentral):
     data_implantacao: Mapped[date | None] = mapped_column(sa.Date)
     horario_implantacao: Mapped[str] = mapped_column(sa.String(5), default="")
     data_assinatura: Mapped[date | None] = mapped_column(sa.Date)
+    atualizado_em: Mapped[datetime] = mapped_column(sa.DateTime)
+
+
+class LeadAssociacao(BaseCentral):
+    """Pré-cadastro feito no site institucional ("Quero me associar"): o
+    Comercial acompanha e, quando avança, converte em solicitação."""
+
+    __tablename__ = "leads_associacao"
+
+    id: Mapped[str] = mapped_column(sa.String(36), primary_key=True)
+    nome: Mapped[str] = mapped_column(sa.String(150))
+    email: Mapped[str] = mapped_column(sa.String(200))
+    whatsapp: Mapped[str] = mapped_column(sa.String(30))
+    creci: Mapped[str] = mapped_column(sa.String(30), default="")
+    # Como a pessoa escreveu ("Cidade / UF").
+    cidade: Mapped[str] = mapped_column(sa.String(150))
+    perfil: Mapped[str] = mapped_column(sa.String(40))
+    quer_sistema: Mapped[bool] = mapped_column(sa.Boolean, default=False)
+    # novo, em_contato, convertido ou descartado.
+    situacao: Mapped[str] = mapped_column(sa.String(20), default="novo", index=True)
+    anotacao: Mapped[str] = mapped_column(sa.Text, default="")
+    solicitacao_id: Mapped[str | None] = mapped_column(
+        sa.ForeignKey("solicitacoes_implantacao.id", ondelete="SET NULL")
+    )
+    criado_em: Mapped[datetime] = mapped_column(sa.DateTime, index=True)
     atualizado_em: Mapped[datetime] = mapped_column(sa.DateTime)

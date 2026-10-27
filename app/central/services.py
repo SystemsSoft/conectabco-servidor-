@@ -311,6 +311,9 @@ def remover_dominio(db: Session, slug: str, dominio: str) -> None:
 def definir_ativa(db: Session, slug: str, ativa: bool) -> None:
     """Desativada, a imobiliária deixa de abrir (API, site e portais); os
     dados continuam no banco dela."""
-    obter(db, slug).ativa = ativa
+    r = obter(db, slug)
+    if r.ativa != ativa:  # a data do cancelamento entra no Comercial
+        r.desativada_em = None if ativa else agora()
+    r.ativa = ativa
     db.commit()
     limpar_cadastro()

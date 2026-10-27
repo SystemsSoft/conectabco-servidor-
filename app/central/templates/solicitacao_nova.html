@@ -6,6 +6,10 @@
 <p class="sub">Corretor que chegou direto à associação (sem representante). Entra como <strong>Nova</strong> em Solicitações e segue o mesmo fluxo: situação, resposta e <strong>Implantar</strong>. Campos com * são obrigatórios.</p>
 <form method="post" action="/plataforma/solicitacoes/nova" data-demora>
   <input type="hidden" name="csrf" value="{{ csrf }}">
+  {% if lead %}
+  <input type="hidden" name="lead" value="{{ lead }}">
+  <div class="aviso atencao">Dados vindos do pré-cadastro do site. Complete o que faltar (CPF/CNPJ, imobiliária); ao criar, o lead passa para <strong>Convertido</strong>.</div>
+  {% endif %}
   {% include "_corretor.html" %}
   <div class="acoes"><button type="submit" data-enviando="Salvando...">Criar solicitação</button><a href="/plataforma/solicitacoes">Cancelar</a></div>
 </form>

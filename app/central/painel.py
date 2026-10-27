@@ -16,6 +16,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from app.central import acesso
+from app.central import comercial as com
 from app.central import contratante as ct
 from app.central import financeiro as fin
 from app.central import infraestrutura as infra
@@ -25,6 +26,7 @@ from app.central import services as central
 from app.core.config import get_settings
 from app.core.database import fabrica
 from app.core.errors import RegraNegocio
+from app.core.formatacao import formatar_moeda
 from app.core.tempo import agora
 from app.core.imobiliarias import Imobiliaria, buscar, identificada, normalizar_dominio, usar
 
@@ -48,7 +50,15 @@ def _cpf_cnpj(texto: str) -> str:
     return texto
 
 
-templates.env.filters.update(digitos=_digitos, cpf_cnpj=_cpf_cnpj)
+def _reais(valor) -> str:
+    return formatar_moeda(float(valor)) if valor is not None else "—"
+
+
+def _decimal_br(valor) -> str:
+    return f"{float(valor):.2f}".replace(".", ",") if valor is not None else ""
+
+
+templates.env.filters.update(digitos=_digitos, cpf_cnpj=_cpf_cnpj, reais=_reais, decimal_br=_decimal_br)
 COR_PRIMARIA, COR_DESTAQUE = "#061a48", "#f5c432"  # a paleta padrão do site
 
 MENSAGENS = {
@@ -62,6 +72,8 @@ MENSAGENS = {
     "desativada": "Imobiliária desativada: API, site e portais deixam de abrir.",
     "admin": "Administrador salvo: ele já pode entrar no app de gestão.",
     "contrato": "Dados do contratante salvos.",
+    "plano": "Plano salvo.",
+    "lead": "Lead atualizado.",
     "pagamento": "1º pagamento confirmado: a Tecnologia já pode iniciar a implantação.",
     "pagamento-desfeito": "Confirmação do 1º pagamento desfeita.",
     "documento": "Documento guardado.",
@@ -137,12 +149,14 @@ def _ir(caminho: str, msg: str = "", erro: str = "") -> RedirectResponse:
 
 
 def _base(request: Request, admin: m.Administrador | None, **extra) -> dict:
-    novas = pendentes = 0
-    if admin:  # contadores nas abas: solicitações novas e pagamentos a confirmar
+    novas = pendentes = leads_novos = 0
+    if admin:  # contadores nas abas: solicitações novas, pagamentos a confirmar e leads
         with central.sessao() as db:
             novas, pendentes = rep.contagem(db)["nova"], fin.contagem(db)["aguardando"]
+            leads_novos = com.contagem_leads(db)["novo"]
     return {
         "pendentes": pendentes,
+        "leads_novos": leads_novos,
         "admin": admin,
         "novas": novas,
         "csrf": acesso.token_csrf(admin) if admin else "",
@@ -232,6 +246,7 @@ def nova(
     admin_nome: Annotated[str, Form()] = "", admin_login: Annotated[str, Form()] = "",
     admin_senha: Annotated[str, Form()] = "",
     solicitacao: Annotated[str, Form()] = "",
+    mensalidade: Annotated[str, Form()] = "150,00", dia_vencimento: Annotated[str, Form()] = "5",
     logo: UploadFile | None = None,
 ):  # fmt: skip
     """Cria o banco, as tabelas, o cadastro e o administrador da imobiliária."""
@@ -240,7 +255,8 @@ def nova(
     _conferir(admin, csrf)
     dados = {"slug": slug, "nome": nome, "dominios": dominios, "site_url": site_url,
              "cor_primaria": cor_primaria, "cor_destaque": cor_destaque,
-             "admin_nome": admin_nome, "admin_login": admin_login, "solicitacao": solicitacao}  # fmt: skip
+             "admin_nome": admin_nome, "admin_login": admin_login, "solicitacao": solicitacao,
+             "mensalidade": mensalidade, "dia_vencimento": dia_vencimento}  # fmt: skip
     try:
         conteudo = logo.file.read(central.LOGO_MAX + 1) if logo and logo.filename else None
         if conteudo:
@@ -249,6 +265,7 @@ def nova(
             with central.sessao() as db:
                 fin.exigir_pagamento(rep.solicitacao(db, solicitacao))
         valores_contrato = ct.validar(contrato)
+        plano = com.validar_plano(mensalidade, dia_vencimento)
         if not admin_nome.strip():
             raise RegraNegocio("Informe o nome do administrador da imobiliária.")
         _validar_login(aparar(admin_login))
@@ -265,6 +282,7 @@ def nova(
                                                    ufs=rep.UFS, erro=e.mensagem), 422)  # fmt: skip
     with central.sessao() as db:
         ct.salvar(db, imob.slug, valores_contrato)
+        com.definir_plano(db, imob.slug, *plano)
     if solicitacao:  # a solicitação do representante vira implantada
         with central.sessao() as db:
             rep.atualizar(db, solicitacao, "implantada",
@@ -358,9 +376,57 @@ def enviar_documento(id_: str, db: Db, admin: Admin, arquivo: UploadFile, csrf: 
     return _ir(f"/plataforma/financeiro/{id_}", "documento")
 
 
+# --------------------------------------------------------------- Comercial
+
+
+def _periodo(periodo: str) -> str:
+    return periodo if periodo in com.PERIODOS else "12m"
+
+
 @router.get("/comercial")
-def comercial(request: Request, admin: Admin):
-    return _pagina(request, "em_breve.html", _base(request, admin, area="Comercial"))
+def comercial_funil(request: Request, db: Db, admin: Admin, periodo: str = "12m"):
+    periodo = _periodo(periodo)
+    ctx = _base(request, admin, periodo=periodo, periodos=com.PERIODOS,
+                funil=com.funil(db, com.inicio_do_periodo(periodo)))  # fmt: skip
+    return _pagina(request, "comercial_funil.html", ctx)
+
+
+@router.get("/comercial/representantes")
+def comercial_representantes(request: Request, db: Db, admin: Admin, periodo: str = "12m"):
+    periodo = _periodo(periodo)
+    ctx = _base(request, admin, periodo=periodo, periodos=com.PERIODOS,
+                desempenho=com.desempenho(db, com.inicio_do_periodo(periodo)),
+                sem_envio=com.sem_envio(db), dias=com.SEM_ENVIO_DIAS)  # fmt: skip
+    return _pagina(request, "comercial_representantes.html", ctx)
+
+
+@router.get("/comercial/receita")
+def comercial_receita(request: Request, db: Db, admin: Admin):
+    r = com.receita(db)
+    maior = max((x.receita for x in r.meses), default=0) or 1
+    ctx = _base(request, admin, receita=r, maior=maior)
+    return _pagina(request, "comercial_receita.html", ctx)
+
+
+@router.get("/comercial/leads")
+def comercial_leads(request: Request, db: Db, admin: Admin, situacao: str = "novo"):
+    situacao = situacao if situacao in com.SITUACOES_LEAD or situacao == "todos" else "novo"
+    ctx = _base(request, admin, leads=com.leads(db, situacao), situacao=situacao,
+                situacoes=com.SITUACOES_LEAD, contagem=com.contagem_leads(db))  # fmt: skip
+    return _pagina(request, "comercial_leads.html", ctx)
+
+
+@router.post("/comercial/leads/{id_}")
+def atualizar_lead(id_: str, db: Db, admin: Admin, csrf: Annotated[str, Form()] = "",
+                   situacao: Annotated[str, Form()] = "", anotacao: Annotated[str, Form()] = "",
+                   voltar: Annotated[str, Form()] = "novo"):  # fmt: skip
+    _conferir(admin, csrf)
+    destino = f"/plataforma/comercial/leads?situacao={quote(voltar)}"
+    try:
+        com.atualizar_lead(db, id_, situacao, anotacao)
+    except RegraNegocio as e:
+        return RedirectResponse(f"{destino}&erro={quote(e.mensagem)}", status_code=303)
+    return RedirectResponse(f"{destino}&msg=lead", status_code=303)
 
 
 @router.post("/infraestrutura")
@@ -383,8 +449,10 @@ def solicitacoes(request: Request, db: Db, admin: Admin, situacao: str = "nova")
 
 
 @router.get("/solicitacoes/nova")
-def nova_solicitacao_pagina(request: Request, admin: Admin):
-    ctx = _base(request, admin, dados=rep.DadosCorretor(), ufs=rep.UFS)
+def nova_solicitacao_pagina(request: Request, db: Db, admin: Admin, lead: str = ""):
+    """Com ?lead=, vem preenchida com o pré-cadastro do site."""
+    dados = com.dados_para_solicitacao(com.lead(db, lead)) if lead else rep.DadosCorretor()
+    ctx = _base(request, admin, dados=dados, ufs=rep.UFS, lead=lead)
     return _pagina(request, "solicitacao_nova.html", ctx)
 
 
@@ -395,11 +463,14 @@ async def nova_solicitacao(request: Request, db: Db, admin: Admin):
     formulario = await request.form()
     _conferir(admin, str(formulario.get("csrf", "")))
     dados = rep.DadosCorretor(**{f.name: str(formulario.get(f.name, "")) for f in fields(rep.DadosCorretor)})
+    lead = str(formulario.get("lead", ""))
     try:
-        rep.enviar_solicitacao(db, admin, dados)
+        s = rep.enviar_solicitacao(db, admin, dados)
     except RegraNegocio as e:
-        ctx = _base(request, admin, dados=dados, ufs=rep.UFS, erro=e.mensagem)
+        ctx = _base(request, admin, dados=dados, ufs=rep.UFS, lead=lead, erro=e.mensagem)
         return _pagina(request, "solicitacao_nova.html", ctx, 422)
+    if lead:  # o lead do site vira esta solicitação
+        com.converter(db, lead, s.id)
     return _ir("/plataforma/solicitacoes", "solicitacao-criada")
 
 
@@ -513,6 +584,17 @@ def detalhe(slug: str, request: Request, db: Db, admin: Admin):
         ufs=rep.UFS,
     )  # fmt: skip
     return _pagina(request, "imobiliaria.html", ctx)
+
+
+@router.post("/{slug}/plano")
+def salvar_plano(slug: str, db: Db, admin: Admin, csrf: Annotated[str, Form()] = "",
+                 mensalidade: Annotated[str, Form()] = "", dia_vencimento: Annotated[str, Form()] = ""):  # fmt: skip
+    _conferir(admin, csrf)
+    try:
+        com.definir_plano(db, slug, *com.validar_plano(mensalidade, dia_vencimento))
+    except RegraNegocio as e:
+        return _ir(f"/plataforma/{slug}", erro=e.mensagem)
+    return _ir(f"/plataforma/{slug}", "plano")
 
 
 @router.post("/{slug}/contrato")

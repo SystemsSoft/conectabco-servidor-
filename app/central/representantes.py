@@ -196,6 +196,8 @@ def atualizar(db: Session, id_: str, situacao: str, resposta: str, imobiliaria_s
         from app.central.financeiro import exigir_pagamento
 
         exigir_pagamento(s)
+    if situacao != s.situacao:  # tempo até a implantação, no Comercial
+        s.implantada_em = agora() if situacao == "implantada" else None
     s.situacao = situacao
     s.resposta = _texto(resposta, "a resposta", 2000, obrigatorio=False)
     if imobiliaria_slug is not None:

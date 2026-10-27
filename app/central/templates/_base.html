@@ -96,6 +96,9 @@
     header.topo .submenu { position: absolute; top: calc(100% + 8px); left: 0; z-index: 20; min-width: 210px; padding: 6px; background: #fff; border: 1px solid var(--linha); border-radius: 12px; box-shadow: 0 12px 32px rgba(21,27,46,.22); display: flex; flex-direction: column; }
     header.topo .submenu a { color: var(--tinta); opacity: 1; padding: 9px 12px; border-radius: 8px; font-size: 14px; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
     header.topo .submenu a:hover { background: var(--fundo); }
+    header.topo .abas > a, header.topo .grupo > summary { white-space: nowrap; }
+    header.topo .abas > .grupo:last-child .submenu { left: auto; right: 0; }
+    @media (max-width: 560px) { header.topo .abas { gap: 2px; justify-content: space-between; } header.topo .abas > a, header.topo .grupo > summary { padding: 6px 8px; font-size: 13px; } }
     header.topo .submenu a.atual { background: var(--tinta); color: #fff; }
     @media (max-width: 560px) { header.topo .dentro { flex-wrap: wrap; } header.topo .abas { order: 3; margin-left: 0; width: 100%; } }
     .numero { font-size: 28px; font-weight: 700; letter-spacing: -.01em; line-height: 1.2; }
@@ -116,6 +119,23 @@
     h3.subtitulo { font-size: 13px; text-transform: uppercase; letter-spacing: .05em; color: var(--suave); margin: 18px 0 10px; }
     h3.subtitulo:first-of-type { margin-top: 4px; }
     input[type=date], input[type=time] { width: 100%; padding: 9px 12px; border: 1px solid var(--linha); border-radius: 10px; font: inherit; background: #fff; color: inherit; }
+    .funil { display: grid; gap: 10px; }
+    .funil .etapa { display: grid; grid-template-columns: 150px 1fr 90px; gap: 12px; align-items: center; }
+    .funil .trilho { height: 22px; background: var(--fundo); border-radius: 6px; overflow: hidden; }
+    .funil .trilho span { display: block; height: 100%; min-width: 2px; background: var(--marca); border-radius: 0 4px 4px 0; }
+    .funil .valor { text-align: right; font-variant-numeric: tabular-nums; }
+    @media (max-width: 560px) { .funil .etapa { grid-template-columns: 1fr 70px; } .funil .trilho { grid-column: 1 / -1; grid-row: 2; } }
+    .colunas { display: grid; grid-template-columns: repeat(12, 1fr); gap: 2px; height: 230px; }
+    .colunas .coluna { position: relative; height: 100%; display: flex; flex-direction: column; outline: none; }
+    .colunas .area { flex: 1; display: flex; align-items: flex-end; justify-content: center; border-bottom: 1px solid var(--linha); }
+    .colunas .area span { width: 70%; max-width: 36px; min-height: 2px; background: var(--marca); border-radius: 4px 4px 0 0; }
+    .colunas .mes { font-size: 11px; color: var(--suave); text-align: center; padding-top: 6px; white-space: nowrap; }
+    .colunas .dica { display: none; position: absolute; bottom: calc(100% - 20px); left: 50%; transform: translateX(-50%); z-index: 5; background: var(--tinta); color: #fff; font-size: 12px; line-height: 1.4; padding: 8px 10px; border-radius: 8px; white-space: nowrap; pointer-events: none; }
+    .colunas .coluna:hover .dica, .colunas .coluna:focus .dica { display: block; }
+    .colunas .coluna:nth-child(-n+2) .dica { left: 0; transform: none; }
+    .colunas .coluna:nth-last-child(-n+2) .dica { left: auto; right: 0; transform: none; }
+    .colunas .coluna:hover .area span, .colunas .coluna:focus .area span { background: var(--marca-escura); }
+    @media (max-width: 560px) { .colunas .mes { font-size: 9px; } }
     details summary { cursor: pointer; color: var(--marca); font-size: 13px; margin-top: 6px; }
   </style>
 </head>
@@ -127,21 +147,29 @@
       {% if admin %}
       {% set caminho = request.url.path %}
       {% set area = "financeiro" if caminho.startswith("/plataforma/financeiro") else ("comercial" if caminho.startswith("/plataforma/comercial") else "tecnologia") %}
-      {% set tecnologia = [("/plataforma/solicitacoes", "Solicitações"), ("/plataforma/representantes", "Representantes"), ("/plataforma/infraestrutura", "Infraestrutura")] %}
-      {% set item = namespace(destino="/plataforma") %}
-      {% for destino, _ in tecnologia %}{% if caminho.startswith(destino) %}{% set item.destino = destino %}{% endif %}{% endfor %}
-      <nav class="abas" aria-label="Áreas da plataforma">
-        <details class="grupo{% if area == 'tecnologia' %} atual{% endif %}">
-          <summary>Tecnologia{% if novas %} <span class="contador">{{ novas }}</span>{% endif %}</summary>
+      {% set grupos = [
+        ("tecnologia", "Tecnologia", novas, [("/plataforma", "Imobiliárias", 0), ("/plataforma/solicitacoes", "Solicitações", novas), ("/plataforma/representantes", "Representantes", 0), ("/plataforma/infraestrutura", "Infraestrutura", 0)]),
+        ("comercial", "Comercial", leads_novos, [("/plataforma/comercial", "Funil", 0), ("/plataforma/comercial/representantes", "Representantes", 0), ("/plataforma/comercial/receita", "Receita", 0), ("/plataforma/comercial/leads", "Leads do site", leads_novos)]),
+      ] %}
+      {# Item atual: o caminho mais longo que combina com a página. #}
+      {% set atual = namespace(destino="", tamanho=0) %}
+      {% for _, _, _, itens in grupos %}{% for destino, _, _ in itens %}
+        {% if (caminho == destino or caminho.startswith(destino ~ "/")) and destino | length > atual.tamanho %}{% set atual.destino = destino %}{% set atual.tamanho = destino | length %}{% endif %}
+      {% endfor %}{% endfor %}
+      {% macro grupo(chave, rotulo, contador, itens, area, destino_atual) %}
+        <details class="grupo{% if area == chave %} atual{% endif %}">
+          <summary>{{ rotulo }}{% if contador %} <span class="contador">{{ contador }}</span>{% endif %}</summary>
           <div class="submenu">
-            <a href="/plataforma"{% if area == "tecnologia" and item.destino == "/plataforma" %} class="atual"{% endif %}>Imobiliárias</a>
-            {% for destino, rotulo in tecnologia %}
-            <a href="{{ destino }}"{% if item.destino == destino and area == "tecnologia" %} class="atual"{% endif %}>{{ rotulo }}{% if destino.endswith("solicitacoes") and novas %} <span class="contador">{{ novas }}</span>{% endif %}</a>
+            {% for destino, nome, n in itens %}
+            <a href="{{ destino }}"{% if area == chave and destino_atual == destino %} class="atual"{% endif %}>{{ nome }}{% if n %} <span class="contador">{{ n }}</span>{% endif %}</a>
             {% endfor %}
           </div>
         </details>
+      {% endmacro %}
+      <nav class="abas" aria-label="Áreas da plataforma">
+        {% set g = grupos[0] %}{{ grupo(g[0], g[1], g[2], g[3], area, atual.destino) }}
         <a href="/plataforma/financeiro"{% if area == "financeiro" %} class="atual"{% endif %}>Financeiro{% if pendentes %} <span class="contador">{{ pendentes }}</span>{% endif %}</a>
-        <a href="/plataforma/comercial"{% if area == "comercial" %} class="atual"{% endif %}>Comercial</a>
+        {% set g = grupos[1] %}{{ grupo(g[0], g[1], g[2], g[3], area, atual.destino) }}
       </nav>
       <div class="quem">
         <span>{{ admin.nome }}</span>

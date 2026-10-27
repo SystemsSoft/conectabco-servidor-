@@ -60,6 +60,10 @@ def create_app() -> FastAPI:
     from app.central.area_representante import router as area_representante
 
     app.include_router(area_representante)
+    # Pré-cadastro do site institucional: vira lead do Comercial.
+    from app.central.pre_cadastro import router as pre_cadastro
+
+    app.include_router(pre_cadastro)
     # App de gestão (Flutter web), em todos os domínios.
     from app.core.app_gestao import router as app_gestao
 

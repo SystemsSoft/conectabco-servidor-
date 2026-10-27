@@ -30,6 +30,14 @@
     {% include "_contrato.html" %}
   </div>
   <div class="cartao">
+    <h2>Plano</h2>
+    <p class="sub" style="margin-top: -6px;">Do contrato: entra na receita do Comercial.</p>
+    <div class="grade">
+      <div><label for="mensalidade">Mensalidade (R$)</label><input type="text" id="mensalidade" name="mensalidade" value="{{ dados.mensalidade or '150,00' }}" required inputmode="decimal" maxlength="12"></div>
+      <div><label for="dia_vencimento">Dia do vencimento</label><input type="text" id="dia_vencimento" name="dia_vencimento" value="{{ dados.dia_vencimento or '5' }}" required inputmode="numeric" maxlength="2"><span class="ajuda">De 1 a 28.</span></div>
+    </div>
+  </div>
+  <div class="cartao">
     <h2>Domínios e site</h2>
     <div class="grade">
       <div>
