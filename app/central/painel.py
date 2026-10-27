@@ -4,6 +4,7 @@ cada uma. Só abre pelo endereço do servidor, nunca pelo domínio de uma
 imobiliária."""
 
 import socket
+from dataclasses import fields
 from pathlib import Path
 from typing import Annotated
 from urllib.parse import quote
@@ -60,6 +61,7 @@ MENSAGENS = {
     "admin": "Administrador salvo: ele já pode entrar no app de gestão.",
     "contrato": "Dados do contratante salvos.",
     "aws": "Dados da AWS atualizados (consultados no máximo a cada 10 minutos).",
+    "solicitacao-criada": "Solicitação criada: quando for implantar, use o botão Implantar.",
     "solicitacao": "Solicitação atualizada: o representante já vê a nova situação.",
     "representante": "Representante salvo.",
     "representante-criado": "Representante cadastrado: envie a ele o usuário, a senha e o endereço /representante.",
@@ -293,6 +295,27 @@ def solicitacoes(request: Request, db: Db, admin: Admin, situacao: str = "nova")
     ctx = _base(request, admin, solicitacoes=lista, situacao=situacao,
                 situacoes=rep.SITUACOES, contagem=rep.contagem(db))  # fmt: skip
     return _pagina(request, "solicitacoes.html", ctx)
+
+
+@router.get("/solicitacoes/nova")
+def nova_solicitacao_pagina(request: Request, admin: Admin):
+    ctx = _base(request, admin, dados=rep.DadosCorretor(), ufs=rep.UFS)
+    return _pagina(request, "solicitacao_nova.html", ctx)
+
+
+@router.post("/solicitacoes/nova")
+async def nova_solicitacao(request: Request, db: Db, admin: Admin):
+    """Corretor que chegou direto à associação: mesmo fluxo das solicitações
+    dos representantes, em nome do administrador."""
+    formulario = await request.form()
+    _conferir(admin, str(formulario.get("csrf", "")))
+    dados = rep.DadosCorretor(**{f.name: str(formulario.get(f.name, "")) for f in fields(rep.DadosCorretor)})
+    try:
+        rep.enviar_solicitacao(db, admin, dados)
+    except RegraNegocio as e:
+        ctx = _base(request, admin, dados=dados, ufs=rep.UFS, erro=e.mensagem)
+        return _pagina(request, "solicitacao_nova.html", ctx, 422)
+    return _ir("/plataforma/solicitacoes", "solicitacao-criada")
 
 
 @router.post("/solicitacoes/{id_}")

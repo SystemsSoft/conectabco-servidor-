@@ -1,0 +1,12 @@
+{% extends "_base.html" %}
+{% block titulo %}Nova solicitação{% endblock %}
+{% block conteudo %}
+<p><a href="/plataforma/solicitacoes">← Solicitações</a></p>
+<h1>Nova solicitação de implantação</h1>
+<p class="sub">Corretor que chegou direto à associação (sem representante). Entra como <strong>Nova</strong> em Solicitações e segue o mesmo fluxo: situação, resposta e <strong>Implantar</strong>. Campos com * são obrigatórios.</p>
+<form method="post" action="/plataforma/solicitacoes/nova" data-demora>
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  {% include "_corretor.html" %}
+  <div class="acoes"><button type="submit" data-enviando="Salvando...">Criar solicitação</button><a href="/plataforma/solicitacoes">Cancelar</a></div>
+</form>
+{% endblock %}

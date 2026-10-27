@@ -6,7 +6,6 @@
     <h1>Imobiliárias</h1>
     <p class="sub" style="margin: 0;">Cada uma com o seu banco de dados, domínio, cores e logotipo — todas com as mesmas regras de negócio.</p>
   </div>
-  <a class="botao" href="/plataforma/nova" style="margin-left: auto;">+ Nova imobiliária</a>
 </div>
 <div class="cartao" style="padding: 8px 14px;">
   {% if imobiliarias %}
@@ -25,7 +24,7 @@
     </tbody>
   </table>
   {% else %}
-  <div class="vazio">Nenhuma imobiliária cadastrada ainda. <a href="/plataforma/nova">Cadastre a primeira</a>.</div>
+  <div class="vazio">Nenhuma imobiliária cadastrada ainda. Para implantar a primeira, crie uma <a href="/plataforma/solicitacoes/nova">solicitação de implantação</a>.</div>
   {% endif %}
 </div>
 {% endblock %}

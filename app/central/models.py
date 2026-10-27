@@ -87,14 +87,16 @@ class Representante(BaseCentral):
 
 
 class SolicitacaoImplantacao(BaseCentral):
-    """Corretor (ou imobiliária) que um representante enviou para implantar
-    o sistema. A plataforma acompanha pela situação e, ao implantar, liga a
-    solicitação à imobiliária criada."""
+    """Corretor (ou imobiliária) a implantar: enviado por um representante ou
+    cadastrado direto no painel. A plataforma acompanha pela situação e, ao
+    implantar, liga a solicitação à imobiliária criada."""
 
     __tablename__ = "solicitacoes_implantacao"
 
     id: Mapped[str] = mapped_column(sa.String(36), primary_key=True)
-    representante_id: Mapped[str] = mapped_column(sa.ForeignKey("representantes.id"), index=True)
+    # Quem cadastrou: um representante ou, no painel, um administrador.
+    representante_id: Mapped[str | None] = mapped_column(sa.ForeignKey("representantes.id"), index=True)
+    administrador_id: Mapped[str | None] = mapped_column(sa.ForeignKey("administradores.id"))
     # nova, em_andamento, implantada ou recusada.
     situacao: Mapped[str] = mapped_column(sa.String(20), default="nova", index=True)
     # Corretor responsável.
@@ -119,7 +121,8 @@ class SolicitacaoImplantacao(BaseCentral):
     )
     criada_em: Mapped[datetime] = mapped_column(sa.DateTime, index=True)
     atualizada_em: Mapped[datetime] = mapped_column(sa.DateTime)
-    representante: Mapped[Representante] = relationship(lazy="joined")
+    representante: Mapped[Representante | None] = relationship(lazy="joined")
+    administrador: Mapped[Administrador | None] = relationship(lazy="joined")
 
 
 class DadosContratante(BaseCentral):

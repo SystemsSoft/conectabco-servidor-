@@ -58,7 +58,7 @@ def test_fluxo_do_representante_ate_a_implantacao(painel):  # noqa: F811
     for texto in ("Lima Imóveis", "529.982.247-25", "CRECI 12345-F RJ", "limaimoveis.com.br",
                   "Carlos Souza", "carlos@exemplo.com", "https://wa.me/5521977776666", "45 contratos"):
         assert texto in pagina, texto
-    sid = pagina.split("/plataforma/solicitacoes/")[1].split('"')[0]
+    sid = pagina.split('action="/plataforma/solicitacoes/')[1].split('"')[0]
 
     painel.post(f"/plataforma/solicitacoes/{sid}", data={
         "csrf": csrf, "situacao": "em_andamento", "resposta": "Apresentação marcada para 28/10."})  # fmt: skip
@@ -132,3 +132,30 @@ def test_menu_tecnologia_financeiro_e_comercial(painel):  # noqa: F811
         menu = r.text.split('aria-label="Áreas da plataforma"')[1].split("</nav>")[0]
         assert f'href="{caminho}" class="atual"' in menu and 'class="grupo atual"' not in menu
     assert 'class="atual">Solicitações' in painel.get("/plataforma/solicitacoes").text.split("</nav>")[0]
+
+
+def test_nova_imobiliaria_pelo_fluxo_de_solicitacao(painel):  # noqa: F811
+    csrf = _entrar(painel)
+    # O botão saiu de Imobiliárias e foi para Solicitações.
+    assert 'href="/plataforma/nova"' not in painel.get("/plataforma").text
+    pagina = painel.get("/plataforma/solicitacoes").text
+    assert 'href="/plataforma/solicitacoes/nova"' in pagina and "+ Nova imobiliária" in pagina
+
+    form = painel.get("/plataforma/solicitacoes/nova").text
+    assert 'name="cpf_cnpj"' in form and 'name="creci"' in form
+    assert painel.post("/plataforma/solicitacoes/nova", data=CORRETOR).status_code == 403
+    r = painel.post("/plataforma/solicitacoes/nova", data=CORRETOR | {"csrf": csrf, "uf": ""})
+    assert r.status_code == 422 and "Escolha o estado" in r.text and "Joana Lima" in r.text
+    r = painel.post("/plataforma/solicitacoes/nova", data=CORRETOR | {"csrf": csrf})
+    assert r.headers["location"] == "/plataforma/solicitacoes?msg=solicitacao-criada"
+
+    pagina = painel.get("/plataforma/solicitacoes").text
+    assert "Lima Imóveis" in pagina and "Cadastrada no painel" in pagina and "Dona da Plataforma" in pagina
+    assert 'class="contador">1<' in pagina
+    sid = pagina.split('action="/plataforma/solicitacoes/')[1].split('"')[0]
+    r = painel.post("/plataforma/nova", data={
+        "csrf": csrf, "slug": "lima", "nome": "Lima Imóveis", "admin_nome": "Joana Lima",
+        "admin_login": "joana", "admin_senha": "senha-da-joana", "solicitacao": sid} | CONTRATO)  # fmt: skip
+    assert r.headers["location"] == "/plataforma/lima?msg=criada"
+    implantadas = painel.get("/plataforma/solicitacoes?situacao=implantada").text
+    assert "Lima Imóveis" in implantadas and 'href="/plataforma/lima"' in implantadas

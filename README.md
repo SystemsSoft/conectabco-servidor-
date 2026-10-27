@@ -93,6 +93,9 @@ situação de cada um e a resposta da associação.
 
 No painel:
 
+- **Nova imobiliária** fica em Solicitações: o botão cadastra o corretor (os
+  mesmos campos da área do representante) como uma solicitação "cadastrada no
+  painel", que segue o mesmo fluxo até o **Implantar**.
 - **Solicitações** (`/plataforma/solicitacoes`, com o número de novas na aba):
   os dados do corretor e o contato do representante (e-mail e WhatsApp),
   filtros por situação (nova, em implantação, implantada, recusada), troca da

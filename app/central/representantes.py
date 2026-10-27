@@ -131,8 +131,11 @@ class DadosCorretor:
     observacoes: str = ""
 
 
-def enviar_solicitacao(db: Session, rep: m.Representante, d: DadosCorretor) -> m.SolicitacaoImplantacao:
-    """Confere os dados do corretor e registra a solicitação como nova."""
+def enviar_solicitacao(
+    db: Session, autor: m.Representante | m.Administrador, d: DadosCorretor
+) -> m.SolicitacaoImplantacao:
+    """Confere os dados do corretor e registra a solicitação como nova, em
+    nome do representante ou do administrador que a cadastrou no painel."""
     cpf_cnpj = re.sub(r"\D", "", d.cpf_cnpj or "")
     if not validar_cpf_cnpj(cpf_cnpj):
         raise RegraNegocio("CPF ou CNPJ inválido.")
@@ -144,7 +147,9 @@ def enviar_solicitacao(db: Session, rep: m.Representante, d: DadosCorretor) -> m
         raise RegraNegocio("Domínio inválido (ex.: joaoimoveis.com.br).")
     momento = agora()
     s = m.SolicitacaoImplantacao(
-        id=str(uuid.uuid4()), representante_id=rep.id, situacao="nova",
+        id=str(uuid.uuid4()), situacao="nova",
+        representante_id=autor.id if isinstance(autor, m.Representante) else None,
+        administrador_id=autor.id if isinstance(autor, m.Administrador) else None,
         nome=_texto(d.nome, "o nome do corretor", 150), cpf_cnpj=cpf_cnpj,
         creci=_texto(d.creci, "o CRECI", 30), email=_email(d.email), telefone=_telefone(d.telefone),
         nome_imobiliaria=_texto(d.nome_imobiliaria, "o nome da imobiliária", 200),
