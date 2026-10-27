@@ -1,6 +1,6 @@
 """Pré-cadastro do site institucional ("Quero me associar"): o formulário
-continua abrindo o WhatsApp da associação e, antes, envia os mesmos dados
-para cá (navigator.sendBeacon), onde viram um lead do Comercial."""
+envia os dados para cá, onde viram um lead do Comercial, e o site avisa que
+um representante entrará em contato."""
 
 import re
 import time
@@ -9,6 +9,7 @@ from collections import defaultdict, deque
 from urllib.parse import urlsplit
 
 from fastapi import APIRouter, Request, Response
+from fastapi.responses import JSONResponse
 
 from app.central import models as m
 from app.central import services as central
@@ -19,6 +20,7 @@ from app.core.tempo import agora
 router = APIRouter(include_in_schema=False)
 
 PERFIS = ("Corretor autônomo", "Imobiliária", "Em formação")
+_ROTULOS = {"nome": "Nome completo", "email": "E-mail", "whatsapp": "WhatsApp", "cidade": "Cidade / UF", "perfil": "Perfil"}
 LIMITE_POR_HORA = 5
 _EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 _envios: dict[str, deque] = defaultdict(deque)
@@ -51,7 +53,7 @@ def registrar(dados: dict[str, str]) -> m.LeadAssociacao:
     def campo(nome: str, maximo: int, obrigatorio: bool = True) -> str:
         valor = (dados.get(nome) or "").strip()
         if obrigatorio and not valor:
-            raise RegraNegocio(f"Campo obrigatório: {nome}.")
+            raise RegraNegocio(f"Preencha o campo {_ROTULOS.get(nome, nome)}.")
         return valor[:maximo]
 
     email = campo("email", 200).lower()
@@ -59,12 +61,12 @@ def registrar(dados: dict[str, str]) -> m.LeadAssociacao:
     if not _EMAIL.match(email):
         raise RegraNegocio("E-mail inválido.")
     if len(re.sub(r"\D", "", whatsapp)) < 10:
-        raise RegraNegocio("WhatsApp inválido.")
+        raise RegraNegocio("WhatsApp inválido: informe o DDD e o número.")
     perfil = campo("perfil", 40)
     if perfil not in PERFIS:
-        raise RegraNegocio("Perfil inválido.")
+        raise RegraNegocio("Selecione o perfil.")
     if dados.get("lgpd") != "on":
-        raise RegraNegocio("Sem o aceite da LGPD.")
+        raise RegraNegocio("Aceite o termo de uso dos dados (LGPD) para enviar.")
     momento = agora()
     lead = m.LeadAssociacao(
         id=str(uuid.uuid4()), nome=campo("nome", 150), email=email, whatsapp=whatsapp,
@@ -78,20 +80,28 @@ def registrar(dados: dict[str, str]) -> m.LeadAssociacao:
     return lead
 
 
+def _resposta(request: Request, status: int, mensagem: str = "") -> Response:
+    """Com a origem do site liberada (CORS), para ele ler o resultado."""
+    resposta = JSONResponse({"detail": mensagem}, status_code=status) if mensagem else Response(status_code=status)
+    if origem := request.headers.get("origin"):
+        resposta.headers["Access-Control-Allow-Origin"] = origem
+        resposta.headers["Vary"] = "Origin"
+    return resposta
+
+
 @router.post("/associacao/pre-cadastro")
 async def pre_cadastro(request: Request):
-    """Responde 204 sem detalhes: o site não espera resposta (o envio sai junto
-    com a abertura do WhatsApp)."""
+    """204 quando o pré-cadastro foi recebido; com erro, a mensagem para o site."""
     if not _origem_permitida(request):
         return Response(status_code=403)
     dados = {k: str(v) for k, v in (await request.form()).items()}
-    if dados.get("empresa_site"):  # campo escondido: só robôs preenchem
-        return Response(status_code=204)
+    if dados.get("empresa_site"):  # campo escondido: só robôs preenchem (e acham que deu certo)
+        return _resposta(request, 204)
     ip = request.client.host if request.client else ""
     if not _dentro_do_limite(ip):
-        return Response(status_code=429)
+        return _resposta(request, 429, "Muitos envios seguidos. Tente de novo mais tarde.")
     try:
         registrar(dados)
-    except RegraNegocio:
-        return Response(status_code=422)
-    return Response(status_code=204)
+    except RegraNegocio as e:
+        return _resposta(request, 422, e.mensagem)
+    return _resposta(request, 204)

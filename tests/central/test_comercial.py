@@ -27,7 +27,8 @@ def limpar_limite():
 
 
 def test_pre_cadastro_do_site_vira_lead(painel, monkeypatch):  # noqa: F811
-    assert painel.post(URL, data=LEAD | {"lgpd": ""}).status_code == 422
+    r = painel.post(URL, data=LEAD | {"lgpd": ""})
+    assert r.status_code == 422 and "LGPD" in r.json()["detail"]
     assert painel.post(URL, data=LEAD | {"perfil": "Outro"}).status_code == 422
     assert painel.post(URL, data=LEAD | {"empresa_site": "spam"}).status_code == 204  # robô: ignorado
     assert painel.post(URL, data=LEAD).status_code == 204
@@ -40,7 +41,15 @@ def test_pre_cadastro_do_site_vira_lead(painel, monkeypatch):  # noqa: F811
     assert painel.post(URL, data=LEAD, headers={"Origin": "https://malicioso.com"}).status_code == 403
     site = {"Origin": "https://xn--associaoconectabci-7sb3f.com.br"}
     pre_cadastro._envios.clear()
-    assert [painel.post(URL, data=LEAD, headers=site).status_code for _ in range(6)] == [204] * 5 + [429]
+    # O site lê o resultado (CORS só para ele) e mostra a mensagem de erro.
+    r = painel.post(URL, data=LEAD | {"whatsapp": "123"}, headers=site)
+    assert r.status_code == 422 and r.json()["detail"] == "WhatsApp inválido: informe o DDD e o número."
+    assert r.headers["access-control-allow-origin"] == site["Origin"]
+    r = painel.post(URL, data=LEAD, headers=site)
+    assert r.status_code == 204 and r.headers["access-control-allow-origin"] == site["Origin"]
+    pre_cadastro._envios.clear()
+    estados = [painel.post(URL, data=LEAD, headers=site) for _ in range(6)]
+    assert [r.status_code for r in estados] == [204] * 5 + [429] and "Tente de novo" in estados[-1].json()["detail"]
 
 
 def test_lead_vira_solicitacao(painel):  # noqa: F811

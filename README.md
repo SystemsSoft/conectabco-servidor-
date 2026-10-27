@@ -130,6 +130,29 @@ cada uma:
 passa para "Em implantação" nem "Implantada", e o botão **Implantar** não
 aparece (o servidor recusa mesmo pelo endereço direto, antes de criar o banco).
 
+#### Comercial (`/plataforma/comercial`)
+
+Menu **Comercial** (o número é de leads novos):
+
+- **Funil**: solicitações que entraram no período (este mês, 3 ou 12 meses,
+  tudo), pela etapa alcançada — entradas, 1º pagamento, em implantação,
+  implantadas — com a conversão de cada etapa, recusadas e o tempo médio da
+  entrada ao pagamento, do pagamento à implantação e da entrada à implantação.
+- **Representantes**: enviadas, pagas, implantadas, recusadas e conversão de
+  cada um no período (e as cadastradas no painel), mais os ativos sem envio há
+  30 dias ou mais, com o contato.
+- **Receita**: receita mensal (soma das mensalidades das ativas), ativas,
+  ticket médio, novas e canceladas no mês e a série dos últimos 12 meses. A
+  mensalidade e o dia do vencimento ficam no cartão **Plano** de cada
+  imobiliária (padrão do contrato: R$ 150,00, dia 5); desativar a imobiliária
+  conta como cancelamento.
+- **Leads do site**: o pré-cadastro "Quero me associar" do site institucional
+  vai direto para `POST /associacao/pre-cadastro` (só do site, com campo
+  armadilha contra robôs e até 5 por hora por IP) e o site avisa que um
+  representante entrará em contato — não abre mais o WhatsApp. Cada lead tem situação e anotação, e
+  **Criar solicitação** abre a solicitação de implantação já preenchida e
+  marca o lead como convertido.
+
 #### Infraestrutura (`/plataforma/infraestrutura`)
 
 Aba só de leitura com:
