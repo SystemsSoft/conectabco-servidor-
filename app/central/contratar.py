@@ -6,8 +6,10 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Form, Request, UploadFile
 from fastapi.responses import FileResponse, RedirectResponse, Response
+from starlette.datastructures import UploadFile as ArquivoEnviado
 
 from app.central import contratacao as cc
+from app.central import contrato_pdf as contrato_pdf_modelo
 from app.central import representantes as rep
 from app.central.painel import Db, _pagina, _so_pelo_servidor
 from app.central.pre_cadastro import _dentro_do_limite
@@ -39,15 +41,25 @@ def formulario(request: Request):
 
 @router.post("")
 async def iniciar(request: Request, db: Db):
-    dados = {k: str(v) for k, v in (await request.form()).items()}
+    formulario = await request.form()
+    logo = formulario.get("logo")
+    dados = {k: str(v) for k, v in formulario.items() if k != "logo"}
     if not _dentro_do_limite(f"contratar:{_ip(request)}"):
         return _pagina(request, "contratar/dados.html",
                        _ctx(dados=dados, erro="Muitas tentativas seguidas. Tente de novo mais tarde."), 429)  # fmt: skip
     try:
-        c = cc.iniciar(db, dados)
+        c = cc.iniciar(db, dados, logo if isinstance(logo, ArquivoEnviado) else None)
     except RegraNegocio as e:
         return _pagina(request, "contratar/dados.html", _ctx(dados=dados, erro=e.mensagem), 422)
     return RedirectResponse(f"/contratar/{c.token}", status_code=303)
+
+
+@router.get("/modelo.pdf")
+def modelo():
+    """O contrato em branco, para ler antes de contratar (link da landing page)."""
+    return FileResponse(contrato_pdf_modelo.MODELO, media_type="application/pdf",
+                        filename="contrato-conecta-do-brasil.pdf", content_disposition_type="inline",
+                        headers={"Cache-Control": "public, max-age=3600"})  # fmt: skip
 
 
 @router.get("/{token}")

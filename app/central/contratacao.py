@@ -20,8 +20,10 @@ from app.central import contratante as ct
 from app.central import financeiro as fin
 from app.central import models as m
 from app.central import representantes as rep
+from app.core.armazenamento import armazenamento, temporario
 from app.core.errors import NaoEncontrado, RegraNegocio
 from app.core.tempo import agora
+from app.core.ulid import novo_ulid
 
 # Os campos do contratante que o próprio interessado preenche (os de
 # implantação — servidor, DNS, data e horário — ficam com a associação).
@@ -42,8 +44,26 @@ def _normalizar(texto: str) -> str:
     return " ".join(sem_acento.lower().split())
 
 
-def iniciar(db: Session, formulario: dict[str, str]) -> m.ContratoDigital:
-    """Confere os dados do contratante e abre o contrato para assinatura."""
+def _conferir_logo(logo) -> tuple[bytes, str, str] | None:
+    """Logotipo opcional: JPG, JPEG ou PNG de até 2 MB, conferido pelo conteúdo.
+    Devolve (conteúdo, tipo, extensão)."""
+    from app.central.services import LOGO_MAX, validar_logo
+
+    if logo is None or not getattr(logo, "filename", ""):
+        return None
+    extensao = logo.filename.rsplit(".", 1)[-1].lower() if "." in logo.filename else ""
+    if extensao not in ("jpg", "jpeg", "png"):
+        raise RegraNegocio("Logotipo: envie uma imagem JPG, JPEG ou PNG.")
+    conteudo = logo.file.read(LOGO_MAX + 1)
+    if not conteudo:
+        return None
+    tipo = validar_logo(conteudo)  # PNG ou JPG de verdade, até 2 MB
+    return conteudo, tipo, "png" if tipo == "image/png" else "jpg"
+
+
+def iniciar(db: Session, formulario: dict[str, str], logo=None) -> m.ContratoDigital:
+    """Confere os dados do contratante (e o logotipo, se veio) e abre o
+    contrato para assinatura."""
     if formulario.get("lgpd") != "on":
         raise RegraNegocio("Aceite o uso dos seus dados para a contratação (LGPD).")
     dados = ct.DadosContrato(**{c: (formulario.get(c) or "").strip() for c in CAMPOS})
@@ -54,15 +74,28 @@ def iniciar(db: Session, formulario: dict[str, str]) -> m.ContratoDigital:
     site = (formulario.get("site") or "").strip().lower().removeprefix("https://").removeprefix("http://").strip("/")
     if site and not _DOMINIO.match(site):
         raise RegraNegocio("Endereço do site inválido (ex.: joaoimoveis.com.br).")
+    imagem = _conferir_logo(logo)
     guardados = {c: valores[c] for c in CAMPOS} | {"site": site}
     momento = agora()
     c = m.ContratoDigital(
         id=str(uuid.uuid4()), token=secrets.token_urlsafe(32), dados=guardados, email=email,
         situacao="aguardando", metodo="", assinatura_nome="", ip="", navegador="", hash_contrato="",
-        chave_assinado="", criado_em=momento, atualizado_em=momento,
+        chave_assinado="", logo_chave="", logo_tipo="", criado_em=momento, atualizado_em=momento,
     )  # fmt: skip
+    if imagem:
+        conteudo, tipo, _ = imagem
+        c.logo_chave, c.logo_tipo = f"plataforma/contratos/{c.id}/{novo_ulid()}", tipo
+        provisorio = temporario()
+        provisorio.write_bytes(conteudo)
+        armazenamento().gravar(c.logo_chave, provisorio, tipo, {"origem": "plataforma", "contrato": c.id})
     db.add(c)
-    db.commit()
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        if c.logo_chave:
+            armazenamento().apagar(c.logo_chave)
+        raise
     return c
 
 
@@ -136,6 +169,11 @@ def _finalizar(db: Session, c: m.ContratoDigital, conteudo: bytes, nome_arquivo:
     ))  # fmt: skip
     doc = fin.enviar_documento(db, s, None, io.BytesIO(conteudo), nome_arquivo, "contrato",
                                METODOS[c.metodo])  # fmt: skip
+    if c.logo_chave:  # o logotipo enviado acompanha a solicitação (e vai para o Implantar)
+        extensao = "png" if c.logo_tipo == "image/png" else "jpg"
+        with armazenamento().local(c.logo_chave) as caminho, caminho.open("rb") as arquivo:
+            fin.enviar_documento(db, s, None, arquivo, f"logotipo.{extensao}", "logo",
+                                 "Logotipo enviado na contratação")  # fmt: skip
     momento = agora()
     c.situacao, c.assinado_em, c.atualizado_em = "assinado", momento, momento
     c.ip, c.navegador = (ip or "")[:64], (navegador or "")[:300]

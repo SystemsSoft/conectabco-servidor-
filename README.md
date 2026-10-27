@@ -158,8 +158,12 @@ Menu **Comercial** (o número é de leads novos):
 O botão **Contratar o sistema** do site institucional abre
 **https://api.xn--associaoconectabci-7sb3f.com.br/contratar**:
 
-1. O interessado preenche os dados do CONTRATANTE (os do contrato, mais
-   e-mail e site) e aceita a LGPD.
+1. O interessado pode **ler o contrato em branco antes**
+   (`/contratar/modelo.pdf`, também linkado na landing page), preenche os
+   dados do CONTRATANTE (os do contrato, mais e-mail e site), envia o
+   **logotipo** se quiser (JPG, JPEG ou PNG, até 2 MB) e aceita a LGPD. O
+   logotipo vai para os documentos da solicitação e é usado no **Implantar**
+   se não escolherem outro.
 2. Vê o **contrato da associação preenchido** — o PDF original
    (`app/central/contrato/modelo.pdf`) com o quadro da página 1 e a data
    escritos por cima (`contrato_pdf.py`) — num link próprio, válido por 30 dias.

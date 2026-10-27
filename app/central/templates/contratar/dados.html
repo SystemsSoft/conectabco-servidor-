@@ -11,8 +11,12 @@
 <ol class="passos"><li class="atual">1. Seus dados</li><li>2. Contrato e assinatura</li><li>3. Pagamento e implantação</li></ol>
 <h1>Contrate o sistema imobiliário</h1>
 <p class="sub">Preencha os dados do contratante. Em seguida você lê o contrato já preenchido e assina online — aqui mesmo ou com a sua conta gov.br.</p>
-<div class="plano"><div><span>Mensalidade</span><br><strong>R$ 150,00</strong></div><div>Sistema de gestão, site imobiliário e acesso dos inquilinos · vencimento todo dia 05</div></div>
-<form method="post" action="/contratar" data-demora>
+<div class="plano">
+  <div><span>Mensalidade</span><br><strong>R$ 150,00</strong></div>
+  <div style="flex: 1 1 260px;">Sistema de gestão, site imobiliário e acesso dos inquilinos · vencimento todo dia 05</div>
+  <a class="botao claro" href="/contratar/modelo.pdf" target="_blank" rel="noopener">Ler o contrato antes (PDF)</a>
+</div>
+<form method="post" action="/contratar" enctype="multipart/form-data" data-demora>
   <div class="cartao">
     <h2>Contratante</h2>
     <h3>Identificação</h3>
@@ -47,6 +51,12 @@
       {{ campo("facebook", "Facebook", dica="facebook.com/...") }}
       {{ campo("tiktok", "TikTok", dica="@usuario") }}
       {{ campo("youtube", "YouTube", dica="youtube.com/@...") }}
+    </div>
+    <h3>Logotipo <span style="text-transform: none; letter-spacing: 0; font-weight: 400;">(opcional)</span></h3>
+    <div>
+      <label for="logo">Logotipo da imobiliária</label>
+      <input type="file" id="logo" name="logo" accept=".jpg,.jpeg,.png,image/jpeg,image/png">
+      <span class="ajuda">JPG, JPEG ou PNG, até 2 MB. Aparece no sistema, no site e nos documentos.{% if erro %} Se já tinha escolhido, selecione de novo.{% endif %}</span>
     </div>
     <div style="margin-top: 20px;"><label class="check"><input type="checkbox" name="lgpd" required{% if dados.lgpd %} checked{% endif %}> Autorizo o uso dos meus dados para a contratação e a implantação do sistema, conforme a LGPD.</label></div>
     <div class="acoes"><button class="botao" type="submit" data-enviando="Gerando o contrato...">Ver o contrato →</button></div>

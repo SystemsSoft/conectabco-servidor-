@@ -17,7 +17,7 @@ from app.core.tempo import agora
 from app.core.ulid import novo_ulid
 
 TIPOS = {"boleto": "Boleto de cobrança", "comprovante": "Comprovante de pagamento",
-         "contrato": "Contrato assinado", "outro": "Outro"}
+         "contrato": "Contrato assinado", "logo": "Logotipo", "outro": "Outro"}
 FILTROS = {"aguardando": "Aguardando 1º pagamento", "pago": "1º pagamento confirmado", "todas": "Todas"}
 MB = 1024 * 1024
 LIMITE = 10 * MB
@@ -142,6 +142,17 @@ def enviar_documento(db: Session, s: m.SolicitacaoImplantacao, admin: m.Administ
         armazenamento().apagar(d.chave)
         raise
     return d
+
+
+def logo(db: Session, s: m.SolicitacaoImplantacao) -> m.DocumentoSolicitacao | None:
+    """O logotipo mais recente guardado na solicitação (ex.: enviado na contratação)."""
+    return next((d for d in documentos(db, s) if d.tipo == "logo"), None)
+
+
+def conteudo(d: m.DocumentoSolicitacao) -> bytes:
+    loja, chave = onde(d)
+    with loja.local(chave) as caminho:
+        return caminho.read_bytes()
 
 
 def remover_documento(db: Session, d: m.DocumentoSolicitacao) -> None:

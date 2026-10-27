@@ -58,6 +58,10 @@ def test_dados_e_contrato_preenchido(painel):  # noqa: F811
         assert valor in texto, valor
     assert painel.get(f"{url}/contrato.pdf?baixar=1").headers["content-disposition"].startswith("attachment")
     assert "inválido ou expirado" in painel.get("/contratar/token-que-nao-existe").text
+    # O contrato em branco, para ler antes (link da landing page).
+    r = painel.get("/contratar/modelo.pdf")
+    assert r.status_code == 200 and r.headers["content-type"] == "application/pdf"
+    assert "CLÁUSULA 1ª" in _texto(r.content) and "Joana" not in _texto(r.content)
 
 
 def test_assinatura_eletronica_vira_solicitacao_e_lead(painel):  # noqa: F811
@@ -132,3 +136,47 @@ def test_link_expira_e_limite_de_tentativas(painel):  # noqa: F811
     pre_cadastro._envios.clear()
     estados = [painel.post("/contratar", data=DADOS).status_code for _ in range(6)]
     assert estados == [303] * 5 + [429]
+
+
+PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 64
+
+
+def test_contrato_antes_e_logotipo_ate_o_implantar(painel):  # noqa: F811
+    form = painel.get("/contratar").text
+    assert 'href="/contratar/modelo.pdf"' in form and "Ler o contrato antes" in form
+    assert 'enctype="multipart/form-data"' in form and 'name="logo"' in form
+
+    r = painel.post("/contratar", data=DADOS, files={"logo": ("logo.gif", b"GIF89a", "image/gif")})
+    assert r.status_code == 422 and "JPG, JPEG ou PNG" in r.text
+    r = painel.post("/contratar", data=DADOS, files={"logo": ("logo.png", b"nao e imagem", "image/png")})
+    assert r.status_code == 422 and "PNG ou JPG" in r.text
+    r = painel.post("/contratar", data=DADOS, files={"logo": ("marca.png", PNG, "image/png")})
+    assert r.status_code == 303
+    url = r.headers["location"]
+    with central.sessao() as db:
+        c = db.query(m.ContratoDigital).one()
+        assert c.logo_tipo == "image/png" and c.logo_chave.startswith(f"plataforma/contratos/{c.id}/")
+
+    painel.post(f"{url}/assinar", data={"nome": "Joana Lima", "aceite": "on"})
+    with central.sessao() as db:
+        s = db.get(m.SolicitacaoImplantacao, db.query(m.ContratoDigital).one().solicitacao_id)
+        from app.central import financeiro as fin
+
+        logo = fin.logo(db, s)
+        assert logo.nome == "logotipo.png" and fin.conteudo(logo) == PNG
+
+    # No Implantar, o logotipo enviado é usado se não escolherem outro.
+    from tests.central.test_painel import CONTRATO
+    from tests.central.test_representantes import _pagar
+
+    csrf = _entrar(painel)
+    _pagar(painel, csrf, s.id)
+    assert "Logotipo enviado pelo contratante" in painel.get(f"/plataforma/nova?solicitacao={s.id}").text
+    r = painel.post("/plataforma/nova", data={
+        "csrf": csrf, "slug": "lima", "nome": "Lima Imóveis", "admin_nome": "Joana Lima",
+        "admin_login": "joana", "admin_senha": "senha-da-joana", "solicitacao": s.id} | CONTRATO)  # fmt: skip
+    assert r.headers["location"] == "/plataforma/lima?msg=criada"
+    from app.core import imobiliarias
+
+    imobiliarias.limpar_cadastro()
+    assert central.logo(imobiliarias.buscar("lima")) == (PNG, "image/png")

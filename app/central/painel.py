@@ -223,7 +223,7 @@ def lista(request: Request, db: Db, admin: Admin):
 @router.get("/nova")
 def nova_pagina(request: Request, db: Db, admin: Admin, solicitacao: str = ""):
     """Com ?solicitacao=, já vem preenchida com os dados do corretor."""
-    dados, contrato = {}, ct.DadosContrato()
+    dados, contrato, logo_enviado = {}, ct.DadosContrato(), None
     if solicitacao:
         s = rep.solicitacao(db, solicitacao)
         try:
@@ -232,10 +232,12 @@ def nova_pagina(request: Request, db: Db, admin: Admin, solicitacao: str = ""):
             return _ir("/plataforma/solicitacoes", erro=e.mensagem)
         assinado = cc.da_solicitacao(db, s.id)  # contratou pelo site: o contratante do contrato
         contrato = cc.dados_para_contratante(assinado) if assinado else ct.da_solicitacao(s)
+        logo_enviado = fin.logo(db, s)
         dados = {"solicitacao": s.id, "nome": s.nome_imobiliaria, "slug": rep.sugestao_de_slug(s.nome_imobiliaria),
                  "dominios": s.dominio, "site_url": f"https://{s.dominio}" if s.dominio else "",
                  "admin_nome": s.nome, "admin_login": s.email.split("@")[0]}  # fmt: skip
-    return _pagina(request, "nova.html", _base(request, admin, dados=dados, contrato=contrato, ufs=rep.UFS))
+    return _pagina(request, "nova.html", _base(request, admin, dados=dados, contrato=contrato, ufs=rep.UFS,
+                                               logo_enviado=logo_enviado))  # fmt: skip
 
 
 @router.post("/nova")
@@ -261,6 +263,10 @@ def nova(
              "mensalidade": mensalidade, "dia_vencimento": dia_vencimento}  # fmt: skip
     try:
         conteudo = logo.file.read(central.LOGO_MAX + 1) if logo and logo.filename else None
+        if not conteudo and solicitacao:  # sem outro escolhido: o enviado pelo contratante
+            with central.sessao() as db:
+                if enviado := fin.logo(db, rep.solicitacao(db, solicitacao)):
+                    conteudo = fin.conteudo(enviado)
         if conteudo:
             central.validar_logo(conteudo)
         if solicitacao:  # antes de criar o banco: a trava do financeiro

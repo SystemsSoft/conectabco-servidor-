@@ -255,6 +255,9 @@ class ContratoDigital(BaseCentral):
     # SHA-256 do contrato aceito (eletrônica) ou do PDF assinado recebido (gov.br).
     hash_contrato: Mapped[str] = mapped_column(sa.String(64), default="")
     chave_assinado: Mapped[str] = mapped_column(sa.String(160), default="")
+    # Logotipo enviado no formulário (plataforma/contratos/<id>/<ULID>); vazio se não enviou.
+    logo_chave: Mapped[str] = mapped_column(sa.String(160), default="")
+    logo_tipo: Mapped[str] = mapped_column(sa.String(20), default="")
     solicitacao_id: Mapped[str | None] = mapped_column(
         sa.ForeignKey("solicitacoes_implantacao.id", ondelete="SET NULL"), index=True
     )

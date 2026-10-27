@@ -56,6 +56,12 @@
     <h2>Identidade visual</h2>
     {% with primaria=dados.cor_primaria or padrao.primaria, destaque=dados.cor_destaque or padrao.destaque, nome=dados.nome %}{% include "_paleta.html" %}{% endwith %}
     <div style="margin-top: 18px;">
+      {% if logo_enviado %}
+      <div style="display: flex; gap: 14px; align-items: center; margin-bottom: 12px;">
+        <img class="logo-grande" style="max-width: 120px; max-height: 70px;" src="/plataforma/financeiro/documentos/{{ logo_enviado.id }}" alt="Logotipo enviado">
+        <span class="ajuda" style="margin: 0;">Logotipo enviado pelo contratante: é o que será usado, a não ser que você escolha outro abaixo.</span>
+      </div>
+      {% endif %}
       <label for="logo">Logotipo <span style="font-weight: 400; color: var(--suave);">(opcional)</span></label>
       <input type="file" id="logo" name="logo" accept="image/png,image/jpeg">
       <span class="ajuda">PNG ou JPG, até 2 MB. Aparece no app, no site e nos documentos.</span>
