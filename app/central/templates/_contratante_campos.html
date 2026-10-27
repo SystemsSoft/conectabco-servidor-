@@ -1,0 +1,48 @@
+{# Campos do CONTRATANTE (os do contrato), mais e-mail, site e logotipo. Usado em /contratar e
+   na área do representante. Espera `dados` (dicionário) e `ufs`. #}
+{% macro campo(nome, rotulo, tipo="text", obrigatorio=false, ajuda="", dica="", maximo=200) %}
+<div>
+  <label for="{{ nome }}">{{ rotulo }}{% if obrigatorio %} *{% endif %}</label>
+  <input type="{{ tipo }}" id="{{ nome }}" name="{{ nome }}" value="{{ dados[nome] or '' }}"{% if obrigatorio %} required{% endif %} maxlength="{{ maximo }}"{% if dica %} placeholder="{{ dica }}"{% endif %}>
+  {% if ajuda %}<span class="ajuda">{{ ajuda }}</span>{% endif %}
+</div>
+{% endmacro %}
+    <h3 class="subtitulo">Identificação</h3>
+    <div class="grade">
+      {{ campo("nome", "Nome completo", obrigatorio=true, maximo=150) }}
+      {{ campo("nome_comercial", "Nome comercial", ajuda="Nome da imobiliária, se houver.") }}
+      {{ campo("cpf", "CPF", dica="000.000.000-00", ajuda="Informe CPF ou CNPJ.", maximo=14) }}
+      {{ campo("identidade", "Identidade (RG)", ajuda="Obrigatória com CPF.", maximo=30) }}
+      {{ campo("cnpj", "CNPJ", dica="00.000.000/0000-00", maximo=18) }}
+      {{ campo("creci", "CRECI", ajuda="CRECI ou CRECI PJ.", maximo=30) }}
+      {{ campo("creci_pj", "CRECI PJ", maximo=30) }}
+    </div>
+    <h3 class="subtitulo">Endereço</h3>
+    <div class="grade">
+      {{ campo("endereco", "Endereço", obrigatorio=true) }}
+      {{ campo("numero", "Número", obrigatorio=true, maximo=20) }}
+      {{ campo("bairro", "Bairro", obrigatorio=true, maximo=100) }}
+      {{ campo("cidade", "Cidade", obrigatorio=true, maximo=120) }}
+      <div><label for="uf">UF *</label><select id="uf" name="uf" required><option value="">Escolha</option>{% for uf in ufs %}<option value="{{ uf }}"{% if dados.uf == uf %} selected{% endif %}>{{ uf }}</option>{% endfor %}</select></div>
+      {{ campo("endereco_comercial", "Endereço comercial", ajuda="Se for diferente do endereço acima.", maximo=300) }}
+    </div>
+    <h3 class="subtitulo">Contato</h3>
+    <div class="grade">
+      {{ campo("email", "E-mail", tipo="email", obrigatorio=true) }}
+      {{ campo("telefone_1", "Telefone / WhatsApp", tipo="tel", obrigatorio=true, dica="(24) 99999-9999", maximo=30) }}
+      {{ campo("telefone_2", "Telefone 2", tipo="tel", maximo=30) }}
+    </div>
+    <h3 class="subtitulo">Internet <span style="text-transform: none; letter-spacing: 0; font-weight: 400;">(se tiver)</span></h3>
+    <div class="grade">
+      {{ campo("site", "Endereço do site", dica="suaimobiliaria.com.br", maximo=253) }}
+      {{ campo("instagram", "Instagram", dica="@usuario") }}
+      {{ campo("facebook", "Facebook", dica="facebook.com/...") }}
+      {{ campo("tiktok", "TikTok", dica="@usuario") }}
+      {{ campo("youtube", "YouTube", dica="youtube.com/@...") }}
+    </div>
+    <h3 class="subtitulo">Logotipo <span style="text-transform: none; letter-spacing: 0; font-weight: 400;">(opcional)</span></h3>
+    <div>
+      <label for="logo">Logotipo da imobiliária</label>
+      <input type="file" id="logo" name="logo" accept=".jpg,.jpeg,.png,image/jpeg,image/png">
+      <span class="ajuda">JPG, JPEG ou PNG, até 2 MB. Aparece no sistema, no site e nos documentos.{% if erro %} Se já tinha escolhido, selecione de novo.{% endif %}</span>
+    </div>

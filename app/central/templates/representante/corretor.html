@@ -1,0 +1,43 @@
+{% extends "representante/_base.html" %}
+{% block titulo %}{{ s.nome }}{% endblock %}
+{% block conteudo %}
+<p><a href="/representante">← Meus corretores</a></p>
+<div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 6px;">
+  <h1 style="margin: 0;">{{ s.nome }}</h1>
+  <span class="selo {{ {'nova': 'off', 'em_andamento': 'atencao', 'implantada': 'ok', 'recusada': 'erro'}[s.situacao] }}">{{ situacoes[s.situacao] }}</span>
+</div>
+<p class="sub">{{ s.nome_imobiliaria }} · {{ s.cidade }}/{{ s.uf }} · enviado em {{ s.criada_em.strftime("%d/%m/%Y") }}</p>
+{% if s.resposta %}<div class="aviso atencao"><strong>Associação:</strong> {{ s.resposta }}</div>{% endif %}
+
+<div class="cartao">
+  <h2>Contrato</h2>
+  {% if not contrato %}
+  <p class="sub" style="margin: 0;">Enviado sem contrato digital.</p>
+  {% elif contrato.situacao == "assinado" %}
+  <p style="margin: 0;"><span class="selo ok">Assinado</span> {{ metodos[contrato.metodo] }} em {{ contrato.assinado_em.strftime("%d/%m/%Y %H:%M") }}.</p>
+  {% elif expirado %}
+  <div class="aviso erro" style="margin: 0;">O link de assinatura expirou (vale 30 dias). Fale com a associação para gerar outro.</div>
+  {% else %}
+  <p style="margin-top: 0;"><span class="selo atencao">Aguardando assinatura</span> Envie o link abaixo para o corretor. Ele lê o contrato preenchido e assina eletronicamente ou com a conta gov.br (vale 30 dias).</p>
+  <div class="linha" style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+    <input type="text" id="link" value="{{ link }}" readonly style="flex: 1 1 320px; font-family: ui-monospace, Menlo, monospace; font-size: 13px;">
+    <button type="button" class="secundario" id="copiar">Copiar link</button>
+  </div>
+  <div class="acoes">
+    <a class="botao" href="https://wa.me/55{{ s.telefone | digitos }}?text={{ ('Olá, ' ~ s.nome.split()[0] ~ '! Segue o contrato do sistema imobiliário da Associação Conecta do Brasil para você ler e assinar: ' ~ link) | urlencode }}" target="_blank" rel="noopener">Enviar pelo WhatsApp</a>
+    <a class="botao secundario" href="mailto:{{ s.email }}?subject={{ 'Contrato - Associação Conecta do Brasil' | urlencode }}&body={{ ('Olá, ' ~ s.nome.split()[0] ~ '! Segue o link para ler e assinar o contrato do sistema imobiliário: ' ~ link) | urlencode }}">Enviar por e-mail</a>
+    <a class="botao secundario" href="{{ link }}" target="_blank" rel="noopener">Abrir para assinar agora</a>
+  </div>
+  {% endif %}
+</div>
+<script>
+  var botao = document.getElementById('copiar');
+  if (botao) botao.addEventListener('click', function () {
+    var campo = document.getElementById('link');
+    campo.select();
+    (navigator.clipboard ? navigator.clipboard.writeText(campo.value) : Promise.reject()).catch(function () { document.execCommand('copy'); });
+    botao.textContent = 'Link copiado!';
+    setTimeout(function () { botao.textContent = 'Copiar link'; }, 2500);
+  });
+</script>
+{% endblock %}
