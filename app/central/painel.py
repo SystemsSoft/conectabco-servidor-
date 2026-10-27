@@ -251,6 +251,16 @@ def infraestrutura(request: Request, db: Db, admin: Admin):
     return _pagina(request, "infraestrutura.html", ctx)
 
 
+@router.get("/financeiro")
+def financeiro(request: Request, admin: Admin):
+    return _pagina(request, "em_breve.html", _base(request, admin, area="Financeiro"))
+
+
+@router.get("/comercial")
+def comercial(request: Request, admin: Admin):
+    return _pagina(request, "em_breve.html", _base(request, admin, area="Comercial"))
+
+
 @router.post("/infraestrutura")
 def atualizar_infraestrutura(admin: Admin, csrf: Annotated[str, Form()] = ""):
     _conferir(admin, csrf)

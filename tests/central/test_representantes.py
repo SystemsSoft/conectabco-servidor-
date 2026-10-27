@@ -109,3 +109,21 @@ def test_caminhos_do_painel_nao_viram_imobiliaria(plataforma):
     for slug in ("solicitacoes", "representantes"):
         with central.sessao() as db, pytest.raises(RegraNegocio, match="reservado"):
             central.validar_nova(db, slug, "X")
+
+
+def test_menu_tecnologia_financeiro_e_comercial(painel):  # noqa: F811
+    _entrar(painel)
+    pagina = painel.get("/plataforma").text
+    menu = pagina.split('aria-label="Áreas da plataforma"')[1].split("</nav>")[0]
+    assert menu.index("Tecnologia") < menu.index("Financeiro") < menu.index("Comercial")
+    # Imobiliárias, Solicitações, Representantes e Infraestrutura ficam dentro de Tecnologia.
+    tecnologia = menu.split("<details")[1].split("</details>")[0]
+    for rotulo in ("Imobiliárias", "Solicitações", "Representantes", "Infraestrutura"):
+        assert rotulo in tecnologia and rotulo not in menu.split("</details>")[1]
+    assert 'class="grupo atual"' in menu
+    for caminho, area in (("/plataforma/financeiro", "Financeiro"), ("/plataforma/comercial", "Comercial")):
+        r = painel.get(caminho)
+        assert r.status_code == 200 and "Em breve" in r.text
+        menu = r.text.split('aria-label="Áreas da plataforma"')[1].split("</nav>")[0]
+        assert f'href="{caminho}" class="atual"' in menu and 'class="grupo atual"' not in menu
+    assert 'class="atual">Solicitações' in painel.get("/plataforma/solicitacoes").text.split("</nav>")[0]

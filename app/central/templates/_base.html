@@ -85,6 +85,18 @@
     header.topo .abas a:hover { opacity: 1; text-decoration: none; background: rgba(255,255,255,.08); }
     header.topo .abas a.atual { opacity: 1; background: rgba(255,255,255,.14); }
     header.topo .abas .contador { display: inline-block; min-width: 18px; padding: 0 6px; margin-left: 4px; border-radius: 999px; background: #f5c432; color: #151b2e; font-size: 11px; font-weight: 700; line-height: 18px; text-align: center; }
+    header.topo .abas { align-items: center; }
+    header.topo .grupo { position: relative; }
+    header.topo .grupo > summary { list-style: none; cursor: pointer; color: #fff; opacity: .7; padding: 6px 10px; border-radius: 8px; font-size: 14px; margin: 0; user-select: none; }
+    header.topo .grupo > summary::-webkit-details-marker { display: none; }
+    header.topo .grupo > summary::after { content: ""; display: inline-block; margin-left: 7px; width: 6px; height: 6px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: translateY(-2px) rotate(45deg); }
+    header.topo .grupo[open] > summary::after { transform: translateY(1px) rotate(-135deg); }
+    header.topo .grupo > summary:hover, header.topo .grupo[open] > summary { opacity: 1; background: rgba(255,255,255,.08); }
+    header.topo .grupo.atual > summary { opacity: 1; background: rgba(255,255,255,.14); }
+    header.topo .submenu { position: absolute; top: calc(100% + 8px); left: 0; z-index: 20; min-width: 210px; padding: 6px; background: #fff; border: 1px solid var(--linha); border-radius: 12px; box-shadow: 0 12px 32px rgba(21,27,46,.22); display: flex; flex-direction: column; }
+    header.topo .submenu a { color: var(--tinta); opacity: 1; padding: 9px 12px; border-radius: 8px; font-size: 14px; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+    header.topo .submenu a:hover { background: var(--fundo); }
+    header.topo .submenu a.atual { background: var(--tinta); color: #fff; }
     @media (max-width: 560px) { header.topo .dentro { flex-wrap: wrap; } header.topo .abas { order: 3; margin-left: 0; width: 100%; } }
     .numero { font-size: 28px; font-weight: 700; letter-spacing: -.01em; line-height: 1.2; }
     .rotulo { color: var(--suave); font-size: 12.5px; }
@@ -111,14 +123,22 @@
       {% block menu %}
       {% if admin %}
       {% set caminho = request.url.path %}
-      {% set secoes = [("/plataforma/solicitacoes", "Solicitações"), ("/plataforma/representantes", "Representantes"), ("/plataforma/infraestrutura", "Infraestrutura")] %}
-      {% set aba = namespace(outra=false) %}
-      {% for destino, _ in secoes %}{% if caminho.startswith(destino) %}{% set aba.outra = true %}{% endif %}{% endfor %}
-      <nav class="abas">
-        <a href="/plataforma"{% if not aba.outra %} class="atual"{% endif %}>Imobiliárias</a>
-        {% for destino, rotulo in secoes %}
-        <a href="{{ destino }}"{% if caminho.startswith(destino) %} class="atual"{% endif %}>{{ rotulo }}{% if destino.endswith("solicitacoes") and novas %} <span class="contador">{{ novas }}</span>{% endif %}</a>
-        {% endfor %}
+      {% set area = "financeiro" if caminho.startswith("/plataforma/financeiro") else ("comercial" if caminho.startswith("/plataforma/comercial") else "tecnologia") %}
+      {% set tecnologia = [("/plataforma/solicitacoes", "Solicitações"), ("/plataforma/representantes", "Representantes"), ("/plataforma/infraestrutura", "Infraestrutura")] %}
+      {% set item = namespace(destino="/plataforma") %}
+      {% for destino, _ in tecnologia %}{% if caminho.startswith(destino) %}{% set item.destino = destino %}{% endif %}{% endfor %}
+      <nav class="abas" aria-label="Áreas da plataforma">
+        <details class="grupo{% if area == 'tecnologia' %} atual{% endif %}">
+          <summary>Tecnologia{% if novas %} <span class="contador">{{ novas }}</span>{% endif %}</summary>
+          <div class="submenu">
+            <a href="/plataforma"{% if area == "tecnologia" and item.destino == "/plataforma" %} class="atual"{% endif %}>Imobiliárias</a>
+            {% for destino, rotulo in tecnologia %}
+            <a href="{{ destino }}"{% if item.destino == destino and area == "tecnologia" %} class="atual"{% endif %}>{{ rotulo }}{% if destino.endswith("solicitacoes") and novas %} <span class="contador">{{ novas }}</span>{% endif %}</a>
+            {% endfor %}
+          </div>
+        </details>
+        <a href="/plataforma/financeiro"{% if area == "financeiro" %} class="atual"{% endif %}>Financeiro</a>
+        <a href="/plataforma/comercial"{% if area == "comercial" %} class="atual"{% endif %}>Comercial</a>
       </nav>
       <div class="quem">
         <span>{{ admin.nome }}</span>
@@ -143,6 +163,13 @@
           el.style.setProperty(el.dataset.prop || 'background', campo.value);
         });
       });
+    });
+    // Menu Tecnologia: fecha ao clicar fora ou com Esc.
+    document.addEventListener('click', function (e) {
+      document.querySelectorAll('details.grupo[open]').forEach(function (g) { if (!g.contains(e.target)) g.removeAttribute('open'); });
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') document.querySelectorAll('details.grupo[open]').forEach(function (g) { g.removeAttribute('open'); });
     });
     // Evita enviar duas vezes (criar uma imobiliária leva alguns segundos).
     document.querySelectorAll('form[data-demora]').forEach(function (f) {
