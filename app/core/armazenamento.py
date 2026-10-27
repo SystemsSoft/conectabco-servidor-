@@ -22,11 +22,22 @@ from pathlib import Path
 from urllib.parse import quote
 
 from app.core.config import get_settings
-from app.core.errors import NaoEncontrado
+from app.core.errors import NaoEncontrado, RegraNegocio
 from app.core.imobiliarias import Imobiliaria, atual
 from app.core.ulid import novo_ulid, ulid_valido
 
 log = logging.getLogger("armazenamento")
+
+
+class ArmazenamentoIndisponivel(RegraNegocio):
+    """O arquivo não pôde ser guardado (S3 fora do ar ou sem permissão): quem
+    chamou desfaz o que gravou e a pessoa pode tentar de novo."""
+
+    status_code = 503
+
+    def __init__(self):
+        super().__init__("Não foi possível guardar o arquivo agora. Tente de novo em alguns minutos; "
+                         "se continuar, fale com a associação.")  # fmt: skip
 
 RAIZ = "imobiliarias"
 MINIATURAS = "miniaturas"

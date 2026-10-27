@@ -2,6 +2,7 @@
 cobrança, comprovantes de pagamento) e a confirmação do 1º pagamento, que
 libera a Tecnologia para implantar."""
 
+import logging
 import uuid
 from datetime import date
 from pathlib import Path
@@ -11,11 +12,12 @@ import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
 from app.central import models as m
-from app.core.armazenamento import armazenamento, temporario
+from app.core.armazenamento import ArmazenamentoIndisponivel, armazenamento, temporario
 from app.core.errors import NaoEncontrado, RegraNegocio
 from app.core.tempo import agora
 from app.core.ulid import novo_ulid
 
+log = logging.getLogger("financeiro")
 TIPOS = {"boleto": "Boleto de cobrança", "comprovante": "Comprovante de pagamento",
          "contrato": "Contrato assinado", "logo": "Logotipo", "outro": "Outro"}
 FILTROS = {"aguardando": "Aguardando 1º pagamento", "pago": "1º pagamento confirmado", "todas": "Todas"}
@@ -130,8 +132,12 @@ def enviar_documento(db: Session, s: m.SolicitacaoImplantacao, admin: m.Administ
             descricao=(descricao or "").strip()[:300], tipo_mime=tipo_mime, tamanho=tamanho,
             chave=f"{_PREFIXO}/{s.id}/{novo_ulid()}", enviado_por_id=admin.id if admin else None, criado_em=agora(),
         )  # fmt: skip
-        armazenamento().gravar(d.chave, provisorio, tipo_mime,
-                               {"origem": "plataforma", "solicitacao": s.id, "documento": d.id, "tipo": tipo})  # fmt: skip
+        try:
+            armazenamento().gravar(d.chave, provisorio, tipo_mime,
+                                   {"origem": "plataforma", "solicitacao": s.id, "documento": d.id, "tipo": tipo})  # fmt: skip
+        except Exception:
+            log.exception("Falha ao guardar o documento %s da solicitação %s", d.id, s.id)
+            raise ArmazenamentoIndisponivel() from None
     finally:
         provisorio.unlink(missing_ok=True)
     db.add(d)

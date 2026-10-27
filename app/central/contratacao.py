@@ -5,6 +5,7 @@ ITI e envia de volta). Assinado, vira solicitação de implantação (Financeiro
 Tecnologia) e lead convertido no Comercial, com o contrato anexado."""
 
 import io
+import logging
 import re
 import secrets
 import unicodedata
@@ -20,10 +21,13 @@ from app.central import contratante as ct
 from app.central import financeiro as fin
 from app.central import models as m
 from app.central import representantes as rep
-from app.core.armazenamento import armazenamento, temporario
+from app.core.armazenamento import ArmazenamentoIndisponivel, armazenamento, temporario
 from app.core.errors import NaoEncontrado, RegraNegocio
 from app.core.tempo import agora
 from app.core.ulid import novo_ulid
+
+log = logging.getLogger("contratacao")
+
 
 # Os campos do contratante que o próprio interessado preenche (os de
 # implantação — servidor, DNS, data e horário — ficam com a associação).
@@ -88,8 +92,37 @@ def _novo_contrato(guardados: dict, email: str, imagem) -> m.ContratoDigital:
         c.logo_chave, c.logo_tipo = f"plataforma/contratos/{c.id}/{novo_ulid()}", tipo
         provisorio = temporario()
         provisorio.write_bytes(conteudo)
-        armazenamento().gravar(c.logo_chave, provisorio, tipo, {"origem": "plataforma", "contrato": c.id})
+        try:
+            armazenamento().gravar(c.logo_chave, provisorio, tipo, {"origem": "plataforma", "contrato": c.id})
+        except Exception:
+            log.exception("Falha ao guardar o logotipo do contrato %s", c.id)
+            provisorio.unlink(missing_ok=True)
+            raise ArmazenamentoIndisponivel() from None
     return c
+
+
+def _desfazer(db: Session, s: m.SolicitacaoImplantacao | None, c: m.ContratoDigital | None,
+              apagar_contrato: bool) -> None:
+    """Desfaz o que já foi gravado quando um arquivo não pôde ser guardado: os
+    documentos e a solicitação criada agora e, se pedido, o contrato."""
+    db.rollback()
+    if s is not None:
+        for d in fin.documentos(db, s):
+            try:
+                fin.remover_documento(db, d)
+            except Exception:  # noqa: BLE001 - segue desfazendo o resto
+                log.exception("Falha ao remover o documento %s", d.id)
+        if (ainda := db.get(m.SolicitacaoImplantacao, s.id)) is not None:
+            db.delete(ainda)
+    if c is not None and apagar_contrato:
+        if (ainda := db.get(m.ContratoDigital, c.id)) is not None:
+            db.delete(ainda)
+        if c.logo_chave:
+            try:
+                armazenamento().apagar(c.logo_chave)
+            except Exception:  # noqa: BLE001
+                log.exception("Falha ao apagar o logotipo %s", c.logo_chave)
+    db.commit()
 
 
 def _gravar(db: Session, c: m.ContratoDigital) -> None:
@@ -158,18 +191,23 @@ def enviar_pelo_representante(db: Session, representante: m.Representante, formu
         if c.logo_chave:
             armazenamento().apagar(c.logo_chave)
         raise
-    c.solicitacao_id = s.id
-    _anexar_logo(db, c, s)
-    if anexo is not None:
-        digital = b"/ByteRange" in anexo and b"/Sig" in anexo
-        doc = fin.enviar_documento(
-            db, s, None, io.BytesIO(anexo), "contrato-assinado.pdf", "contrato",
-            "Anexado pelo representante" + (" (com assinatura digital)" if digital else " (sem assinatura digital: confira)"),
-        )  # fmt: skip
-        momento = agora()
-        c.situacao, c.metodo, c.assinado_em, c.atualizado_em = "assinado", "anexado", momento, momento
-        c.hash_contrato, c.chave_assinado = contrato_pdf.sha256(anexo), doc.chave
-    db.commit()
+    try:
+        c.solicitacao_id = s.id
+        _anexar_logo(db, c, s)
+        if anexo is not None:
+            digital = b"/ByteRange" in anexo and b"/Sig" in anexo
+            doc = fin.enviar_documento(
+                db, s, None, io.BytesIO(anexo), "contrato-assinado.pdf", "contrato",
+                "Anexado pelo representante" + (" (com assinatura digital)" if digital else " (sem assinatura digital: confira)"),
+            )  # fmt: skip
+            momento = agora()
+            c.situacao, c.metodo, c.assinado_em, c.atualizado_em = "assinado", "anexado", momento, momento
+            c.hash_contrato, c.chave_assinado = contrato_pdf.sha256(anexo), doc.chave
+        db.commit()
+    except Exception:
+        log.exception("Falha ao guardar os arquivos do envio do representante %s", representante.id)
+        _desfazer(db, s, c, apagar_contrato=True)
+        raise ArmazenamentoIndisponivel() from None
     return s, c
 
 
@@ -245,31 +283,39 @@ def _finalizar(db: Session, c: m.ContratoDigital, conteudo: bytes, nome_arquivo:
                navegador: str) -> m.SolicitacaoImplantacao:  # fmt: skip
     """Assinado. Pelo site: vira solicitação de implantação (com o contrato e o
     logotipo) e lead convertido. Pelo link de um representante: o contrato
-    entra na solicitação que ele já enviou."""
+    entra na solicitação que ele já enviou. Se o arquivo não puder ser
+    guardado, nada fica pela metade e o contrato continua aguardando."""
     d = c.dados
     nova = c.solicitacao_id is None
-    if nova:
-        observacao = f"Contratou pelo site: contrato assinado ({METODOS[c.metodo].lower()})."
-        s = rep.enviar_solicitacao(db, None, _corretor(d, c.email, rep.DadosCorretor(observacoes=observacao)))
-    else:
-        s = rep.solicitacao(db, c.solicitacao_id)
-    doc = fin.enviar_documento(db, s, None, io.BytesIO(conteudo), nome_arquivo, "contrato",
-                               METODOS[c.metodo])  # fmt: skip
-    if nova:
-        _anexar_logo(db, c, s)
-    momento = agora()
-    c.situacao, c.assinado_em, c.atualizado_em = "assinado", momento, momento
-    c.ip, c.navegador = (ip or "")[:64], (navegador or "")[:300]
-    c.chave_assinado, c.solicitacao_id = doc.chave, s.id
-    if nova:
-        db.add(m.LeadAssociacao(
-            id=str(uuid.uuid4()), nome=d["nome"], email=c.email, whatsapp=d["telefone_1"],
-            creci=d.get("creci") or d.get("creci_pj") or "", cidade=f"{d['cidade']}/{d['uf']}",
-            perfil="Contratação online", quer_sistema=True, situacao="convertido",
-            anotacao=f"Contrato assinado pelo site ({METODOS[c.metodo].lower()}).", solicitacao_id=s.id,
-            criado_em=momento, atualizado_em=momento,
-        ))  # fmt: skip
-    db.commit()
+    s = None
+    try:
+        if nova:
+            observacao = f"Contratou pelo site: contrato assinado ({METODOS[c.metodo].lower()})."
+            s = rep.enviar_solicitacao(db, None, _corretor(d, c.email, rep.DadosCorretor(observacoes=observacao)))
+        else:
+            s = rep.solicitacao(db, c.solicitacao_id)
+        doc = fin.enviar_documento(db, s, None, io.BytesIO(conteudo), nome_arquivo, "contrato",
+                                   METODOS[c.metodo])  # fmt: skip
+        if nova:
+            _anexar_logo(db, c, s)
+        momento = agora()
+        c.situacao, c.assinado_em, c.atualizado_em = "assinado", momento, momento
+        c.ip, c.navegador = (ip or "")[:64], (navegador or "")[:300]
+        c.chave_assinado, c.solicitacao_id = doc.chave, s.id
+        if nova:
+            db.add(m.LeadAssociacao(
+                id=str(uuid.uuid4()), nome=d["nome"], email=c.email, whatsapp=d["telefone_1"],
+                creci=d.get("creci") or d.get("creci_pj") or "", cidade=f"{d['cidade']}/{d['uf']}",
+                perfil="Contratação online", quer_sistema=True, situacao="convertido",
+                anotacao=f"Contrato assinado pelo site ({METODOS[c.metodo].lower()}).", solicitacao_id=s.id,
+                criado_em=momento, atualizado_em=momento,
+            ))  # fmt: skip
+        db.commit()
+    except Exception:
+        log.exception("Falha ao guardar o contrato assinado %s", c.id)
+        # Pelo site, a solicitação criada agora sai junto; o contrato volta a aguardar.
+        _desfazer(db, s if nova else None, None, apagar_contrato=False)
+        raise ArmazenamentoIndisponivel() from None
     return s
 
 

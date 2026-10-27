@@ -180,3 +180,54 @@ def test_contrato_antes_e_logotipo_ate_o_implantar(painel):  # noqa: F811
 
     imobiliarias.limpar_cadastro()
     assert central.logo(imobiliarias.buscar("lima")) == (PNG, "image/png")
+
+
+def test_s3_recusando_nao_deixa_nada_pela_metade(painel, monkeypatch):  # noqa: F811
+    """Ex.: política do IAM sem plataforma/*: mensagem clara, nada pela metade,
+    e dá para tentar de novo depois."""
+    from app.core import armazenamento as arm
+    from tests.central.test_representantes import ANEXO, CONTRATANTE, _cadastrar_representante, _entrar_representante
+
+    gravar = arm.Disco.gravar
+
+    def recusar(self, chave, *args):
+        if chave.startswith("plataforma/"):
+            raise RuntimeError("AccessDenied")
+        return gravar(self, chave, *args)
+
+    url = _iniciar(painel)
+    monkeypatch.setattr(arm.Disco, "gravar", recusar)
+
+    # Pelo site: a solicitação não fica criada sem contrato.
+    r = painel.post(f"{url}/assinar", data={"nome": "Joana Lima", "aceite": "on"})
+    assert r.status_code == 422 and "Tente de novo em alguns minutos" in r.text
+    with central.sessao() as db:
+        assert db.query(m.SolicitacaoImplantacao).count() == 0 and db.query(m.LeadAssociacao).count() == 0
+        assert db.query(m.ContratoDigital).one().situacao == "aguardando"
+    r = painel.post("/contratar", data=DADOS, files={"logo": ("l.png", b"\x89PNG\r\n\x1a\n" + b"0" * 9, "image/png")})
+    assert r.status_code == 422 and "Tente de novo" in r.text
+
+    # Representante: com o contrato anexado, nada é criado; pelo link, a solicitação fica e o contrato aguarda.
+    csrf = _entrar(painel)
+    _cadastrar_representante(painel, csrf)
+    csrf_rep = _entrar_representante(painel)
+    r = painel.post("/representante/novo", data=CONTRATANTE | {"csrf": csrf_rep, "contrato": "anexo"}, files=ANEXO)
+    assert r.status_code == 422 and "Tente de novo" in r.text
+    with central.sessao() as db:
+        assert db.query(m.SolicitacaoImplantacao).count() == 0 and db.query(m.ContratoDigital).count() == 1
+    link = painel.post("/representante/novo", data=CONTRATANTE | {"csrf": csrf_rep, "contrato": "link"})
+    pagina = painel.get(link.headers["location"]).text
+    token = pagina.split('id="link" value="')[1].split('"')[0].rsplit("/", 1)[1]
+    r = painel.post(f"/contratar/{token}/assinar", data={"nome": "Joana Lima", "aceite": "on"})
+    assert r.status_code == 422 and "Tente de novo" in r.text
+    with central.sessao() as db:
+        assert db.query(m.SolicitacaoImplantacao).count() == 1 and db.query(m.DocumentoSolicitacao).count() == 0
+        assert cc.por_token(db, token).situacao == "aguardando"
+
+    # Corrigida a permissão, os mesmos links funcionam.
+    monkeypatch.setattr(arm.Disco, "gravar", gravar)
+    assert painel.post(f"/contratar/{token}/assinar", data={"nome": "Joana Lima", "aceite": "on"}).status_code == 303
+    assert painel.post(f"{url}/assinar", data={"nome": "Joana Lima", "aceite": "on"}).status_code == 303
+    with central.sessao() as db:
+        assert db.query(m.SolicitacaoImplantacao).count() == 2
+        assert {c.situacao for c in db.query(m.ContratoDigital)} == {"assinado"}

@@ -92,3 +92,14 @@ def test_recusada_nao_tem_pagamento(painel):  # noqa: F811
     assert "recusada" in r.headers["location"].lower()
     assert "Lima Imóveis" not in painel.get("/plataforma/financeiro").text
     assert "Lima Imóveis" in painel.get("/plataforma/financeiro?filtro=todas").text
+
+
+def test_documento_com_s3_recusando_mostra_aviso(painel, monkeypatch):  # noqa: F811
+    from app.core import armazenamento as arm
+
+    csrf = _entrar(painel)
+    sid = _solicitacao(painel, csrf)
+    monkeypatch.setattr(arm.Disco, "gravar", lambda *a: (_ for _ in ()).throw(RuntimeError("AccessDenied")))
+    r = _enviar(painel, csrf, sid)
+    assert "Tente%20de%20novo" in r.headers["location"]
+    assert "Nenhum documento guardado" in painel.get(f"/plataforma/financeiro/{sid}").text
