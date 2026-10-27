@@ -1,0 +1,41 @@
+{% extends "_base.html" %}
+{% block titulo %}Funil · Comercial{% endblock %}
+{% macro dias(valor) %}{% if valor is none %}—{% else %}{{ ("%.1f" | format(valor)) | replace(".", ",") }} dia{{ "s" if valor != 1 }}{% endif %}{% endmacro %}
+{% block conteudo %}
+<div style="margin-bottom: 16px;">
+  <h1>Funil de implantação</h1>
+  <p class="sub" style="margin: 0;">Solicitações que entraram no período, pela etapa que já alcançaram.</p>
+</div>
+{% include "_periodo.html" %}
+<div class="grade" style="margin-bottom: 18px;">
+  <div class="cartao" style="margin: 0;"><div class="rotulo">Entradas</div><div class="numero">{{ funil.entradas }}</div></div>
+  <div class="cartao" style="margin: 0;"><div class="rotulo">Implantadas</div><div class="numero">{{ funil.implantadas }}</div><span class="rotulo">{% if funil.entradas %}{{ (100 * funil.implantadas / funil.entradas) | round | int }}% das entradas{% else %}—{% endif %}</span></div>
+  <div class="cartao" style="margin: 0;"><div class="rotulo">Aguardando 1º pagamento</div><div class="numero">{{ funil.aguardando }}</div></div>
+  <div class="cartao" style="margin: 0;"><div class="rotulo">Recusadas</div><div class="numero">{{ funil.recusadas }}</div></div>
+</div>
+<div class="cartao">
+  <h2>Etapas</h2>
+  {% if funil.entradas %}
+  <div class="funil">
+    {% for e in funil.etapas %}
+    <div class="etapa" title="{{ e.rotulo }}: {{ e.valor }}{% if e.taxa is not none %} ({{ e.taxa }}% da etapa anterior){% endif %}">
+      <div class="nome">{{ e.rotulo }}</div>
+      <div class="trilho"><span style="width: {{ (100 * e.valor / funil.entradas) | round(1) }}%"></span></div>
+      <div class="valor"><strong>{{ e.valor }}</strong>{% if e.taxa is not none %} <span class="rotulo">· {{ e.taxa }}%</span>{% endif %}</div>
+    </div>
+    {% endfor %}
+  </div>
+  <p class="ajuda" style="margin-top: 12px;">O percentual é a conversão em relação à etapa anterior.</p>
+  {% else %}
+  <div class="vazio">Nenhuma solicitação entrou neste período.</div>
+  {% endif %}
+</div>
+<div class="cartao">
+  <h2>Tempo médio</h2>
+  <div class="grade">
+    <div><div class="rotulo">Da entrada ao 1º pagamento</div><div class="numero" style="font-size: 22px;">{{ dias(funil.dias_ate_pagamento) }}</div></div>
+    <div><div class="rotulo">Do pagamento à implantação</div><div class="numero" style="font-size: 22px;">{{ dias(funil.dias_ate_implantacao) }}</div></div>
+    <div><div class="rotulo">Da entrada à implantação</div><div class="numero" style="font-size: 22px;">{{ dias(funil.dias_total) }}</div></div>
+  </div>
+</div>
+{% endblock %}

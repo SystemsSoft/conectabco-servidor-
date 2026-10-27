@@ -1,0 +1,43 @@
+{% extends "_base.html" %}
+{% block titulo %}Leads do site · Comercial{% endblock %}
+{% block conteudo %}
+<div style="margin-bottom: 16px;">
+  <h1>Leads do site</h1>
+  <p class="sub" style="margin: 0;">Pré-cadastros do “Quero me associar” do site institucional. Quando avançar, crie a solicitação de implantação.</p>
+</div>
+<nav class="filtros">
+  {% for chave, rotulo in situacoes.items() %}
+  <a href="?situacao={{ chave }}"{% if situacao == chave %} class="atual"{% endif %}>{{ rotulo }} <span>{{ contagem[chave] }}</span></a>
+  {% endfor %}
+  <a href="?situacao=todos"{% if situacao == "todos" %} class="atual"{% endif %}>Todos <span>{{ contagem.todos }}</span></a>
+</nav>
+{% for x in leads %}
+<div class="cartao solicitacao">
+  <div class="cabeca">
+    <div>
+      <h2 style="margin: 0;">{{ x.nome }}</h2>
+      <span class="rotulo">{{ x.perfil }} · {{ x.cidade }} · {{ x.criado_em.strftime("%d/%m/%Y %H:%M") }}</span>
+    </div>
+    <span class="selo {{ {'novo': 'atencao', 'em_contato': 'off', 'convertido': 'ok', 'descartado': 'erro'}[x.situacao] }}">{{ situacoes[x.situacao] }}</span>
+  </div>
+  <p style="margin: 0 0 12px;">
+    <a href="https://wa.me/55{{ x.whatsapp | digitos }}" target="_blank" rel="noopener">{{ x.whatsapp }}</a> · <a href="mailto:{{ x.email }}">{{ x.email }}</a>
+    {% if x.creci %} · CRECI {{ x.creci }}{% endif %}{% if x.quer_sistema %} · <span class="selo ok">Quer conhecer o sistema</span>{% endif %}
+  </p>
+  {% if x.situacao == "convertido" %}
+  <p class="ajuda" style="margin: 0;">Virou solicitação de implantação{% if x.solicitacao_id %} — <a href="/plataforma/financeiro/{{ x.solicitacao_id }}">ver no Financeiro</a>{% endif %}.</p>
+  {% else %}
+  <form method="post" action="/plataforma/comercial/leads/{{ x.id }}" class="linha">
+    <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="voltar" value="{{ situacao }}">
+    <div style="flex: 0 1 170px;"><label>Situação</label>
+      <select name="situacao">{% for chave, rotulo in situacoes.items() if chave != "convertido" %}<option value="{{ chave }}"{% if x.situacao == chave %} selected{% endif %}>{{ rotulo }}</option>{% endfor %}</select></div>
+    <div><label>Anotação</label><input type="text" name="anotacao" value="{{ x.anotacao }}" maxlength="2000" placeholder="Ex.: ligar na segunda à tarde"></div>
+    <button type="submit" class="secundario">Salvar</button>
+    <a class="botao" href="/plataforma/solicitacoes/nova?lead={{ x.id }}">Criar solicitação</a>
+  </form>
+  {% endif %}
+</div>
+{% else %}
+<div class="cartao"><div class="vazio">Nenhum lead {{ "" if situacao == "todos" else "com a situação " ~ situacoes[situacao] | lower }}.</div></div>
+{% endfor %}
+{% endblock %}

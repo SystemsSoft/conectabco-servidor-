@@ -1,0 +1,35 @@
+{% extends "_base.html" %}
+{% block titulo %}Receita · Comercial{% endblock %}
+{% block conteudo %}
+<div style="margin-bottom: 16px;">
+  <h1>Receita recorrente</h1>
+  <p class="sub" style="margin: 0;">Mensalidades das imobiliárias ativas (o plano fica na página de cada imobiliária).</p>
+</div>
+<div class="grade" style="margin-bottom: 18px;">
+  <div class="cartao" style="margin: 0;"><div class="rotulo">Receita mensal</div><div class="numero">{{ receita.receita | reais }}</div></div>
+  <div class="cartao" style="margin: 0;"><div class="rotulo">Imobiliárias ativas</div><div class="numero">{{ receita.ativas }}</div><span class="rotulo">ticket médio {{ receita.ticket | reais }}</span></div>
+  <div class="cartao" style="margin: 0;"><div class="rotulo">Novas neste mês</div><div class="numero">{{ receita.novas_no_mes }}</div></div>
+  <div class="cartao" style="margin: 0;"><div class="rotulo">Canceladas neste mês</div><div class="numero">{{ receita.canceladas_no_mes }}</div></div>
+</div>
+<div class="cartao">
+  <h2>Receita mensal — últimos 12 meses</h2>
+  <div class="colunas" role="img" aria-label="Receita mensal dos últimos 12 meses (valores na tabela abaixo)">
+    {% for x in receita.meses %}
+    <div class="coluna" tabindex="0">
+      <div class="area"><span style="height: {{ (100 * x.receita / maior) | round(1) if x.receita else 0 }}%"></span></div>
+      <div class="mes">{{ x.rotulo }}</div>
+      <div class="dica"><strong>{{ x.rotulo }}</strong><br>{{ x.receita | reais }}<br>{{ x.ativas }} ativa{{ "s" if x.ativas != 1 }} · +{{ x.novas }} / −{{ x.canceladas }}</div>
+    </div>
+    {% endfor %}
+  </div>
+  <table style="margin-top: 18px;">
+    <thead><tr><th>Mês</th><th class="valor">Ativas</th><th class="valor">Novas</th><th class="valor">Canceladas</th><th class="valor">Receita</th></tr></thead>
+    <tbody>
+      {% for x in receita.meses | reverse %}
+      <tr><td>{{ x.rotulo }}</td><td class="valor">{{ x.ativas }}</td><td class="valor">{{ x.novas }}</td><td class="valor">{{ x.canceladas }}</td><td class="valor">{{ x.receita | reais }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <p class="ajuda" style="margin-top: 12px;">Cada mês usa a mensalidade atual de cada imobiliária, a data em que foi criada e a data em que foi desativada (cancelamento).</p>
+</div>
+{% endblock %}

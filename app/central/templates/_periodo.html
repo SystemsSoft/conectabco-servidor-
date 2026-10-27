@@ -1,0 +1,5 @@
+<nav class="filtros" aria-label="Período">
+  {% for chave, rotulo in periodos.items() %}
+  <a href="?periodo={{ chave }}"{% if periodo == chave %} class="atual"{% endif %}>{{ rotulo }}</a>
+  {% endfor %}
+</nav>

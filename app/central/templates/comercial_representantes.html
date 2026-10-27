@@ -1,0 +1,52 @@
+{% extends "_base.html" %}
+{% block titulo %}Representantes · Comercial{% endblock %}
+{% block conteudo %}
+<div style="margin-bottom: 16px;">
+  <h1>Desempenho dos representantes</h1>
+  <p class="sub" style="margin: 0;">Solicitações enviadas no período e até onde chegaram.</p>
+</div>
+{% include "_periodo.html" %}
+<div class="cartao" style="padding: 8px 14px;">
+  {% if desempenho %}
+  <table>
+    <thead><tr><th>Representante</th><th class="esconder-celular">Região</th><th class="valor">Enviadas</th><th class="valor esconder-celular">Pagas</th><th class="valor">Implantadas</th><th class="valor esconder-celular">Recusadas</th><th class="valor">Conversão</th><th class="esconder-celular">Último envio</th></tr></thead>
+    <tbody>
+      {% for d in desempenho %}
+      <tr>
+        <td>{% if d.representante %}<a href="/plataforma/representantes/{{ d.representante.id }}"><strong>{{ d.nome }}</strong></a>{% if not d.representante.ativo %} <span class="selo off">Desativado</span>{% endif %}{% else %}<span class="rotulo">{{ d.nome }}</span>{% endif %}</td>
+        <td class="esconder-celular">{{ d.representante.regiao if d.representante and d.representante.regiao else "—" }}</td>
+        <td class="valor">{{ d.enviadas }}</td>
+        <td class="valor esconder-celular">{{ d.pagas }}</td>
+        <td class="valor"><strong>{{ d.implantadas }}</strong></td>
+        <td class="valor esconder-celular">{{ d.recusadas }}</td>
+        <td class="valor">{{ "—" if d.conversao is none else d.conversao ~ "%" }}</td>
+        <td class="esconder-celular">{{ d.ultimo_envio.strftime("%d/%m/%Y") if d.ultimo_envio else ("—" if not d.representante else "nunca") }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <p class="ajuda" style="padding: 0 8px;">Conversão: implantadas sobre enviadas no período.</p>
+  {% else %}
+  <div class="vazio">Nenhum representante cadastrado.</div>
+  {% endif %}
+</div>
+<div class="cartao">
+  <h2>Sem envio há mais de {{ dias }} dias</h2>
+  {% if sem_envio %}
+  <table>
+    <thead><tr><th>Representante</th><th class="esconder-celular">Contato</th><th>Último envio</th></tr></thead>
+    <tbody>
+      {% for r, ultimo in sem_envio %}
+      <tr>
+        <td><a href="/plataforma/representantes/{{ r.id }}"><strong>{{ r.nome }}</strong></a>{% if r.regiao %}<br><span class="rotulo">{{ r.regiao }}</span>{% endif %}</td>
+        <td class="esconder-celular">{% if r.telefone %}<a href="https://wa.me/55{{ r.telefone | digitos }}" target="_blank" rel="noopener">{{ r.telefone }}</a>{% endif %}{% if r.email %}<br><a href="mailto:{{ r.email }}">{{ r.email }}</a>{% endif %}</td>
+        <td>{{ ultimo.strftime("%d/%m/%Y") if ultimo else "nunca enviou" }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="vazio" style="padding: 16px 0;">Todos os representantes ativos enviaram corretores nos últimos {{ dias }} dias.</div>
+  {% endif %}
+</div>
+{% endblock %}
