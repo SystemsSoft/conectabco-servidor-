@@ -1,0 +1,19 @@
+{% extends "contratar/_base.html" %}
+{% block titulo %}Contrato assinado{% endblock %}
+{% block conteudo %}
+<ol class="passos"><li class="feito">1. Seus dados ✓</li><li class="feito">2. Contrato assinado ✓</li><li class="atual">3. Pagamento e implantação</li></ol>
+<div class="cartao" style="text-align: center; padding: 36px 24px;">
+  <div style="font-size: 44px; line-height: 1;">✓</div>
+  <h1>Contrato assinado!</h1>
+  <p class="sub" style="max-width: 560px; margin: 8px auto 0;">Obrigado, {{ c.dados.nome.split()[0] }}. Recebemos o seu contrato ({{ metodos[c.metodo] | lower }}) em {{ c.assinado_em.strftime("%d/%m/%Y às %H:%M") }}.</p>
+  <div class="acoes" style="justify-content: center;"><a class="botao" href="/contratar/{{ c.token }}/contrato.pdf?baixar=1">Baixar a via assinada</a></div>
+</div>
+<div class="cartao">
+  <h2>Próximos passos</h2>
+  <ol class="instrucoes">
+    <li>A equipe financeira da associação envia para {{ c.email }} ou {{ c.dados.telefone_1 }} o boleto ou o Pix da 1ª mensalidade.</li>
+    <li>Confirmado o pagamento, a equipe de tecnologia agenda e faz a implantação do seu sistema.</li>
+    <li>Você recebe o acesso ao sistema de gestão, ao site e à área dos inquilinos.</li>
+  </ol>
+</div>
+{% endblock %}

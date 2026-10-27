@@ -1,0 +1,37 @@
+{% extends "contratar/_base.html" %}
+{% block titulo %}Contrato e assinatura{% endblock %}
+{% block conteudo %}
+{% set d = c.dados %}
+<ol class="passos"><li class="feito">1. Seus dados ✓</li><li class="atual">2. Contrato e assinatura</li><li>3. Pagamento e implantação</li></ol>
+<h1>Leia e assine o contrato</h1>
+<p class="sub">Este é o contrato de prestação de serviços da associação, já com os seus dados. Guarde este link para voltar depois, se precisar: ele vale por 30 dias.</p>
+<div class="cartao">
+  <h2>Contrato</h2>
+  <div class="resumo" style="margin-bottom: 16px;">
+    <div><span>Contratante</span><br><strong>{{ d.nome }}</strong>{% if d.nome_comercial %} · {{ d.nome_comercial }}{% endif %}</div>
+    <div><span>{{ "CPF" if d.cpf else "CNPJ" }}</span><br>{{ (d.cpf or d.cnpj) | cpf_cnpj }}</div>
+    <div><span>Contato</span><br>{{ c.email }} · {{ d.telefone_1 }}</div>
+  </div>
+  <iframe class="contrato" src="/contratar/{{ c.token }}/contrato.pdf" title="Contrato de prestação de serviços"></iframe>
+  <div class="acoes"><a class="botao claro" href="/contratar/{{ c.token }}/contrato.pdf" target="_blank" rel="noopener">Abrir o contrato (PDF)</a><a class="botao claro" href="/contratar/{{ c.token }}/contrato.pdf?baixar=1">Baixar</a></div>
+</div>
+<div class="opcoes">
+  <form class="cartao" method="post" action="/contratar/{{ c.token }}/assinar" data-demora>
+    <h2>Assinar aqui (eletrônica)</h2>
+    <p style="margin-top: 0; font-size: 14.5px;">Assinatura eletrônica com o seu nome. Registramos data, hora, IP e o código (hash) do contrato, que vão numa página final do PDF assinado.</p>
+    <div><label for="nome">Seu nome completo, como no contrato</label><input type="text" id="nome" name="nome" value="{{ nome or '' }}" required maxlength="150" autocomplete="name"></div>
+    <div style="margin-top: 14px;"><label class="check"><input type="checkbox" name="aceite" required> Li e concordo com o Contrato de Prestação de Serviços da Associação Conecta do Brasil.</label></div>
+    <div class="acoes"><button class="botao" type="submit" data-enviando="Assinando...">Assinar o contrato</button></div>
+  </form>
+  <form class="cartao" method="post" action="/contratar/{{ c.token }}/govbr" enctype="multipart/form-data" data-demora>
+    <h2>Assinar com gov.br</h2>
+    <ol class="instrucoes">
+      <li><a href="/contratar/{{ c.token }}/contrato.pdf?baixar=1">Baixe o contrato em PDF</a>.</li>
+      <li>Abra o <a href="{{ assinador }}" target="_blank" rel="noopener">Assinador gov.br</a>, entre com a sua conta gov.br e assine o PDF.</li>
+      <li>Envie aqui o PDF assinado.</li>
+    </ol>
+    <div style="margin-top: 14px;"><label for="arquivo">PDF assinado</label><input type="file" id="arquivo" name="arquivo" accept="application/pdf" required><span class="ajuda">Até 10 MB.</span></div>
+    <div class="acoes"><button class="botao" type="submit" data-enviando="Enviando...">Enviar contrato assinado</button></div>
+  </form>
+</div>
+{% endblock %}
