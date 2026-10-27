@@ -66,17 +66,23 @@ def _conferir_logo(logo) -> tuple[bytes, str, str] | None:
     return conteudo, tipo, "png" if tipo == "image/png" else "jpg"
 
 
-def _validar_contratante(formulario) -> tuple[dict, str]:
-    """Os campos do contrato, o e-mail e o site, conferidos."""
+def _validar_contratante(db: Session, formulario) -> tuple[dict, str]:
+    """Os campos do contrato, o e-mail e o site — domínio próprio ou um
+    subdomínio da associação (conferido se está livre) —, conferidos."""
     dados = ct.DadosContrato(**{c: (formulario.get(c) or "").strip() for c in CAMPOS})
     valores = ct.validar(dados)
     email = (formulario.get("email") or "").strip().lower()
     if not _EMAIL.match(email) or len(email) > 200:
         raise RegraNegocio("E-mail inválido.")
+    if formulario.get("tipo_dominio") == "associacao":
+        from app.central.services import subdominio_disponivel
+
+        site = subdominio_disponivel(db, formulario.get("subdominio") or "")
+        return {c: valores[c] for c in CAMPOS} | {"site": site, "tipo_dominio": "associacao"}, email
     site = (formulario.get("site") or "").strip().lower().removeprefix("https://").removeprefix("http://").strip("/")
     if site and not _DOMINIO.match(site):
         raise RegraNegocio("Endereço do site inválido (ex.: joaoimoveis.com.br).")
-    return {c: valores[c] for c in CAMPOS} | {"site": site}, email
+    return {c: valores[c] for c in CAMPOS} | {"site": site, "tipo_dominio": "proprio"}, email
 
 
 def _novo_contrato(guardados: dict, email: str, imagem) -> m.ContratoDigital:
@@ -140,7 +146,7 @@ def iniciar(db: Session, formulario: dict[str, str], logo=None) -> m.ContratoDig
     contrato para assinatura."""
     if formulario.get("lgpd") != "on":
         raise RegraNegocio("Aceite o uso dos seus dados para a contratação (LGPD).")
-    guardados, email = _validar_contratante(formulario)
+    guardados, email = _validar_contratante(db, formulario)
     c = _novo_contrato(guardados, email, _conferir_logo(logo))
     db.add(c)
     _gravar(db, c)
@@ -177,7 +183,7 @@ def enviar_pelo_representante(db: Session, representante: m.Representante, formu
         raise RegraNegocio("Escolha como o contrato será assinado.")
     if formulario.get("lgpd") != "on":
         raise RegraNegocio("Confirme que o corretor autorizou o uso dos dados (LGPD).")
-    guardados, email = _validar_contratante(formulario)
+    guardados, email = _validar_contratante(db, formulario)
     imagem = _conferir_logo(logo)
     anexo = _ler_pdf(contrato_assinado) if modo == "anexo" else None
     extras = rep.DadosCorretor(imoveis=formulario.get("imoveis", ""), contratos=formulario.get("contratos", ""),

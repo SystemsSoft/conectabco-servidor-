@@ -133,6 +133,31 @@ def subdominio_da_associacao(nome: str) -> str:
     return f"{rotulo}.{base}"
 
 
+def e_subdominio_da_associacao(dominio: str) -> bool:
+    base = subdominio_base()
+    return bool(base) and normalizar_dominio(dominio).endswith("." + base)
+
+
+def rotulo_do_subdominio(dominio: str) -> str:
+    """'lima.<domínio da associação>' -> 'lima' (vazio se não for um)."""
+    return normalizar_dominio(dominio).split(".", 1)[0] if e_subdominio_da_associacao(dominio) else ""
+
+
+def subdominio_disponivel(db: Session, nome: str, ignorar_solicitacao: str = "") -> str:
+    """O subdomínio pedido, se o nome é válido e ninguém usa nem pediu."""
+    dominio = subdominio_da_associacao(nome)
+    if db.get(m.Dominio, dominio) is not None:
+        raise RegraNegocio(f"O subdomínio {exibir_dominio(dominio)} já é usado por outra imobiliária.")
+    pedido = db.scalar(sa.select(m.SolicitacaoImplantacao.id).where(
+        m.SolicitacaoImplantacao.dominio == dominio,
+        m.SolicitacaoImplantacao.situacao.in_(("nova", "em_andamento")),
+        m.SolicitacaoImplantacao.id != ignorar_solicitacao,
+    ))  # fmt: skip
+    if pedido is not None:
+        raise RegraNegocio(f"O subdomínio {exibir_dominio(dominio)} já foi pedido em outra solicitação.")
+    return dominio
+
+
 def _validar_dominio(db: Session, dominio: str, slug: str) -> str:
     dominio = normalizar_dominio(dominio)
     if len(dominio) > 253 or not _DOMINIO.match(dominio):
@@ -342,10 +367,30 @@ def adicionar_dominio(db: Session, slug: str, dominio: str) -> str:
     return dominio
 
 
+def dominio_principal(r: m.Imobiliaria) -> str:
+    """O domínio do endereço do site (o que vai nos links e QR codes)."""
+    return normalizar_dominio(r.site_url) if r.site_url else ""
+
+
+def definir_principal(db: Session, slug: str, dominio: str) -> None:
+    """Passa o endereço do site para um dos domínios da imobiliária."""
+    r = obter(db, slug)
+    dominio = normalizar_dominio(dominio)
+    if dominio not in {d.dominio for d in r.dominios}:
+        raise RegraNegocio("Esse domínio não é desta imobiliária.")
+    r.site_url = f"https://{dominio}"
+    db.commit()
+    limpar_cadastro()
+
+
 def remover_dominio(db: Session, slug: str, dominio: str) -> None:
+    """Remove o domínio; se era o principal, o endereço do site passa para o
+    próximo (ou fica vazio, sem nenhum)."""
     r = obter(db, slug)
     dominio = normalizar_dominio(dominio)
     r.dominios = [d for d in r.dominios if d.dominio != dominio]
+    if dominio_principal(r) == dominio:
+        r.site_url = f"https://{r.dominios[0].dominio}" if r.dominios else ""
     db.commit()
     limpar_cadastro()
 

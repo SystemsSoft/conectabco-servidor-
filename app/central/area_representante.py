@@ -13,6 +13,7 @@ from app.central import acesso
 from app.central import models as m
 from app.central import contratacao as cc
 from app.central import representantes as rep
+from app.central import services as central
 from app.central.painel import _db, _pagina, _so_pelo_servidor
 from app.core.errors import RegraNegocio
 from app.core.tempo import agora
@@ -46,6 +47,7 @@ def _ctx(request: Request, r: m.Representante | None, **extra) -> dict:
         "situacoes": rep.SITUACOES,
         "ufs": rep.UFS,
         "metodos": cc.METODOS,
+        "subdominio_base": central.exibir_dominio(base) if (base := central.subdominio_base()) else "",
     } | extra
 
 

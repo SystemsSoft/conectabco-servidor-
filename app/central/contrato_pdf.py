@@ -74,6 +74,11 @@ def gerar(dados: dict[str, str], data_contrato: date) -> bytes:
     valores = dict(dados)
     valores["cpf"] = _formatar_documento(valores.get("cpf", ""))
     valores["cnpj"] = _formatar_documento(valores.get("cnpj", ""))
+    if site := valores.get("site"):
+        try:
+            valores["site"] = site.encode("ascii").decode("idna")
+        except (UnicodeError, ValueError):
+            pass
     if v := valores.get("data_implantacao"):
         valores["data_implantacao"] = date.fromisoformat(v).strftime("%d/%m/%Y")
 

@@ -430,6 +430,20 @@ O nome aceita de 3 a 40 letras, números e hífen (acentos e espaços são
 convertidos), não pode ser reservado (`api`, `www`, `plataforma`...) nem já
 usado. O domínio-base é o do `SITE_PRINCIPAL_URL` (ou `SUBDOMINIO_BASE`).
 
+A escolha entre domínio próprio e subdomínio aparece em três momentos:
+
+- **Contratação** (`/contratar` e `/representante/novo`): o corretor escolhe
+  "Domínio próprio" ou "Subdomínio da associação"; o nome é conferido na hora
+  (`GET /contratar/subdominio?nome=`) e fica reservado enquanto a solicitação
+  está aberta.
+- **Implantação** (Tecnologia → Solicitações → Implantar): o formulário já vem
+  com a escolha do pedido, e dá para trocar antes de criar.
+- **Depois** (Imobiliárias → a imobiliária → Domínios): adicione um domínio
+  próprio ou um subdomínio e use **Tornar principal** — o principal é o
+  endereço do site, dos links e dos QR codes. Para migrar, adicione o novo,
+  torne-o principal e remova o antigo (removendo o principal, o próximo
+  assume). Domínio próprio novo: só torne principal depois de ligar o HTTPS.
+
 DNS (uma vez só), em app.netlify.com → Domains → associaçãoconectabci.com.br →
 DNS settings: registro **A** com nome **`*`** apontando para `44.223.83.147`.
 Os nomes que já têm registro próprio (`api`, `www`, o domínio principal)

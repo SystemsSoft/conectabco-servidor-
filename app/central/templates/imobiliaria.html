@@ -71,16 +71,26 @@
 
 <div class="cartao">
   <h2>Domínios</h2>
+  <p class="sub" style="margin-top: -6px;">Para trocar entre domínio próprio e subdomínio da associação: adicione o novo, torne-o <strong>principal</strong> (o endereço do site, dos links e dos QR codes) e, se quiser, remova o anterior.</p>
   {% for d in r.dominios %}
   {% set da_associacao = base_associacao and d.dominio.endswith("." ~ base_associacao) %}
   <div class="dominio">
     <strong>{{ d.dominio | exibir_dominio }}</strong>
+    {% if d.dominio == principal %}<span class="selo ok">Principal</span>{% endif %}
     {% if da_associacao %}<span class="selo ok">Subdomínio da associação · HTTPS automático</span>{% endif %}
     {% if dns[d.dominio] %}<span class="selo ok">DNS aponta para este servidor</span>{% else %}<span class="selo atencao">DNS ainda não aponta para {{ ip or "este servidor" }}</span>{% endif %}
-    <form method="post" action="/plataforma/{{ r.slug }}/dominios/remover" style="margin-left: auto;">
-      <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="dominio" value="{{ d.dominio }}">
-      <button type="submit" class="perigo">Remover</button>
-    </form>
+    <div style="margin-left: auto; display: flex; gap: 8px;">
+      {% if d.dominio != principal %}
+      <form method="post" action="/plataforma/{{ r.slug }}/dominios/principal">
+        <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="dominio" value="{{ d.dominio }}">
+        <button type="submit" class="secundario">Tornar principal</button>
+      </form>
+      {% endif %}
+      <form method="post" action="/plataforma/{{ r.slug }}/dominios/remover">
+        <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="dominio" value="{{ d.dominio }}">
+        <button type="submit" class="perigo"{% if d.dominio == principal and r.dominios | length > 1 %} onclick="return confirm('Este é o endereço principal: o próximo domínio passa a ser o principal. Remover?')"{% endif %}>Remover</button>
+      </form>
+    </div>
     {% if da_associacao %}
     <p class="ajuda" style="flex-basis: 100%; margin: 0;">O DNS (registro curinga) e o certificado HTTPS curinga da associação já cobrem este endereço: abre em <a href="https://{{ d.dominio }}/" target="_blank" rel="noopener">https://{{ d.dominio | exibir_dominio }}</a>. Nada a configurar.</p>
     {% else %}
@@ -89,17 +99,41 @@
       <p style="margin: 8px 0 0;">1. No DNS do domínio, crie um registro <strong>A</strong> → <code>{{ ip or "IP do servidor" }}</code> (no domínio principal, também o <code>www</code>).<br>
       2. Com o DNS apontando, ligue o HTTPS (na pasta do servidor):</p>
       <pre>./configurar_https.sh "" key_aws.pem ec2-user@{{ ip or "IP" }} {{ d.dominio }} {{ r.slug }}</pre>
+      <p class="ajuda">Só torne este domínio principal depois que o HTTPS estiver ligado.</p>
     </details>
     {% endif %}
   </div>
   {% else %}
-  <p class="sub">Sem domínio próprio, só o app de gestão funciona; o site e os portais do inquilino e do proprietário precisam de um domínio.</p>
+  <p class="sub">Sem domínio, só o app de gestão funciona; o site e os portais do inquilino e do proprietário precisam de um domínio ou subdomínio.</p>
   {% endfor %}
-  <form method="post" action="/plataforma/{{ r.slug }}/dominios" class="linha" style="margin-top: 14px;">
+  <form method="post" action="/plataforma/{{ r.slug }}/dominios" style="margin-top: 16px;">
     <input type="hidden" name="csrf" value="{{ csrf }}">
-    <div><label for="dominio">Adicionar domínio</label><input type="text" id="dominio" name="dominio" placeholder="joaoimoveis.com.br" required></div>
-    <button type="submit" class="secundario">Adicionar</button>
+    <h3 class="subtitulo">Adicionar</h3>
+    {% if subdominio_base %}
+    <div style="display: flex; gap: 18px; flex-wrap: wrap; margin-bottom: 10px;">
+      <label style="display: flex; gap: 6px; font-weight: 400;"><input type="radio" name="tipo" value="proprio" checked> Domínio próprio</label>
+      <label style="display: flex; gap: 6px; font-weight: 400;"><input type="radio" name="tipo" value="associacao"> Subdomínio da associação</label>
+    </div>
+    {% endif %}
+    <div class="linha" style="display: flex; gap: 10px; flex-wrap: wrap; align-items: end;">
+      <div id="add-proprio" style="flex: 1 1 260px;"><label for="dominio">Domínio</label><input type="text" id="dominio" name="dominio" placeholder="joaoimoveis.com.br"></div>
+      {% if subdominio_base %}
+      <div id="add-sub" hidden style="flex: 1 1 260px;"><label for="subdominio_add">Nome do subdomínio</label>
+        <div style="display: flex; align-items: center; gap: 6px;"><input type="text" id="subdominio_add" name="subdominio" placeholder="joaoimoveis" style="flex: 1; min-width: 120px;" maxlength="40" autocomplete="off"><code style="color: var(--suave); white-space: nowrap;">.{{ subdominio_base }}</code></div></div>
+      {% endif %}
+      <label style="display: flex; gap: 6px; font-weight: 400; align-self: center;"><input type="checkbox" name="principal" value="1"> Usar como principal</label>
+      <button type="submit" class="secundario">Adicionar</button>
+    </div>
   </form>
+  <script>
+    document.querySelectorAll('input[name=tipo]').forEach(function (o) {
+      o.addEventListener('change', function () {
+        var sub = document.querySelector('input[name=tipo]:checked').value === 'associacao';
+        document.getElementById('add-sub').hidden = !sub;
+        document.getElementById('add-proprio').hidden = sub;
+      });
+    });
+  </script>
 </div>
 
 <div class="cartao">

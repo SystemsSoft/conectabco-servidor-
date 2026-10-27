@@ -5,7 +5,7 @@ institucional. Só pelo endereço do servidor; o link de cada contrato é o
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Form, Request, UploadFile
-from fastapi.responses import FileResponse, RedirectResponse, Response
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response
 from starlette.datastructures import UploadFile as ArquivoEnviado
 
 from app.central import contratacao as cc
@@ -24,7 +24,11 @@ def _ip(request: Request) -> str:
 
 
 def _ctx(**extra) -> dict:
-    return {"ufs": rep.UFS, "metodos": cc.METODOS, "assinador": cc.ASSINADOR_GOVBR} | extra
+    from app.central.services import exibir_dominio, subdominio_base
+
+    base = subdominio_base()
+    return {"ufs": rep.UFS, "metodos": cc.METODOS, "assinador": cc.ASSINADOR_GOVBR,
+            "subdominio_base": exibir_dominio(base) if base else ""} | extra  # fmt: skip
 
 
 def _contrato_ou_404(request: Request, db, token: str):
@@ -52,6 +56,18 @@ async def iniciar(request: Request, db: Db):
     except RegraNegocio as e:
         return _pagina(request, "contratar/dados.html", _ctx(dados=dados, erro=e.mensagem), 422)
     return RedirectResponse(f"/contratar/{c.token}", status_code=303)
+
+
+@router.get("/subdominio")
+def subdominio(db: Db, nome: str = ""):
+    """Verificação na hora (formulários de contratação e do representante)."""
+    from app.central.services import exibir_dominio, subdominio_disponivel
+
+    try:
+        dominio = subdominio_disponivel(db, nome)
+    except RegraNegocio as e:
+        return JSONResponse({"ok": False, "mensagem": e.mensagem})
+    return JSONResponse({"ok": True, "dominio": exibir_dominio(dominio)})
 
 
 @router.get("/modelo.pdf")

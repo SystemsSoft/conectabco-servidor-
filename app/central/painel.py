@@ -70,6 +70,8 @@ MENSAGENS = {
     "logo-removido": "Logotipo removido.",
     "dominio": "Domínio adicionado. Falta apontar o DNS e ligar o HTTPS (veja abaixo).",
     "dominio-removido": "Domínio removido.",
+    "subdominio": "Subdomínio adicionado: já funciona, com HTTPS.",
+    "dominio-principal": "Endereço principal alterado: o site, os links e os QR codes passam a usar este domínio.",
     "ativada": "Imobiliária ativada.",
     "desativada": "Imobiliária desativada: API, site e portais deixam de abrir.",
     "admin": "Administrador salvo: ele já pode entrar no app de gestão.",
@@ -239,10 +241,14 @@ def nova_pagina(request: Request, db: Db, admin: Admin, solicitacao: str = ""):
         assinado = cc.da_solicitacao(db, s.id)  # contratou pelo site: o contratante do contrato
         contrato = cc.dados_para_contratante(assinado) if assinado else ct.da_solicitacao(s)
         logo_enviado = fin.logo(db, s)
+        # A escolha do cadastro: subdomínio da associação (com o nome pedido) ou domínio próprio.
+        pediu_sub = central.e_subdominio_da_associacao(s.dominio) if s.dominio else False
+        proprio = s.dominio if s.dominio and not pediu_sub else ""
         dados = {"solicitacao": s.id, "nome": s.nome_imobiliaria, "slug": rep.sugestao_de_slug(s.nome_imobiliaria),
-                 "dominios": s.dominio, "site_url": f"https://{s.dominio}" if s.dominio else "",
-                 "tipo_dominio": "proprio" if s.dominio else "associacao",
-                 "subdominio": rep.sugestao_de_slug(s.nome_imobiliaria).replace("-", ""),
+                 "dominios": proprio, "site_url": f"https://{proprio}" if proprio else "",
+                 "tipo_dominio": "proprio" if proprio else "associacao",
+                 "subdominio": central.rotulo_do_subdominio(s.dominio) if pediu_sub
+                 else rep.sugestao_de_slug(s.nome_imobiliaria).replace("-", ""),
                  "admin_nome": s.nome, "admin_login": s.email.split("@")[0]}  # fmt: skip
     return _pagina(request, "nova.html", _base(request, admin, dados=dados, contrato=contrato, ufs=rep.UFS,
                                                logo_enviado=logo_enviado, **_ctx_subdominio()))  # fmt: skip
@@ -284,7 +290,8 @@ def nova(
                 fin.exigir_pagamento(rep.solicitacao(db, solicitacao))
         lista_dominios = dominios.replace(",", "\n").split()
         if tipo_dominio == "associacao":  # sem domínio próprio: <nome>.<domínio da associação>
-            lista_dominios = [central.subdominio_da_associacao(subdominio)]
+            with central.sessao() as db:  # livre (fora o pedido por esta mesma solicitação)
+                lista_dominios = [central.subdominio_disponivel(db, subdominio, ignorar_solicitacao=solicitacao)]
         valores_contrato = ct.validar(contrato)
         plano = com.validar_plano(mensalidade, dia_vencimento)
         if not admin_nome.strip():
@@ -604,7 +611,8 @@ def detalhe(slug: str, request: Request, db: Db, admin: Admin):
         erro_banco=erro_banco, dns={d.dominio: _aponta(d.dominio, ip) for d in r.dominios},
         endereco=f"{request.url.scheme}://{request.url.netloc}",
         contrato=ct.DadosContrato.do_registro(salvo := ct.obter(db, slug)), contrato_salvo=salvo is not None,
-        ufs=rep.UFS, base_associacao=central.subdominio_base(),
+        ufs=rep.UFS, base_associacao=central.subdominio_base(), principal=central.dominio_principal(r),
+        **_ctx_subdominio(),
     )  # fmt: skip
     return _pagina(request, "imobiliaria.html", ctx)
 
@@ -674,13 +682,34 @@ def remover_logo(slug: str, admin: Admin, csrf: Annotated[str, Form()] = ""):
 
 @router.post("/{slug}/dominios")
 def adicionar_dominio(slug: str, db: Db, admin: Admin, csrf: Annotated[str, Form()] = "",
+                      dominio: Annotated[str, Form()] = "", tipo: Annotated[str, Form()] = "proprio",
+                      subdominio: Annotated[str, Form()] = "", principal: Annotated[str, Form()] = ""):  # fmt: skip
+    """Domínio próprio ou subdomínio da associação; opcionalmente já como principal."""
+    _conferir(admin, csrf)
+    try:
+        if tipo == "associacao":
+            dominio = central.subdominio_disponivel(db, subdominio)
+        elif not dominio.strip():
+            raise RegraNegocio("Informe o domínio.")
+        dominio = central.adicionar_dominio(db, slug, dominio)
+        if principal == "1":
+            central.definir_principal(db, slug, dominio)
+    except RegraNegocio as e:
+        return _ir(f"/plataforma/{slug}", erro=e.mensagem)
+    if principal == "1":
+        return _ir(f"/plataforma/{slug}", "dominio-principal")
+    return _ir(f"/plataforma/{slug}", "subdominio" if tipo == "associacao" else "dominio")
+
+
+@router.post("/{slug}/dominios/principal")
+def principal_dominio(slug: str, db: Db, admin: Admin, csrf: Annotated[str, Form()] = "",
                       dominio: Annotated[str, Form()] = ""):  # fmt: skip
     _conferir(admin, csrf)
     try:
-        central.adicionar_dominio(db, slug, dominio)
+        central.definir_principal(db, slug, dominio)
     except RegraNegocio as e:
         return _ir(f"/plataforma/{slug}", erro=e.mensagem)
-    return _ir(f"/plataforma/{slug}", "dominio")
+    return _ir(f"/plataforma/{slug}", "dominio-principal")
 
 
 @router.post("/{slug}/dominios/remover")

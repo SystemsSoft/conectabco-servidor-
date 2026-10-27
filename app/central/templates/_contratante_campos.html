@@ -32,9 +32,27 @@
       {{ campo("telefone_1", "Telefone / WhatsApp", tipo="tel", obrigatorio=true, dica="(24) 99999-9999", maximo=30) }}
       {{ campo("telefone_2", "Telefone 2", tipo="tel", maximo=30) }}
     </div>
-    <h3 class="subtitulo">Internet <span style="text-transform: none; letter-spacing: 0; font-weight: 400;">(se tiver)</span></h3>
+    <h3 class="subtitulo">Endereço do site e do sistema</h3>
+    {% if subdominio_base %}
+    {% set por_sub = dados.tipo_dominio == "associacao" %}
+    <label class="opcao"><input type="radio" name="tipo_dominio" value="proprio"{% if not por_sub %} checked{% endif %}>
+      <span><strong>Domínio próprio</strong><br><span class="ajuda" style="margin: 0;">Já tem (ou vai registrar) um domínio, ex.: suaimobiliaria.com.br.</span></span></label>
+    <label class="opcao"><input type="radio" name="tipo_dominio" value="associacao"{% if por_sub %} checked{% endif %}>
+      <span><strong>Subdomínio da associação</strong><br><span class="ajuda" style="margin: 0;">Não tem domínio: use um nome no domínio da associação, sem custo e com HTTPS.</span></span></label>
+    <div id="campo-subdominio" style="margin: 4px 0 10px;"{% if not por_sub %} hidden{% endif %}>
+      <label for="subdominio">Nome escolhido</label>
+      <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+        <input type="text" id="subdominio" name="subdominio" value="{{ dados.subdominio or '' }}" maxlength="40" placeholder="suaimobiliaria" style="max-width: 240px;" autocomplete="off">
+        <code style="color: var(--muted, var(--suave));">.{{ subdominio_base }}</code>
+      </div>
+      <span class="ajuda" id="situacao-subdominio">Letras, números e hífen (de 3 a 40).</span>
+    </div>
+    {% endif %}
     <div class="grade">
-      {{ campo("site", "Endereço do site", dica="suaimobiliaria.com.br", maximo=253) }}
+      <div id="campo-site"{% if subdominio_base and dados.tipo_dominio == "associacao" %} hidden{% endif %}>{{ campo("site", "Domínio próprio" if subdominio_base else "Endereço do site", dica="suaimobiliaria.com.br", maximo=253) }}</div>
+    </div>
+    <h3 class="subtitulo">Redes sociais <span style="text-transform: none; letter-spacing: 0; font-weight: 400;">(se tiver)</span></h3>
+    <div class="grade">
       {{ campo("instagram", "Instagram", dica="@usuario") }}
       {{ campo("facebook", "Facebook", dica="facebook.com/...") }}
       {{ campo("tiktok", "TikTok", dica="@usuario") }}
@@ -46,3 +64,32 @@
       <input type="file" id="logo" name="logo" accept=".jpg,.jpeg,.png,image/jpeg,image/png">
       <span class="ajuda">JPG, JPEG ou PNG, até 2 MB. Aparece no sistema, no site e nos documentos.{% if erro %} Se já tinha escolhido, selecione de novo.{% endif %}</span>
     </div>
+{% if subdominio_base %}
+<script>
+  (function () {
+    var opcoes = document.querySelectorAll('input[name=tipo_dominio]');
+    var sub = document.getElementById('subdominio'), aviso = document.getElementById('situacao-subdominio');
+    var espera;
+    function alternar() {
+      var assoc = (document.querySelector('input[name=tipo_dominio]:checked') || {}).value === 'associacao';
+      document.getElementById('campo-subdominio').hidden = !assoc;
+      document.getElementById('campo-site').hidden = assoc;
+      if (assoc && sub.value) verificar();
+    }
+    function verificar() {
+      clearTimeout(espera);
+      var nome = sub.value.trim();
+      if (!nome) { aviso.textContent = 'Letras, números e hífen (de 3 a 40).'; aviso.style.color = ''; return; }
+      espera = setTimeout(function () {
+        fetch('/contratar/subdominio?nome=' + encodeURIComponent(nome)).then(function (r) { return r.json(); }).then(function (j) {
+          aviso.textContent = j.ok ? '✓ Disponível: https://' + j.dominio : j.mensagem;
+          aviso.style.color = j.ok ? '#0E9566' : '#B42318';
+        }).catch(function () {});
+      }, 350);
+    }
+    opcoes.forEach(function (o) { o.addEventListener('change', alternar); });
+    sub.addEventListener('input', verificar);
+    if (sub.value) verificar();
+  })();
+</script>
+{% endif %}
