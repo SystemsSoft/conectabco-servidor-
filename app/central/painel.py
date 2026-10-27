@@ -15,6 +15,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from app.central import acesso
+from app.central import contratante as ct
 from app.central import infraestrutura as infra
 from app.central import models as m
 from app.central import representantes as rep
@@ -57,6 +58,7 @@ MENSAGENS = {
     "ativada": "Imobiliária ativada.",
     "desativada": "Imobiliária desativada: API, site e portais deixam de abrir.",
     "admin": "Administrador salvo: ele já pode entrar no app de gestão.",
+    "contrato": "Dados do contratante salvos.",
     "aws": "Dados da AWS atualizados (consultados no máximo a cada 10 minutos).",
     "solicitacao": "Solicitação atualizada: o representante já vê a nova situação.",
     "representante": "Representante salvo.",
@@ -91,6 +93,14 @@ def admin_logado(request: Request, db: Db) -> m.Administrador:
 
 
 Admin = Annotated[m.Administrador, Depends(admin_logado)]
+
+
+async def _form_contrato(request: Request) -> ct.DadosContrato:
+    """Campos contrato_* do formulário (o Starlette guarda o form já lido)."""
+    return ct.DadosContrato.do_formulario(await request.form())
+
+
+Contrato = Annotated[ct.DadosContrato, Depends(_form_contrato)]
 
 
 def _conferir(admin: m.Administrador, csrf: str) -> None:
@@ -189,18 +199,19 @@ def lista(request: Request, db: Db, admin: Admin):
 @router.get("/nova")
 def nova_pagina(request: Request, db: Db, admin: Admin, solicitacao: str = ""):
     """Com ?solicitacao=, já vem preenchida com os dados do corretor."""
-    dados = {}
+    dados, contrato = {}, ct.DadosContrato()
     if solicitacao:
         s = rep.solicitacao(db, solicitacao)
+        contrato = ct.da_solicitacao(s)
         dados = {"solicitacao": s.id, "nome": s.nome_imobiliaria, "slug": rep.sugestao_de_slug(s.nome_imobiliaria),
                  "dominios": s.dominio, "site_url": f"https://{s.dominio}" if s.dominio else "",
                  "admin_nome": s.nome, "admin_login": s.email.split("@")[0]}  # fmt: skip
-    return _pagina(request, "nova.html", _base(request, admin, dados=dados))
+    return _pagina(request, "nova.html", _base(request, admin, dados=dados, contrato=contrato, ufs=rep.UFS))
 
 
 @router.post("/nova")
 def nova(
-    request: Request, admin: Admin,
+    request: Request, admin: Admin, contrato: Contrato,
     csrf: Annotated[str, Form()] = "",
     slug: Annotated[str, Form()] = "", nome: Annotated[str, Form()] = "",
     dominios: Annotated[str, Form()] = "", site_url: Annotated[str, Form()] = "",
@@ -221,6 +232,7 @@ def nova(
         conteudo = logo.file.read(central.LOGO_MAX + 1) if logo and logo.filename else None
         if conteudo:
             central.validar_logo(conteudo)
+        valores_contrato = ct.validar(contrato)
         if not admin_nome.strip():
             raise RegraNegocio("Informe o nome do administrador da imobiliária.")
         _validar_login(aparar(admin_login))
@@ -233,7 +245,10 @@ def nova(
         with usar(imob), fabrica(imob)() as db:
             criar_administrador(db, admin_nome, admin_login, admin_senha)
     except RegraNegocio as e:
-        return _pagina(request, "nova.html", _base(request, admin, dados=dados, erro=e.mensagem), 422)
+        return _pagina(request, "nova.html", _base(request, admin, dados=dados, contrato=contrato,
+                                                   ufs=rep.UFS, erro=e.mensagem), 422)  # fmt: skip
+    with central.sessao() as db:
+        ct.salvar(db, imob.slug, valores_contrato)
     if solicitacao:  # a solicitação do representante vira implantada
         with central.sessao() as db:
             rep.atualizar(db, solicitacao, "implantada",
@@ -386,8 +401,22 @@ def detalhe(slug: str, request: Request, db: Db, admin: Admin):
         request, admin, r=r, imob=imob, ip=ip, admins=admins, tem_logo=tem_logo,
         erro_banco=erro_banco, dns={d.dominio: _aponta(d.dominio, ip) for d in r.dominios},
         endereco=f"{request.url.scheme}://{request.url.netloc}",
+        contrato=ct.DadosContrato.do_registro(salvo := ct.obter(db, slug)), contrato_salvo=salvo is not None,
+        ufs=rep.UFS,
     )  # fmt: skip
     return _pagina(request, "imobiliaria.html", ctx)
+
+
+@router.post("/{slug}/contrato")
+def salvar_contrato(slug: str, db: Db, admin: Admin, contrato: Contrato, csrf: Annotated[str, Form()] = ""):
+    _conferir(admin, csrf)
+    if db.get(m.Imobiliaria, slug) is None:
+        raise HTTPException(404)
+    try:
+        ct.salvar(db, slug, ct.validar(contrato))
+    except RegraNegocio as e:
+        return _ir(f"/plataforma/{slug}", erro=e.mensagem)
+    return _ir(f"/plataforma/{slug}", "contrato")
 
 
 @router.post("/{slug}")

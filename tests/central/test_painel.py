@@ -15,6 +15,12 @@ from app.main import create_app
 
 PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 64
 DONA = {"login": "dona", "senha": "senha-da-plataforma"}
+# Contratante válido (contrato de prestação de serviços).
+CONTRATO = {f"contrato_{k}": v for k, v in {
+    "nome": "João da Silva", "endereco": "Rua Moreira César", "numero": "200", "bairro": "Icaraí",
+    "cidade": "Niterói", "uf": "RJ", "cpf": "529.982.247-25", "identidade": "12.345.678-9",
+    "creci": "12345-F RJ", "telefone_1": "(21) 98888-7777",
+}.items()}  # fmt: skip
 
 
 @pytest.fixture
@@ -46,7 +52,7 @@ def _nova(c: TestClient, csrf: str, **extra):
         "csrf": csrf, "slug": "joao", "nome": "João Imóveis", "dominios": "joaoimoveis.com.br",
         "cor_primaria": "#123456", "cor_destaque": "#ff6600",
         "admin_nome": "João", "admin_login": "joao", "admin_senha": "senha-do-joao",
-    } | extra  # fmt: skip
+    } | CONTRATO | extra  # fmt: skip
     return c.post("/plataforma/nova", data=dados, files={"logo": ("logo.png", PNG, "image/png")})
 
 

@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 
 import sqlalchemy as sa
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -120,3 +120,40 @@ class SolicitacaoImplantacao(BaseCentral):
     criada_em: Mapped[datetime] = mapped_column(sa.DateTime, index=True)
     atualizada_em: Mapped[datetime] = mapped_column(sa.DateTime)
     representante: Mapped[Representante] = relationship(lazy="joined")
+
+
+class DadosContratante(BaseCentral):
+    """Dados do CONTRATANTE no contrato de prestação de serviços da
+    associação (um por imobiliária)."""
+
+    __tablename__ = "dados_contratante"
+
+    imobiliaria_slug: Mapped[str] = mapped_column(
+        sa.ForeignKey("imobiliarias.slug", ondelete="CASCADE"), primary_key=True
+    )
+    nome: Mapped[str] = mapped_column(sa.String(150))
+    endereco: Mapped[str] = mapped_column(sa.String(200))
+    numero: Mapped[str] = mapped_column(sa.String(20))
+    bairro: Mapped[str] = mapped_column(sa.String(100))
+    cidade: Mapped[str] = mapped_column(sa.String(120))
+    uf: Mapped[str] = mapped_column(sa.String(2))
+    cpf: Mapped[str] = mapped_column(sa.String(11), default="")
+    identidade: Mapped[str] = mapped_column(sa.String(30), default="")
+    cnpj: Mapped[str] = mapped_column(sa.String(14), default="")
+    creci_pj: Mapped[str] = mapped_column(sa.String(30), default="")
+    creci: Mapped[str] = mapped_column(sa.String(30), default="")
+    nome_comercial: Mapped[str] = mapped_column(sa.String(200), default="")
+    endereco_comercial: Mapped[str] = mapped_column(sa.String(300), default="")
+    telefone_1: Mapped[str] = mapped_column(sa.String(30))
+    telefone_2: Mapped[str] = mapped_column(sa.String(30), default="")
+    # Onde o site e o domínio estão (o endereço do site fica na imobiliária).
+    servidor: Mapped[str] = mapped_column(sa.String(150), default="")
+    dns: Mapped[str] = mapped_column(sa.String(150), default="")
+    instagram: Mapped[str] = mapped_column(sa.String(200), default="")
+    facebook: Mapped[str] = mapped_column(sa.String(200), default="")
+    tiktok: Mapped[str] = mapped_column(sa.String(200), default="")
+    youtube: Mapped[str] = mapped_column(sa.String(200), default="")
+    data_implantacao: Mapped[date | None] = mapped_column(sa.Date)
+    horario_implantacao: Mapped[str] = mapped_column(sa.String(5), default="")
+    data_assinatura: Mapped[date | None] = mapped_column(sa.Date)
+    atualizado_em: Mapped[datetime] = mapped_column(sa.DateTime)

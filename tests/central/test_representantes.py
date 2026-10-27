@@ -2,7 +2,7 @@
 cadastro dos representantes."""
 
 from app.central import services as central
-from tests.central.test_painel import PNG, _csrf, _entrar, painel  # noqa: F401 - fixture
+from tests.central.test_painel import CONTRATO, PNG, _csrf, _entrar, painel  # noqa: F401 - fixture
 
 REP = {"login": "carlos.rep", "senha": "senha-do-carlos"}
 CORRETOR = {
@@ -70,10 +70,15 @@ def test_fluxo_do_representante_ate_a_implantacao(painel):  # noqa: F811
     csrf = _entrar(painel)
     nova = painel.get(f"/plataforma/nova?solicitacao={sid}").text
     assert 'value="Lima Imóveis"' in nova and 'value="lima"' in nova and 'value="Joana Lima"' in nova
+    # O contratante já vem da solicitação (CPF, CRECI, telefone, cidade/UF).
+    for campo, valor in (("cpf", "529.982.247-25"), ("creci", "12345-F RJ"), ("telefone_1", "(21) 98888-7777"),
+                         ("cidade", "Niterói"), ("nome_comercial", "Lima Imóveis")):
+        assert f'name="contrato_{campo}" value="{valor}"' in nova, campo
+    assert '<option value="RJ" selected>' in nova
     r = painel.post("/plataforma/nova", data={
         "csrf": csrf, "slug": "lima", "nome": "Lima Imóveis", "dominios": "limaimoveis.com.br",
         "admin_nome": "Joana Lima", "admin_login": "joana", "admin_senha": "senha-da-joana",
-        "solicitacao": sid}, files={"logo": ("logo.png", PNG, "image/png")})  # fmt: skip
+        "solicitacao": sid} | CONTRATO, files={"logo": ("logo.png", PNG, "image/png")})  # fmt: skip
     assert r.headers["location"] == "/plataforma/lima?msg=criada"
     implantadas = painel.get("/plataforma/solicitacoes?situacao=implantada").text
     assert "Lima Imóveis" in implantadas and 'href="/plataforma/lima"' in implantadas

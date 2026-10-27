@@ -29,6 +29,17 @@
   </form>
 </div>
 
+<div class="cartao" id="contrato">
+  <h2>Contratante</h2>
+  {% if not contrato_salvo %}<div class="aviso atencao">Dados do contrato ainda não preenchidos.</div>
+  {% else %}<p class="sub" style="margin-top: -6px;">Dados do contrato de prestação de serviços. Campos com * são obrigatórios.</p>{% endif %}
+  <form method="post" action="/plataforma/{{ r.slug }}/contrato">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    {% include "_contrato.html" %}
+    <div class="acoes"><button type="submit">Salvar contratante</button></div>
+  </form>
+</div>
+
 <div class="cartao">
   <h2>Logotipo</h2>
   <div style="display: flex; gap: 20px; align-items: center; flex-wrap: wrap;">
