@@ -91,6 +91,48 @@ def validar_logo(conteudo: bytes) -> str:
     raise RegraNegocio("Use uma imagem PNG ou JPG para o logotipo.")
 
 
+# ------------------------------------------------ Subdomínio da associação
+# Para a imobiliária sem domínio próprio: <nome>.<domínio da associação>.
+
+_RESERVADOS_SUBDOMINIO = {
+    "api", "www", "mail", "email", "smtp", "imap", "pop", "ftp", "ns1", "ns2", "admin", "painel",
+    "plataforma", "gestao", "app", "representante", "contratar", "associacao", "conecta", "suporte",
+    "blog", "static", "cdn", "dev", "staging", "teste", "test", "site", "loja",
+}  # fmt: skip
+_ROTULO = re.compile(r"^[a-z0-9](?:[a-z0-9-]{1,38}[a-z0-9])$")
+
+
+def subdominio_base() -> str:
+    """O domínio da associação (forma xn--), ou vazio se não houver."""
+    s = get_settings()
+    base = s.subdominio_base or s.site_principal_url
+    return normalizar_dominio(base).removeprefix("www.") if base else ""
+
+
+def exibir_dominio(dominio: str) -> str:
+    """Com acentos para mostrar (xn--associaoconectabci-7sb3f -> associaçãoconectabci)."""
+    try:
+        return dominio.encode("ascii").decode("idna")
+    except (UnicodeError, ValueError):
+        return dominio
+
+
+def subdominio_da_associacao(nome: str) -> str:
+    """'Lima Imóveis' -> 'lima-imoveis.<domínio da associação>', conferido."""
+    import unicodedata
+
+    base = subdominio_base()
+    if not base:
+        raise RegraNegocio("O domínio da associação não está configurado para subdomínios.")
+    rotulo = unicodedata.normalize("NFKD", nome or "").encode("ascii", "ignore").decode().lower().strip()
+    rotulo = re.sub(r"[^a-z0-9]+", "-", rotulo).strip("-")
+    if not _ROTULO.match(rotulo):
+        raise RegraNegocio("Subdomínio inválido: use de 3 a 40 letras, números ou hífen (ex.: limaimoveis).")
+    if rotulo in _RESERVADOS_SUBDOMINIO:
+        raise RegraNegocio(f"O subdomínio '{rotulo}' é reservado: escolha outro.")
+    return f"{rotulo}.{base}"
+
+
 def _validar_dominio(db: Session, dominio: str, slug: str) -> str:
     dominio = normalizar_dominio(dominio)
     if len(dominio) > 253 or not _DOMINIO.match(dominio):

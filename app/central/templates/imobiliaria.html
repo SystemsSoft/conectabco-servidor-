@@ -72,19 +72,25 @@
 <div class="cartao">
   <h2>Domínios</h2>
   {% for d in r.dominios %}
+  {% set da_associacao = base_associacao and d.dominio.endswith("." ~ base_associacao) %}
   <div class="dominio">
-    <strong>{{ d.dominio }}</strong>
+    <strong>{{ d.dominio | exibir_dominio }}</strong>
+    {% if da_associacao %}<span class="selo ok">Subdomínio da associação · HTTPS automático</span>{% endif %}
     {% if dns[d.dominio] %}<span class="selo ok">DNS aponta para este servidor</span>{% else %}<span class="selo atencao">DNS ainda não aponta para {{ ip or "este servidor" }}</span>{% endif %}
     <form method="post" action="/plataforma/{{ r.slug }}/dominios/remover" style="margin-left: auto;">
       <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="dominio" value="{{ d.dominio }}">
       <button type="submit" class="perigo">Remover</button>
     </form>
+    {% if da_associacao %}
+    <p class="ajuda" style="flex-basis: 100%; margin: 0;">O DNS (registro curinga) e o certificado HTTPS curinga da associação já cobrem este endereço: abre em <a href="https://{{ d.dominio }}/" target="_blank" rel="noopener">https://{{ d.dominio | exibir_dominio }}</a>. Nada a configurar.</p>
+    {% else %}
     <details style="flex-basis: 100%;">
       <summary>Como ligar este domínio</summary>
       <p style="margin: 8px 0 0;">1. No DNS do domínio, crie um registro <strong>A</strong> → <code>{{ ip or "IP do servidor" }}</code> (no domínio principal, também o <code>www</code>).<br>
       2. Com o DNS apontando, ligue o HTTPS (na pasta do servidor):</p>
       <pre>./configurar_https.sh "" key_aws.pem ec2-user@{{ ip or "IP" }} {{ d.dominio }} {{ r.slug }}</pre>
     </details>
+    {% endif %}
   </div>
   {% else %}
   <p class="sub">Sem domínio próprio, só o app de gestão funciona; o site e os portais do inquilino e do proprietário precisam de um domínio.</p>

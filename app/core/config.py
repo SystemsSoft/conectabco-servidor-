@@ -59,6 +59,9 @@ class Settings(BaseSettings):
     # Se informado, as páginas do site público abertas pelo endereço do
     # servidor (imobiliária padrão, sem domínio próprio) redirecionam para ele.
     site_principal_url: str = ""
+    # Domínio da associação para os subdomínios das imobiliárias sem domínio
+    # próprio (lima.<base>); vazio = o do SITE_PRINCIPAL_URL. Na forma xn--.
+    subdominio_base: str = ""
 
     # Painel da plataforma > Infraestrutura: usuário IAM só de leitura (o
     # Lightsail não aceita role IAM) e os recursos acompanhados.

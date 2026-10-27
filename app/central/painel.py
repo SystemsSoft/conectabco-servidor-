@@ -59,7 +59,8 @@ def _decimal_br(valor) -> str:
     return f"{float(valor):.2f}".replace(".", ",") if valor is not None else ""
 
 
-templates.env.filters.update(digitos=_digitos, cpf_cnpj=_cpf_cnpj, reais=_reais, decimal_br=_decimal_br)
+templates.env.filters.update(digitos=_digitos, cpf_cnpj=_cpf_cnpj, reais=_reais, decimal_br=_decimal_br,
+                             exibir_dominio=central.exibir_dominio)  # fmt: skip
 COR_PRIMARIA, COR_DESTAQUE = "#061a48", "#f5c432"  # a paleta padrão do site
 
 MENSAGENS = {
@@ -220,6 +221,11 @@ def lista(request: Request, db: Db, admin: Admin):
     return _pagina(request, "lista.html", _base(request, admin, imobiliarias=imobiliarias))
 
 
+def _ctx_subdominio() -> dict:
+    base = central.subdominio_base()
+    return {"subdominio_base": central.exibir_dominio(base) if base else ""}
+
+
 @router.get("/nova")
 def nova_pagina(request: Request, db: Db, admin: Admin, solicitacao: str = ""):
     """Com ?solicitacao=, já vem preenchida com os dados do corretor."""
@@ -235,9 +241,11 @@ def nova_pagina(request: Request, db: Db, admin: Admin, solicitacao: str = ""):
         logo_enviado = fin.logo(db, s)
         dados = {"solicitacao": s.id, "nome": s.nome_imobiliaria, "slug": rep.sugestao_de_slug(s.nome_imobiliaria),
                  "dominios": s.dominio, "site_url": f"https://{s.dominio}" if s.dominio else "",
+                 "tipo_dominio": "proprio" if s.dominio else "associacao",
+                 "subdominio": rep.sugestao_de_slug(s.nome_imobiliaria).replace("-", ""),
                  "admin_nome": s.nome, "admin_login": s.email.split("@")[0]}  # fmt: skip
     return _pagina(request, "nova.html", _base(request, admin, dados=dados, contrato=contrato, ufs=rep.UFS,
-                                               logo_enviado=logo_enviado))  # fmt: skip
+                                               logo_enviado=logo_enviado, **_ctx_subdominio()))  # fmt: skip
 
 
 @router.post("/nova")
@@ -251,6 +259,7 @@ def nova(
     admin_senha: Annotated[str, Form()] = "",
     solicitacao: Annotated[str, Form()] = "",
     mensalidade: Annotated[str, Form()] = "150,00", dia_vencimento: Annotated[str, Form()] = "5",
+    tipo_dominio: Annotated[str, Form()] = "proprio", subdominio: Annotated[str, Form()] = "",
     logo: UploadFile | None = None,
 ):  # fmt: skip
     """Cria o banco, as tabelas, o cadastro e o administrador da imobiliária."""
@@ -260,7 +269,8 @@ def nova(
     dados = {"slug": slug, "nome": nome, "dominios": dominios, "site_url": site_url,
              "cor_primaria": cor_primaria, "cor_destaque": cor_destaque,
              "admin_nome": admin_nome, "admin_login": admin_login, "solicitacao": solicitacao,
-             "mensalidade": mensalidade, "dia_vencimento": dia_vencimento}  # fmt: skip
+             "mensalidade": mensalidade, "dia_vencimento": dia_vencimento,
+             "tipo_dominio": tipo_dominio, "subdominio": subdominio}  # fmt: skip
     try:
         conteudo = logo.file.read(central.LOGO_MAX + 1) if logo and logo.filename else None
         if not conteudo and solicitacao:  # sem outro escolhido: o enviado pelo contratante
@@ -272,6 +282,9 @@ def nova(
         if solicitacao:  # antes de criar o banco: a trava do financeiro
             with central.sessao() as db:
                 fin.exigir_pagamento(rep.solicitacao(db, solicitacao))
+        lista_dominios = dominios.replace(",", "\n").split()
+        if tipo_dominio == "associacao":  # sem domínio próprio: <nome>.<domínio da associação>
+            lista_dominios = [central.subdominio_da_associacao(subdominio)]
         valores_contrato = ct.validar(contrato)
         plano = com.validar_plano(mensalidade, dia_vencimento)
         if not admin_nome.strip():
@@ -279,15 +292,15 @@ def nova(
         _validar_login(aparar(admin_login))
         _validar_senha(aparar(admin_senha))
         imob = central.criar_imobiliaria(
-            slug, nome, site_url=site_url, dominios=dominios.replace(",", "\n").split(),
+            slug, nome, site_url=site_url if tipo_dominio != "associacao" else "", dominios=lista_dominios,
             cor_primaria=_cor(cor_primaria, COR_PRIMARIA),
             cor_destaque=_cor(cor_destaque, COR_DESTAQUE), logo=conteudo,
         )  # fmt: skip
         with usar(imob), fabrica(imob)() as db:
             criar_administrador(db, admin_nome, admin_login, admin_senha)
     except RegraNegocio as e:
-        return _pagina(request, "nova.html", _base(request, admin, dados=dados, contrato=contrato,
-                                                   ufs=rep.UFS, erro=e.mensagem), 422)  # fmt: skip
+        return _pagina(request, "nova.html", _base(request, admin, dados=dados, contrato=contrato, ufs=rep.UFS,
+                                                   erro=e.mensagem, **_ctx_subdominio()), 422)  # fmt: skip
     with central.sessao() as db:
         ct.salvar(db, imob.slug, valores_contrato)
         com.definir_plano(db, imob.slug, *plano)
@@ -591,7 +604,7 @@ def detalhe(slug: str, request: Request, db: Db, admin: Admin):
         erro_banco=erro_banco, dns={d.dominio: _aponta(d.dominio, ip) for d in r.dominios},
         endereco=f"{request.url.scheme}://{request.url.netloc}",
         contrato=ct.DadosContrato.do_registro(salvo := ct.obter(db, slug)), contrato_salvo=salvo is not None,
-        ufs=rep.UFS,
+        ufs=rep.UFS, base_associacao=central.subdominio_base(),
     )  # fmt: skip
     return _pagina(request, "imobiliaria.html", ctx)
 

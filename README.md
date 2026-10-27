@@ -421,6 +421,38 @@ o 5º argumento é o slug dela — o domínio é cadastrado para a imobiliária 
 ./configurar_https.sh "" key_aws.pem ec2-user@44.223.83.147 joaoimoveis.com.br joao
 ```
 
+### Subdomínio da associação (imobiliária sem domínio próprio)
+
+No cadastro da imobiliária, **Subdomínio da associação** usa um nome
+personalizado no domínio da associação — ex.: `lima` vira
+`https://lima.associaçãoconectabci.com.br` (`lima.xn--associaoconectabci-7sb3f.com.br`).
+O nome aceita de 3 a 40 letras, números e hífen (acentos e espaços são
+convertidos), não pode ser reservado (`api`, `www`, `plataforma`...) nem já
+usado. O domínio-base é o do `SITE_PRINCIPAL_URL` (ou `SUBDOMINIO_BASE`).
+
+DNS (uma vez só), em app.netlify.com → Domains → associaçãoconectabci.com.br →
+DNS settings: registro **A** com nome **`*`** apontando para `44.223.83.147`.
+Os nomes que já têm registro próprio (`api`, `www`, o domínio principal)
+continuam como estão. Se a Netlify não aceitar o `*`, crie um registro A por
+subdomínio.
+
+HTTPS **automático** para todos os subdomínios: um certificado curinga
+`*.associaçãoconectabci.com.br`, validado pelo DNS da Netlify. Configure **uma
+vez** (precisa de um token pessoal da Netlify: app.netlify.com → User settings
+→ Applications → Personal access tokens):
+
+```bash
+NETLIFY_TOKEN=... ./configurar_https_subdominios.sh
+```
+
+O script guarda o token só no servidor (`/etc/letsencrypt/netlify-dns.ini`,
+root), instala o auxiliar `/usr/local/bin/netlify-dns-hook` (cria e apaga o TXT
+`_acme-challenge` na Netlify), emite o certificado `curinga.<domínio>` e cria o
+bloco do nginx `subdominios.<domínio>.conf`. A renovação é automática
+(`certbot-renew.timer`, com os mesmos hooks). Depois disso, cada imobiliária
+cadastrada com subdomínio já abre com HTTPS — no painel aparece "HTTPS
+automático". Os nomes com bloco próprio (como o `api`) continuam no deles.
+
 ## App Flutter
 
 O app de gestão deve usar `https://api.xn--associaoconectabci-7sb3f.com.br` (`API_URL`, padrão em

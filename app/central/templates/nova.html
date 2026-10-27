@@ -39,7 +39,22 @@
   </div>
   <div class="cartao">
     <h2>Domínios e site</h2>
-    <div class="grade">
+    {% set associacao = subdominio_base and dados.tipo_dominio == "associacao" %}
+    {% if subdominio_base %}
+    <label class="opcao"><input type="radio" name="tipo_dominio" value="proprio"{% if not associacao %} checked{% endif %}>
+      <span><strong>Domínio próprio</strong><br><span class="ajuda" style="margin: 0;">A imobiliária já tem (ou vai registrar) um domínio, ex.: joaoimoveis.com.br.</span></span></label>
+    <label class="opcao"><input type="radio" name="tipo_dominio" value="associacao"{% if associacao %} checked{% endif %}>
+      <span><strong>Subdomínio da associação</strong><br><span class="ajuda" style="margin: 0;">Sem domínio próprio: usa um nome personalizado no domínio da associação, sem custo e com HTTPS automático.</span></span></label>
+    <div id="bloco-subdominio" style="margin: 4px 0 6px 30px;"{% if not associacao %} hidden{% endif %}>
+      <label for="subdominio">Nome personalizado</label>
+      <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+        <input type="text" id="subdominio" name="subdominio" value="{{ dados.subdominio or '' }}" maxlength="40" placeholder="limaimoveis" style="max-width: 260px;" autocomplete="off">
+        <code style="color: var(--suave);">.{{ subdominio_base }}</code>
+      </div>
+      <span class="ajuda">Letras, números e hífen. O site e o sistema abrem em <strong>https://<span id="previa-subdominio">{{ dados.subdominio or "nome" }}</span>.{{ subdominio_base }}</strong></span>
+    </div>
+    {% endif %}
+    <div class="grade" id="bloco-proprio"{% if associacao %} hidden{% endif %} style="margin-top: 8px;">
       <div>
         <label for="dominios">Domínios</label>
         <textarea id="dominios" name="dominios" rows="2" placeholder="joaoimoveis.com.br">{{ dados.dominios or '' }}</textarea>
@@ -78,4 +93,23 @@
   </div>
   <div class="acoes"><button type="submit" data-enviando="Criando banco e tabelas...">Criar imobiliária</button><a href="/plataforma">Cancelar</a></div>
 </form>
+<script>
+  (function () {
+    var opcoes = document.querySelectorAll('input[name=tipo_dominio]');
+    var sub = document.getElementById('subdominio'), previa = document.getElementById('previa-subdominio');
+    var slug = document.getElementById('slug');
+    function alternar() {
+      var assoc = (document.querySelector('input[name=tipo_dominio]:checked') || {}).value === 'associacao';
+      var b = document.getElementById('bloco-subdominio'); if (b) b.hidden = !assoc;
+      document.getElementById('bloco-proprio').hidden = assoc;
+    }
+    function normalizar(v) { return v.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, ''); }
+    function mostrar() { if (previa) previa.textContent = normalizar(sub.value) || 'nome'; }
+    opcoes.forEach(function (o) { o.addEventListener('change', alternar); });
+    if (sub) {
+      sub.addEventListener('input', function () { sub.dataset.editado = '1'; mostrar(); });
+      if (slug) slug.addEventListener('input', function () { if (!sub.dataset.editado) { sub.value = slug.value.replace(/-/g, ''); mostrar(); } });
+    }
+  })();
+</script>
 {% endblock %}
