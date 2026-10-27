@@ -14,6 +14,18 @@ CORRETOR = {
 }  # fmt: skip
 
 
+# O que o representante envia: os dados do contrato, mais o tamanho da operação.
+CONTRATANTE = {
+    "nome": "Joana Lima", "nome_comercial": "Lima Imóveis", "cpf": "529.982.247-25", "identidade": "12.345.678-9",
+    "creci": "12345-F RJ", "endereco": "Rua Moreira César", "numero": "200", "bairro": "Icaraí", "cidade": "Niterói",
+    "uf": "RJ", "email": "joana@limaimoveis.com.br", "telefone_1": "(21) 98888-7777",
+    "site": "https://limaimoveis.com.br/", "imoveis": "120", "contratos": "45", "usuarios": "3",
+    "observacoes": "Usa planilha hoje.", "lgpd": "on",
+}  # fmt: skip
+ASSINADO = b"%PDF-1.7\n1 0 obj << /Type /Sig /ByteRange [0 10 20 30] >> endobj\n%%EOF"
+ANEXO = {"contrato_assinado": ("contrato.pdf", ASSINADO, "application/pdf")}
+
+
 def _cadastrar_representante(c, csrf, **extra):
     dados = {"csrf": csrf, "nome": "Carlos Souza", "email": "carlos@exemplo.com",
              "telefone": "(21) 97777-6666", "regiao": "Niterói"} | REP | extra  # fmt: skip
@@ -49,20 +61,24 @@ def test_fluxo_do_representante_ate_a_implantacao(painel):  # noqa: F811
     painel.cookies.delete("plataforma", path="/plataforma")
     assert painel.get("/plataforma").headers["location"] == "/plataforma/entrar"
 
-    # Envio do corretor (com CSRF e dados conferidos).
-    assert painel.post("/representante/novo", data=CORRETOR).status_code == 403
-    r = painel.post("/representante/novo", data=CORRETOR | {"csrf": csrf_rep, "cpf_cnpj": "111.111.111-11"})
-    assert r.status_code == 422 and "CPF ou CNPJ inválido." in r.text and "Joana Lima" in r.text
-    r = painel.post("/representante/novo", data=CORRETOR | {"csrf": csrf_rep})
+    # Envio do corretor: os dados do contrato (conferidos) e o contrato assinado anexado.
+    novo = painel.get("/representante/novo").text
+    for campo in ("identidade", "endereco", "bairro", "telefone_2", "instagram", "logo", "contrato_assinado"):
+        assert f'name="{campo}"' in novo, campo
+    anexo = {"csrf": csrf_rep, "contrato": "anexo"}
+    assert painel.post("/representante/novo", data=CONTRATANTE | {"contrato": "anexo"}, files=ANEXO).status_code == 403
+    r = painel.post("/representante/novo", data=CONTRATANTE | anexo | {"cpf": "111.111.111-11"}, files=ANEXO)
+    assert r.status_code == 422 and "CPF inválido" in r.text and 'value="Joana Lima"' in r.text
+    r = painel.post("/representante/novo", data=CONTRATANTE | anexo, files=ANEXO)
     assert r.headers["location"] == "/representante?msg=enviada"
     inicio = painel.get("/representante").text
-    assert "Joana Lima" in inicio and "Lima Imóveis" in inicio and ">Nova<" in inicio
+    assert "Joana Lima" in inicio and "Lima Imóveis" in inicio and ">Nova<" in inicio and ">Assinado<" in inicio
 
     # No painel: aba com o contador, dados do corretor e contato do representante.
     csrf = _entrar(painel)
     pagina = painel.get("/plataforma/solicitacoes").text
     assert 'class="contador">1<' in pagina
-    for texto in ("Lima Imóveis", "529.982.247-25", "CRECI 12345-F RJ", "limaimoveis.com.br",
+    for texto in ("Lima Imóveis", "529.982.247-25", "CRECI 12345-F RJ", "limaimoveis.com.br", "Contrato assinado",
                   "Carlos Souza", "carlos@exemplo.com", "https://wa.me/5521977776666", "45 contratos"):
         assert texto in pagina, texto
     sid = pagina.split('action="/plataforma/solicitacoes/')[1].split('"')[0]
@@ -184,3 +200,48 @@ def test_nova_imobiliaria_pelo_fluxo_de_solicitacao(painel):  # noqa: F811
     assert r.headers["location"] == "/plataforma/lima?msg=criada"
     implantadas = painel.get("/plataforma/solicitacoes?situacao=implantada").text
     assert "Lima Imóveis" in implantadas and 'href="/plataforma/lima"' in implantadas
+
+
+def test_link_de_assinatura_para_o_corretor(painel):  # noqa: F811
+    from app.central import comercial as com
+    from app.central import models as m
+
+    csrf = _entrar(painel)
+    _cadastrar_representante(painel, csrf)
+    csrf_rep = _entrar_representante(painel)
+    base = CONTRATANTE | {"csrf": csrf_rep}
+    r = painel.post("/representante/novo", data=base | {"contrato": "anexo"})
+    assert r.status_code == 422 and "Anexe o contrato assinado" in r.text
+    r = painel.post("/representante/novo", data=base | {"contrato": "anexo"},
+                    files={"contrato_assinado": ("c.png", PNG, "image/png")})  # fmt: skip
+    assert r.status_code == 422 and "em PDF" in r.text
+
+    # Gerar o link: a solicitação já entra, e o representante compartilha o link.
+    r = painel.post("/representante/novo", data=base | {"contrato": "link"})
+    assert r.headers["location"].endswith("?msg=link")
+    pagina = painel.get(r.headers["location"]).text
+    link = pagina.split('id="link" value="')[1].split('"')[0]
+    assert "/contratar/" in link and "Copiar link" in pagina and "https://wa.me/5521988887777?text=" in pagina
+    assert "Abrir para assinar agora" in pagina
+    assert "Aguardando · ver link" in painel.get("/representante").text
+    with central.sessao() as db:
+        s = db.query(m.SolicitacaoImplantacao).one()
+        assert s.representante_id is not None and s.observacoes == "Usa planilha hoje." and s.contratos == 45
+
+    _entrar(painel)
+    assert "Contrato aguardando assinatura" in painel.get("/plataforma/solicitacoes").text
+    assert link in painel.get(f"/plataforma/financeiro/{s.id}").text
+
+    # O corretor assina pelo link: o contrato entra na mesma solicitação (sem outra, sem lead).
+    token = link.rsplit("/", 1)[1]
+    assert painel.post(f"/contratar/{token}/assinar", data={"nome": "Joana Lima", "aceite": "on"}).status_code == 303
+    with central.sessao() as db:
+        assert db.query(m.SolicitacaoImplantacao).count() == 1 and com.leads(db, "todos") == []
+        (c,) = db.query(m.ContratoDigital).all()
+        assert (c.situacao, c.metodo, c.solicitacao_id) == ("assinado", "eletronica", s.id)
+    fin = painel.get(f"/plataforma/financeiro/{s.id}").text
+    assert "contrato-assinado.pdf" in fin and "Assinatura eletrônica no site" in fin
+    _entrar_representante(painel)
+    assert ">Assinado<" in painel.get("/representante").text
+    assert "Assinado</span> Assinatura eletrônica no site" in painel.get(f"/representante/corretores/{s.id}").text
+

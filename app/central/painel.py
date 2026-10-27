@@ -348,8 +348,9 @@ def financeiro_solicitacao(id_: str, request: Request, db: Db, admin: Admin):
     s = rep.solicitacao(db, id_)
     contratante = ct.obter(db, s.imobiliaria_slug) if s.imobiliaria_slug else None
     ctx = _base(request, admin, s=s, documentos=fin.documentos(db, s), tipos=fin.TIPOS, situacoes=rep.SITUACOES,
-                contratante=contratante, hoje=agora().date().isoformat(), contrato_digital=cc.da_solicitacao(db, s.id),
-                metodos=cc.METODOS, validador=cc.VALIDADOR_ITI)  # fmt: skip
+                contratante=contratante, hoje=agora().date().isoformat(), contrato_digital=(digital := cc.da_solicitacao(db, s.id)),
+                metodos=cc.METODOS, validador=cc.VALIDADOR_ITI,
+                link_contrato=f"{str(request.base_url).rstrip('/')}/contratar/{digital.token}" if digital else "")  # fmt: skip
     return _pagina(request, "financeiro_solicitacao.html", ctx)
 
 
@@ -452,8 +453,8 @@ def atualizar_infraestrutura(admin: Admin, csrf: Annotated[str, Form()] = ""):
 def solicitacoes(request: Request, db: Db, admin: Admin, situacao: str = "nova"):
     situacao = situacao if situacao in rep.SITUACOES or situacao == "todas" else "nova"
     lista = rep.solicitacoes(db, "" if situacao == "todas" else situacao)
-    ctx = _base(request, admin, solicitacoes=lista, situacao=situacao,
-                situacoes=rep.SITUACOES, contagem=rep.contagem(db))  # fmt: skip
+    ctx = _base(request, admin, solicitacoes=lista, situacao=situacao, situacoes=rep.SITUACOES,
+                contagem=rep.contagem(db), contratos={s.id: cc.da_solicitacao(db, s.id) for s in lista})  # fmt: skip
     return _pagina(request, "solicitacoes.html", ctx)
 
 

@@ -36,15 +36,20 @@
 
 {% if contrato_digital %}
 <div class="cartao">
-  <h2>Contrato assinado pelo site</h2>
+  <h2>Contrato</h2>
+  {% if contrato_digital.situacao == "assinado" %}
   <div class="grade">
     <div><div class="rotulo">Assinatura</div>{{ metodos[contrato_digital.metodo] }}</div>
     <div><div class="rotulo">Assinado em</div>{{ contrato_digital.assinado_em.strftime("%d/%m/%Y %H:%M:%S") }}</div>
-    <div><div class="rotulo">IP</div><code>{{ contrato_digital.ip or "—" }}</code></div>
+    {% if contrato_digital.ip %}<div><div class="rotulo">IP</div><code>{{ contrato_digital.ip }}</code></div>{% endif %}
     {% if contrato_digital.assinatura_nome %}<div><div class="rotulo">Nome digitado</div>{{ contrato_digital.assinatura_nome }}</div>{% endif %}
   </div>
   <p class="ajuda" style="margin-top: 12px; word-break: break-all;">SHA-256: <code>{{ contrato_digital.hash_contrato }}</code></p>
-  {% if contrato_digital.metodo == "govbr" %}<p class="ajuda">Confira a assinatura gov.br do PDF (em Documentos) no <a href="{{ validador }}" target="_blank" rel="noopener">Validador do ITI</a>.</p>{% endif %}
+  {% if contrato_digital.metodo in ("govbr", "anexado") %}<p class="ajuda">Confira a assinatura do PDF (em Documentos) no <a href="{{ validador }}" target="_blank" rel="noopener">Validador do ITI</a>.</p>{% endif %}
+  {% else %}
+  <p style="margin-top: 0;"><span class="selo atencao">Aguardando assinatura do corretor</span> Link enviado pelo representante (vale 30 dias a partir de {{ contrato_digital.criado_em.strftime("%d/%m/%Y") }}):</p>
+  <input type="text" value="{{ link_contrato }}" readonly style="font-family: ui-monospace, Menlo, monospace; font-size: 13px;">
+  {% endif %}
 </div>
 {% endif %}
 

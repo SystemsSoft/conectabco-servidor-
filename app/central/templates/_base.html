@@ -136,6 +136,9 @@
     .colunas .coluna:nth-last-child(-n+2) .dica { left: auto; right: 0; transform: none; }
     .colunas .coluna:hover .area span, .colunas .coluna:focus .area span { background: var(--marca-escura); }
     @media (max-width: 560px) { .colunas .mes { font-size: 9px; } }
+    label.opcao { display: flex; gap: 10px; align-items: flex-start; font-weight: 400; padding: 12px 14px; border: 1px solid var(--linha); border-radius: 10px; margin-bottom: 10px; cursor: pointer; }
+    label.opcao:has(input:checked) { border-color: var(--marca); background: #f4f6ff; }
+    label.opcao input { margin-top: 4px; }
     details summary { cursor: pointer; color: var(--marca); font-size: 13px; margin-top: 6px; }
   </style>
 </head>

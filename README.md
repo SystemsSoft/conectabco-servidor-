@@ -86,10 +86,20 @@ servidor; tem bloqueio após 5 senhas erradas, sessão de 8 h e proteção CSRF.
 Os **representantes** da associação entram na **área do representante**,
 **https://api.xn--associaoconectabci-7sb3f.com.br/representante** (link
 "Área do representante" no site institucional), com usuário e senha, e
-cadastram os corretores para implantação: nome, CPF/CNPJ (conferido), CRECI,
-e-mail, telefone/WhatsApp, imobiliária, cidade/UF e, se houver, domínio,
-número de imóveis, contratos e usuários e observações. Lá acompanham a
-situação de cada um e a resposta da associação.
+cadastram os corretores com **os mesmos dados do contrato** (os de
+`/contratar`, inclusive o logotipo), mais o tamanho da operação e
+observações. Para o contrato, escolhem:
+
+- **gerar o link de assinatura**: a solicitação entra na hora e o
+  representante recebe o link (`/contratar/<token>`, válido por 30 dias) para
+  copiar, mandar por WhatsApp ou e-mail, ou abrir na frente do corretor. Quando
+  o corretor assina (eletrônica ou gov.br), o contrato é anexado **nessa mesma
+  solicitação**; ou
+- **anexar o contrato já assinado** (PDF, até 10 MB): entra como assinado; no
+  Financeiro aparece se o PDF tem ou não assinatura digital.
+
+Na lista "Meus corretores" e na página de cada um, o representante acompanha
+a situação do contrato e da implantação e a resposta da associação.
 
 No painel:
 

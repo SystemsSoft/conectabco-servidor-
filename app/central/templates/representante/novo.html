@@ -3,10 +3,42 @@
 {% block conteudo %}
 <p><a href="/representante">← Meus corretores</a></p>
 <h1>Cadastrar corretor</h1>
-<p class="sub">Dados para a associação implantar o sistema imobiliário. Campos marcados com * são obrigatórios.</p>
-<form method="post" action="/representante/novo" data-demora>
+<p class="sub">Os mesmos dados do contrato de prestação de serviços. Campos com * são obrigatórios. <a href="/contratar/modelo.pdf" target="_blank" rel="noopener">Ver o contrato em branco</a>.</p>
+<form method="post" action="/representante/novo" enctype="multipart/form-data" data-demora>
   <input type="hidden" name="csrf" value="{{ csrf }}">
-  {% include "_corretor.html" %}
+  <div class="cartao">
+    <h2>Contratante</h2>
+    {% include "_contratante_campos.html" %}
+  </div>
+  <div class="cartao">
+    <h2>Tamanho da operação <span style="font-weight: 400; color: var(--suave); font-size: 14px;">(aproximado, opcional)</span></h2>
+    <div class="grade">
+      <div><label for="imoveis">Imóveis na carteira</label><input type="text" id="imoveis" name="imoveis" value="{{ dados.imoveis or '' }}" inputmode="numeric" maxlength="9"></div>
+      <div><label for="contratos">Contratos de locação ativos</label><input type="text" id="contratos" name="contratos" value="{{ dados.contratos or '' }}" inputmode="numeric" maxlength="9"></div>
+      <div><label for="usuarios">Pessoas que vão usar o sistema</label><input type="text" id="usuarios" name="usuarios" value="{{ dados.usuarios or '' }}" inputmode="numeric" maxlength="9"></div>
+    </div>
+    <div style="margin-top: 14px;"><label for="observacoes">Observações</label><textarea id="observacoes" name="observacoes" rows="3" maxlength="2000" placeholder="Melhor horário para contato, sistema que usa hoje, migração de dados...">{{ dados.observacoes or '' }}</textarea></div>
+  </div>
+  <div class="cartao">
+    <h2>Contrato</h2>
+    <label class="opcao"><input type="radio" name="contrato" value="link"{% if dados.contrato != "anexo" %} checked{% endif %}>
+      <span><strong>Gerar link para o corretor assinar</strong><br><span class="ajuda" style="margin: 0;">Você recebe um link para enviar por WhatsApp ou e-mail (ou abrir agora, com o corretor). Ele assina eletronicamente ou com a conta gov.br, e o contrato assinado entra nesta solicitação.</span></span></label>
+    <label class="opcao"><input type="radio" name="contrato" value="anexo"{% if dados.contrato == "anexo" %} checked{% endif %}>
+      <span><strong>Anexar o contrato já assinado</strong><br><span class="ajuda" style="margin: 0;">PDF assinado pelo corretor (gov.br ou digitalizado), até 10 MB.</span></span></label>
+    <div id="campo-anexo" style="margin: 6px 0 0 30px;"{% if dados.contrato != "anexo" %} hidden{% endif %}>
+      <input type="file" name="contrato_assinado" accept="application/pdf,.pdf">
+      {% if erro and dados.contrato == "anexo" %}<span class="ajuda">Selecione o arquivo de novo.</span>{% endif %}
+    </div>
+    <label style="display: flex; gap: 8px; align-items: flex-start; margin-top: 18px; font-weight: 400;"><input type="checkbox" name="lgpd" required{% if dados.lgpd %} checked{% endif %}> O corretor autorizou o uso dos dados dele para a contratação e a implantação do sistema (LGPD).</label>
+  </div>
   <div class="acoes"><button type="submit" data-enviando="Enviando...">Enviar para implantação</button><a href="/representante">Cancelar</a></div>
 </form>
+<script>
+  document.querySelectorAll('input[name=contrato]').forEach(function (r) {
+    r.addEventListener('change', function () {
+      var anexo = document.querySelector('input[name=contrato]:checked').value === 'anexo';
+      document.getElementById('campo-anexo').hidden = !anexo;
+    });
+  });
+</script>
 {% endblock %}

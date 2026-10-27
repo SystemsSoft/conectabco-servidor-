@@ -34,7 +34,8 @@ VALIDADE = timedelta(days=30)  # link de um contrato ainda não assinado
 LIMITE_PDF = 10 * 1024 * 1024
 ASSINADOR_GOVBR = "https://assinador.iti.br"
 VALIDADOR_ITI = "https://validar.iti.gov.br"
-METODOS = {"eletronica": "Assinatura eletrônica no site", "govbr": "Assinatura gov.br"}
+METODOS = {"eletronica": "Assinatura eletrônica no site", "govbr": "Assinatura gov.br",
+           "anexado": "Contrato assinado anexado pelo representante"}
 _EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 _DOMINIO = re.compile(r"^([a-z0-9]([a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}$")
 
@@ -61,11 +62,8 @@ def _conferir_logo(logo) -> tuple[bytes, str, str] | None:
     return conteudo, tipo, "png" if tipo == "image/png" else "jpg"
 
 
-def iniciar(db: Session, formulario: dict[str, str], logo=None) -> m.ContratoDigital:
-    """Confere os dados do contratante (e o logotipo, se veio) e abre o
-    contrato para assinatura."""
-    if formulario.get("lgpd") != "on":
-        raise RegraNegocio("Aceite o uso dos seus dados para a contratação (LGPD).")
+def _validar_contratante(formulario) -> tuple[dict, str]:
+    """Os campos do contrato, o e-mail e o site, conferidos."""
     dados = ct.DadosContrato(**{c: (formulario.get(c) or "").strip() for c in CAMPOS})
     valores = ct.validar(dados)
     email = (formulario.get("email") or "").strip().lower()
@@ -74,8 +72,11 @@ def iniciar(db: Session, formulario: dict[str, str], logo=None) -> m.ContratoDig
     site = (formulario.get("site") or "").strip().lower().removeprefix("https://").removeprefix("http://").strip("/")
     if site and not _DOMINIO.match(site):
         raise RegraNegocio("Endereço do site inválido (ex.: joaoimoveis.com.br).")
-    imagem = _conferir_logo(logo)
-    guardados = {c: valores[c] for c in CAMPOS} | {"site": site}
+    return {c: valores[c] for c in CAMPOS} | {"site": site}, email
+
+
+def _novo_contrato(guardados: dict, email: str, imagem) -> m.ContratoDigital:
+    """Contrato aguardando assinatura (o logotipo, se veio, já vai para o armazenamento)."""
     momento = agora()
     c = m.ContratoDigital(
         id=str(uuid.uuid4()), token=secrets.token_urlsafe(32), dados=guardados, email=email,
@@ -88,7 +89,10 @@ def iniciar(db: Session, formulario: dict[str, str], logo=None) -> m.ContratoDig
         provisorio = temporario()
         provisorio.write_bytes(conteudo)
         armazenamento().gravar(c.logo_chave, provisorio, tipo, {"origem": "plataforma", "contrato": c.id})
-    db.add(c)
+    return c
+
+
+def _gravar(db: Session, c: m.ContratoDigital) -> None:
     try:
         db.commit()
     except Exception:
@@ -96,7 +100,88 @@ def iniciar(db: Session, formulario: dict[str, str], logo=None) -> m.ContratoDig
         if c.logo_chave:
             armazenamento().apagar(c.logo_chave)
         raise
+
+
+def iniciar(db: Session, formulario: dict[str, str], logo=None) -> m.ContratoDigital:
+    """Confere os dados do contratante (e o logotipo, se veio) e abre o
+    contrato para assinatura."""
+    if formulario.get("lgpd") != "on":
+        raise RegraNegocio("Aceite o uso dos seus dados para a contratação (LGPD).")
+    guardados, email = _validar_contratante(formulario)
+    c = _novo_contrato(guardados, email, _conferir_logo(logo))
+    db.add(c)
+    _gravar(db, c)
     return c
+
+
+def _ler_pdf(arquivo) -> bytes:
+    if arquivo is None or not getattr(arquivo, "filename", ""):
+        raise RegraNegocio("Anexe o contrato assinado (PDF).")
+    conteudo = arquivo.file.read(LIMITE_PDF + 1)
+    if len(conteudo) > LIMITE_PDF:
+        raise RegraNegocio("Contrato grande demais (máximo 10 MB).")
+    if not conteudo.startswith(b"%PDF"):
+        raise RegraNegocio("Anexe o contrato assinado em PDF.")
+    return conteudo
+
+
+def _anexar_logo(db: Session, c: m.ContratoDigital, s: m.SolicitacaoImplantacao) -> None:
+    if c.logo_chave:  # o logotipo enviado acompanha a solicitação (e vai para o Implantar)
+        extensao = "png" if c.logo_tipo == "image/png" else "jpg"
+        with armazenamento().local(c.logo_chave) as caminho, caminho.open("rb") as arquivo:
+            fin.enviar_documento(db, s, None, arquivo, f"logotipo.{extensao}", "logo",
+                                 "Logotipo enviado na contratação")  # fmt: skip
+
+
+def enviar_pelo_representante(db: Session, representante: m.Representante, formulario, logo=None,
+                              contrato_assinado=None) -> tuple[m.SolicitacaoImplantacao, m.ContratoDigital]:  # fmt: skip
+    """O representante envia o corretor com os dados do contrato e:
+    - "link": gera o link de assinatura para o corretor (o contrato assinado
+      entra nesta mesma solicitação quando ele assinar); ou
+    - "anexo": anexa o contrato já assinado (PDF)."""
+    modo = formulario.get("contrato") or ""
+    if modo not in ("link", "anexo"):
+        raise RegraNegocio("Escolha como o contrato será assinado.")
+    if formulario.get("lgpd") != "on":
+        raise RegraNegocio("Confirme que o corretor autorizou o uso dos dados (LGPD).")
+    guardados, email = _validar_contratante(formulario)
+    imagem = _conferir_logo(logo)
+    anexo = _ler_pdf(contrato_assinado) if modo == "anexo" else None
+    extras = rep.DadosCorretor(imoveis=formulario.get("imoveis", ""), contratos=formulario.get("contratos", ""),
+                               usuarios=formulario.get("usuarios", ""), observacoes=formulario.get("observacoes", ""))  # fmt: skip
+    c = _novo_contrato(guardados, email, imagem)
+    db.add(c)
+    try:
+        s = rep.enviar_solicitacao(db, representante, _corretor(guardados, email, extras))
+    except Exception:
+        db.rollback()
+        if c.logo_chave:
+            armazenamento().apagar(c.logo_chave)
+        raise
+    c.solicitacao_id = s.id
+    _anexar_logo(db, c, s)
+    if anexo is not None:
+        digital = b"/ByteRange" in anexo and b"/Sig" in anexo
+        doc = fin.enviar_documento(
+            db, s, None, io.BytesIO(anexo), "contrato-assinado.pdf", "contrato",
+            "Anexado pelo representante" + (" (com assinatura digital)" if digital else " (sem assinatura digital: confira)"),
+        )  # fmt: skip
+        momento = agora()
+        c.situacao, c.metodo, c.assinado_em, c.atualizado_em = "assinado", "anexado", momento, momento
+        c.hash_contrato, c.chave_assinado = contrato_pdf.sha256(anexo), doc.chave
+    db.commit()
+    return s, c
+
+
+def _corretor(d: dict, email: str, extras: "rep.DadosCorretor | None" = None) -> "rep.DadosCorretor":
+    """Os dados da solicitação a partir dos do contrato."""
+    extras = extras or rep.DadosCorretor()
+    return rep.DadosCorretor(
+        nome=d["nome"], cpf_cnpj=d.get("cpf") or d.get("cnpj") or "", creci=d.get("creci") or d.get("creci_pj") or "",
+        email=email, telefone=d["telefone_1"], nome_imobiliaria=d.get("nome_comercial") or d["nome"],
+        cidade=d["cidade"], uf=d["uf"], dominio=d.get("site", ""), imoveis=extras.imoveis,
+        contratos=extras.contratos, usuarios=extras.usuarios, observacoes=extras.observacoes,
+    )  # fmt: skip
 
 
 def por_token(db: Session, token: str) -> m.ContratoDigital:
@@ -158,33 +243,32 @@ def _ainda_aguardando(c: m.ContratoDigital) -> None:
 
 def _finalizar(db: Session, c: m.ContratoDigital, conteudo: bytes, nome_arquivo: str, ip: str,
                navegador: str) -> m.SolicitacaoImplantacao:  # fmt: skip
-    """Assinado: solicitação de implantação com o contrato anexado e lead convertido."""
+    """Assinado. Pelo site: vira solicitação de implantação (com o contrato e o
+    logotipo) e lead convertido. Pelo link de um representante: o contrato
+    entra na solicitação que ele já enviou."""
     d = c.dados
-    documento = d.get("cpf") or d.get("cnpj") or ""
-    s = rep.enviar_solicitacao(db, None, rep.DadosCorretor(
-        nome=d["nome"], cpf_cnpj=documento, creci=d.get("creci") or d.get("creci_pj") or "", email=c.email,
-        telefone=d["telefone_1"], nome_imobiliaria=d.get("nome_comercial") or d["nome"], cidade=d["cidade"],
-        uf=d["uf"], dominio=d.get("site", ""),
-        observacoes=f"Contratou pelo site: contrato assinado ({METODOS[c.metodo].lower()}).",
-    ))  # fmt: skip
+    nova = c.solicitacao_id is None
+    if nova:
+        observacao = f"Contratou pelo site: contrato assinado ({METODOS[c.metodo].lower()})."
+        s = rep.enviar_solicitacao(db, None, _corretor(d, c.email, rep.DadosCorretor(observacoes=observacao)))
+    else:
+        s = rep.solicitacao(db, c.solicitacao_id)
     doc = fin.enviar_documento(db, s, None, io.BytesIO(conteudo), nome_arquivo, "contrato",
                                METODOS[c.metodo])  # fmt: skip
-    if c.logo_chave:  # o logotipo enviado acompanha a solicitação (e vai para o Implantar)
-        extensao = "png" if c.logo_tipo == "image/png" else "jpg"
-        with armazenamento().local(c.logo_chave) as caminho, caminho.open("rb") as arquivo:
-            fin.enviar_documento(db, s, None, arquivo, f"logotipo.{extensao}", "logo",
-                                 "Logotipo enviado na contratação")  # fmt: skip
+    if nova:
+        _anexar_logo(db, c, s)
     momento = agora()
     c.situacao, c.assinado_em, c.atualizado_em = "assinado", momento, momento
     c.ip, c.navegador = (ip or "")[:64], (navegador or "")[:300]
     c.chave_assinado, c.solicitacao_id = doc.chave, s.id
-    db.add(m.LeadAssociacao(
-        id=str(uuid.uuid4()), nome=d["nome"], email=c.email, whatsapp=d["telefone_1"],
-        creci=d.get("creci") or d.get("creci_pj") or "", cidade=f"{d['cidade']}/{d['uf']}",
-        perfil="Contratação online", quer_sistema=True, situacao="convertido",
-        anotacao=f"Contrato assinado pelo site ({METODOS[c.metodo].lower()}).", solicitacao_id=s.id,
-        criado_em=momento, atualizado_em=momento,
-    ))  # fmt: skip
+    if nova:
+        db.add(m.LeadAssociacao(
+            id=str(uuid.uuid4()), nome=d["nome"], email=c.email, whatsapp=d["telefone_1"],
+            creci=d.get("creci") or d.get("creci_pj") or "", cidade=f"{d['cidade']}/{d['uf']}",
+            perfil="Contratação online", quer_sistema=True, situacao="convertido",
+            anotacao=f"Contrato assinado pelo site ({METODOS[c.metodo].lower()}).", solicitacao_id=s.id,
+            criado_em=momento, atualizado_em=momento,
+        ))  # fmt: skip
     db.commit()
     return s
 

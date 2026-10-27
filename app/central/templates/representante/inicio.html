@@ -11,14 +11,15 @@
 <div class="cartao" style="padding: 8px 14px;">
   {% if solicitacoes %}
   <table>
-    <thead><tr><th>Corretor / imobiliária</th><th class="esconder-celular">Cidade</th><th class="esconder-celular">Enviado em</th><th>Situação</th></tr></thead>
+    <thead><tr><th>Corretor / imobiliária</th><th class="esconder-celular">Cidade</th><th class="esconder-celular">Enviado em</th><th>Contrato</th><th>Situação</th></tr></thead>
     <tbody>
       {% for s in solicitacoes %}
       <tr>
-        <td><strong>{{ s.nome }}</strong><br><span class="rotulo">{{ s.nome_imobiliaria }} · CRECI {{ s.creci }}</span>
+        <td><a href="/representante/corretores/{{ s.id }}"><strong>{{ s.nome }}</strong></a><br><span class="rotulo">{{ s.nome_imobiliaria }} · CRECI {{ s.creci }}</span>
           {% if s.resposta %}<div class="ajuda" style="margin-top: 6px;"><strong>Associação:</strong> {{ s.resposta }}</div>{% endif %}</td>
         <td class="esconder-celular">{{ s.cidade }}/{{ s.uf }}</td>
         <td class="esconder-celular">{{ s.criada_em.strftime("%d/%m/%Y") }}</td>
+        <td>{% set c = contratos[s.id] %}{% if not c %}<span class="rotulo">—</span>{% elif c.situacao == "assinado" %}<span class="selo ok">Assinado</span>{% else %}<a class="selo atencao" href="/representante/corretores/{{ s.id }}">Aguardando · ver link</a>{% endif %}</td>
         <td><span class="selo {{ {'nova': 'off', 'em_andamento': 'atencao', 'implantada': 'ok', 'recusada': 'erro'}[s.situacao] }}">{{ situacoes[s.situacao] }}</span></td>
       </tr>
       {% endfor %}

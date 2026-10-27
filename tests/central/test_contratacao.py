@@ -95,7 +95,7 @@ def test_assinatura_eletronica_vira_solicitacao_e_lead(painel):  # noqa: F811
     _entrar(painel)
     assert "Contratou pelo site" in painel.get("/plataforma/solicitacoes").text
     fin = painel.get(f"/plataforma/financeiro/{s.id}").text
-    assert "Contrato assinado pelo site" in fin and "contrato-assinado.pdf" in fin and "Assinatura eletrônica" in fin
+    assert "Assinado em" in fin and "contrato-assinado.pdf" in fin and "Assinatura eletrônica" in fin
     from tests.central.test_representantes import _pagar
 
     assert "financeiro" in painel.get(f"/plataforma/nova?solicitacao={s.id}").headers["location"]  # sem o 1º pagamento

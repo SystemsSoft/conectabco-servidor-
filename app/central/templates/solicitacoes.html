@@ -23,6 +23,7 @@
       <span class="rotulo">{{ s.cidade }}/{{ s.uf }} · enviada em {{ s.criada_em.strftime("%d/%m/%Y %H:%M") }}</span>
     </div>
     <div style="display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end;">
+      {% set cd = contratos[s.id] %}{% if cd %}<a class="selo {{ 'ok' if cd.situacao == 'assinado' else 'atencao' }}" href="/plataforma/financeiro/{{ s.id }}">{{ "Contrato assinado" if cd.situacao == "assinado" else "Contrato aguardando assinatura" }}</a>{% endif %}
       {% if s.pago %}<a class="selo ok" href="/plataforma/financeiro/{{ s.id }}">1º pagamento confirmado</a>{% elif s.situacao != "recusada" %}<a class="selo atencao" href="/plataforma/financeiro/{{ s.id }}">Aguardando 1º pagamento</a>{% endif %}
       <span class="selo {{ {'nova': 'off', 'em_andamento': 'atencao', 'implantada': 'ok', 'recusada': 'erro'}[s.situacao] }}">{{ situacoes[s.situacao] }}</span>
     </div>
