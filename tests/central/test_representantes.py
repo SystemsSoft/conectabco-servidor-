@@ -173,10 +173,11 @@ def test_menu_tecnologia_financeiro_e_comercial(painel):  # noqa: F811
 
 def test_nova_imobiliaria_pelo_fluxo_de_solicitacao(painel):  # noqa: F811
     csrf = _entrar(painel)
-    # O botão saiu de Imobiliárias e foi para Solicitações.
+    # Nem Imobiliárias nem Solicitações têm botão de nova imobiliária.
     assert 'href="/plataforma/nova"' not in painel.get("/plataforma").text
     pagina = painel.get("/plataforma/solicitacoes").text
-    assert 'href="/plataforma/solicitacoes/nova"' in pagina and "+ Nova imobiliária" in pagina
+    # Sem botão de nova imobiliária em Solicitações (o formulário segue para os leads do Comercial).
+    assert 'href="/plataforma/solicitacoes/nova"' not in pagina and "+ Nova imobiliária" not in pagina
 
     form = painel.get("/plataforma/solicitacoes/nova").text
     assert 'name="cpf_cnpj"' in form and 'name="creci"' in form

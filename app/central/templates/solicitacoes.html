@@ -1,12 +1,9 @@
 {% extends "_base.html" %}
 {% block titulo %}Solicitações{% endblock %}
 {% block conteudo %}
-<div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 16px;">
-  <div>
-    <h1>Solicitações de implantação</h1>
-    <p class="sub" style="margin: 0;">Corretores enviados pelos representantes ou cadastrados aqui no painel.</p>
-  </div>
-  <a class="botao" href="/plataforma/solicitacoes/nova" style="margin-left: auto;">+ Nova imobiliária</a>
+<div style="margin-bottom: 16px;">
+  <h1>Solicitações de implantação</h1>
+  <p class="sub" style="margin: 0;">Corretores enviados pelos representantes, pela contratação no site ou criados a partir dos leads do Comercial.</p>
 </div>
 <nav class="filtros">
   {% for chave, rotulo in situacoes.items() %}
