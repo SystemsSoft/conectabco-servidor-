@@ -68,6 +68,10 @@ def create_app() -> FastAPI:
     from app.central.contratar import router as contratar
 
     app.include_router(contratar)
+    # Vídeos tutoriais do site (no S3, por link assinado).
+    from app.central.tutoriais import router as tutoriais
+
+    app.include_router(tutoriais)
     # App de gestão (Flutter web), em todos os domínios.
     from app.core.app_gestao import router as app_gestao
 

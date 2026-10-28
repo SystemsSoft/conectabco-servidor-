@@ -25,7 +25,7 @@ fi
 rsync -az --delete -e "$SSH" \
   --exclude .venv --exclude .env --exclude '*.pem' --exclude dados \
   --exclude __pycache__ --exclude .pytest_cache --exclude .git --exclude .idea \
-  --exclude .DS_Store --exclude .senha-inicial-admin.txt ${MANTER_APP[@]+"${MANTER_APP[@]}"} \
+  --exclude .DS_Store --exclude .senha-inicial-admin.txt --exclude tutorial ${MANTER_APP[@]+"${MANTER_APP[@]}"} \
   ./ "$HOST:/opt/marceloimob/"
 
 $SSH "$HOST" 'set -e
