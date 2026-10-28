@@ -33,7 +33,7 @@
       <a href="mailto:{{ s.email }}">{{ s.email }}</a> · <a href="https://wa.me/55{{ s.telefone | digitos }}" target="_blank" rel="noopener">{{ s.telefone }}</a>
       {% if s.dominio or s.imoveis or s.contratos or s.usuarios %}
       <div class="ajuda" style="margin-top: 6px;">
-        {% if s.dominio %}Domínio: <code>{{ s.dominio }}</code> · {% endif %}
+        {% if s.dominio %}Domínio: <code>{{ s.dominio | exibir_dominio }}</code> · {% endif %}
         {% if s.imoveis %}{{ s.imoveis }} imóveis · {% endif %}{% if s.contratos %}{{ s.contratos }} contratos · {% endif %}{% if s.usuarios %}{{ s.usuarios }} usuários{% endif %}
       </div>
       {% endif %}

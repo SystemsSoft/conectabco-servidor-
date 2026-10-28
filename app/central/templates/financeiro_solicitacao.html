@@ -91,7 +91,7 @@
       {{ s.cpf_cnpj | cpf_cnpj }} · CRECI {{ s.creci }}<br>
       <a href="mailto:{{ s.email }}">{{ s.email }}</a> · <a href="https://wa.me/55{{ s.telefone | digitos }}" target="_blank" rel="noopener">{{ s.telefone }}</a>
       <div class="rotulo" style="margin-top: 12px;">Imobiliária</div>
-      {{ s.nome_imobiliaria }} · {{ s.cidade }}/{{ s.uf }}{% if s.dominio %} · <code>{{ s.dominio }}</code>{% endif %}<br>
+      {{ s.nome_imobiliaria }} · {{ s.cidade }}/{{ s.uf }}{% if s.dominio %} · <code>{{ s.dominio | exibir_dominio }}</code>{% endif %}<br>
       <span class="ajuda">{% if s.imoveis %}{{ s.imoveis }} imóveis · {% endif %}{% if s.contratos %}{{ s.contratos }} contratos · {% endif %}{% if s.usuarios %}{{ s.usuarios }} usuários · {% endif %}entrada em {{ s.criada_em.strftime("%d/%m/%Y") }}</span>
       {% if s.observacoes %}<p class="ajuda" style="white-space: pre-line;">{{ s.observacoes }}</p>{% endif %}
     </div>
