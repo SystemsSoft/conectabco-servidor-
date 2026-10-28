@@ -33,7 +33,7 @@ _CELULAS = {
     "dns": (156, 220, 300.5), "data_implantacao": (381, 458, 300.5), "horario_implantacao": (530, 579, 300.5),
 }  # fmt: skip
 _ENDERECO_COMERCIAL = (156, 235, 237.7, 22)  # duas linhas de altura
-_DATA_FINAL = (48, 271.9)  # depois de "Data", na última página
+_DATA_FINAL = (48, 230.5)  # depois de "Data", na última página
 
 
 def _formatar_documento(d: str) -> str:
