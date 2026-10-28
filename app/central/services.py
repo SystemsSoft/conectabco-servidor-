@@ -21,7 +21,7 @@ RAIZ = Path(__file__).resolve().parents[2]
 _SLUG = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$")
 # Caminhos do painel (/plataforma/<slug>) que não podem virar imobiliária.
 _RESERVADOS = {"nova", "entrar", "sair", "infraestrutura", "solicitacoes", "representantes",
-                "financeiro", "comercial"}
+                "financeiro", "comercial", "tutorial"}
 _BANCO = re.compile(r"^[a-z0-9_]{1,64}$")
 _DOMINIO = re.compile(r"^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)*$")
 _COR = re.compile(r"^#[0-9a-f]{6}$")

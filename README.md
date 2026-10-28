@@ -191,25 +191,27 @@ O botão **Contratar o sistema** do site institucional abre
 Para trocar o contrato, substitua `modelo.pdf` mantendo o quadro da página 1
 no mesmo lugar (ou ajuste as posições em `contrato_pdf._CELULAS`).
 
-#### Vídeos tutoriais (`/associacao/tutoriais/<nome>.mp4`)
+#### Vídeos tutoriais
 
-Os tutoriais do site ficam no S3, em `plataforma/tutoriais/` (o bucket não é
-público). O site aponta para `https://api.<domínio>/associacao/tutoriais/<nome>.mp4`
-e o servidor redireciona (307) para um link assinado de 6 horas. Só os nomes
-da lista `TUTORIAIS` em `app/central/tutoriais.py` funcionam. Hoje:
-`como-contratar-o-sistema` (seção "Tutorial em vídeo" da landing page). Os
-originais ficam na pasta `tutorial/`, que o `deploy.sh` não envia ao servidor.
+Os tutoriais ficam no S3, em `plataforma/tutoriais/` (o bucket não é público).
+As páginas apontam para o servidor, que redireciona (307) para um link
+assinado de 6 horas. Só os vídeos listados em `app/central/tutoriais.py`
+funcionam:
 
-Para enviar um vídeo novo, pelo servidor (onde estão as chaves da AWS):
+| Vídeo | Onde aparece | Endereço |
+| --- | --- | --- |
+| `como-contratar-o-sistema.mp4` | Landing page, seção "Tutorial em vídeo" | `/associacao/tutoriais/como-contratar-o-sistema.mp4` (público) |
+| `como-o-representante-cadastra-o-corretor.mp4` | Área do representante → Tutorial | `/representante/tutorial.mp4` (com login de representante) |
+| `fluxo-de-implantacao-no-painel.mp4` | Plataforma → Tutorial (no topo, ao lado do nome) | `/plataforma/tutorial.mp4` (com login da plataforma) |
+
+Os originais ficam na pasta `tutorial/`, que o `deploy.sh` não envia ao
+servidor. Para enviar (ou substituir) um vídeo no S3:
 
 ```bash
-scp -i key_aws.pem tutorial/novo.mp4 ec2-user@44.223.83.147:/tmp/
-ssh -i key_aws.pem ec2-user@44.223.83.147 'sudo chown marceloimob /tmp/novo.mp4 && cd /opt/marceloimob && sudo -u marceloimob .venv/bin/python -c "
-from pathlib import Path; from app.core.armazenamento import armazenamento
-armazenamento().gravar(\"plataforma/tutoriais/novo.mp4\", Path(\"/tmp/novo.mp4\"), \"video/mp4\", {\"categoria\": \"tutorial\"})"'
+./enviar_tutorial.sh tutorial/como-o-representante-cadastra-o-corretor.mp4 tutorial/fluxo-de-implantacao-no-painel.mp4
 ```
 
-e acrescente o nome em `TUTORIAIS`.
+Vídeo novo: envie e acrescente o nome em `tutoriais.py` (e os capítulos, se for interno).
 
 #### Infraestrutura (`/plataforma/infraestrutura`)
 

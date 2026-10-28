@@ -586,6 +586,20 @@ def _aponta(dominio: str, ip: str) -> bool:
         return False
 
 
+@router.get("/tutorial")
+def tutorial_pagina(request: Request, admin: Admin):
+    from app.central import tutoriais as tut  # aqui: tutoriais importa o painel
+
+    return _pagina(request, "tutorial.html", _base(request, admin, capitulos=tut.CAPITULOS_PLATAFORMA))
+
+
+@router.get("/tutorial.mp4")
+def tutorial_video(admin: Admin):
+    from app.central import tutoriais as tut
+
+    return tut.entregar(tut.PLATAFORMA)
+
+
 @router.get("/{slug}")
 def detalhe(slug: str, request: Request, db: Db, admin: Admin):
     from app.modules.equipe.enums import PerfilAcesso

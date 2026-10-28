@@ -1,0 +1,9 @@
+{% extends "representante/_base.html" %}
+{% block titulo %}Tutorial{% endblock %}
+{% block conteudo %}
+<p><a href="/representante">← Meus corretores</a></p>
+<h1>Como cadastrar um corretor</h1>
+<p class="sub">Em 3 minutos: entrar, cadastrar o corretor com os dados do contrato, escolher entre gerar o link de assinatura ou anexar o contrato assinado, e acompanhar a implantação.</p>
+{% with video="/representante/tutorial.mp4" %}{% include "_tutorial.html" %}{% endwith %}
+<div class="acoes"><a class="botao" href="/representante/novo">+ Cadastrar corretor</a></div>
+{% endblock %}

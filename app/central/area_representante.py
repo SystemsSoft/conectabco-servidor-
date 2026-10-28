@@ -13,6 +13,7 @@ from app.central import acesso
 from app.central import models as m
 from app.central import contratacao as cc
 from app.central import representantes as rep
+from app.central import tutoriais as tut
 from app.central import services as central
 from app.central.painel import _db, _pagina, _so_pelo_servidor
 from app.core.errors import RegraNegocio
@@ -91,6 +92,16 @@ def inicio(request: Request, db: Db, r: Logado):
     lista = rep.solicitacoes(db, representante_id=r.id)
     contratos = {s.id: cc.da_solicitacao(db, s.id) for s in lista}
     return _pagina(request, "representante/inicio.html", _ctx(request, r, solicitacoes=lista, contratos=contratos))
+
+
+@router.get("/tutorial")
+def tutorial_pagina(request: Request, r: Logado):
+    return _pagina(request, "representante/tutorial.html", _ctx(request, r, capitulos=tut.CAPITULOS_REPRESENTANTE))
+
+
+@router.get("/tutorial.mp4")
+def tutorial_video(r: Logado):
+    return tut.entregar(tut.REPRESENTANTE)
 
 
 @router.get("/novo")

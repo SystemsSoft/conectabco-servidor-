@@ -1,0 +1,7 @@
+{% extends "_base.html" %}
+{% block titulo %}Tutorial{% endblock %}
+{% block conteudo %}
+<h1>Fluxo de implantação</h1>
+<p class="sub">Em 4 minutos: como a solicitação chega (pelo representante ou pelo site), o que o Comercial acompanha, como o Financeiro confirma o 1º pagamento e como a Tecnologia implanta a imobiliária.</p>
+{% with video="/plataforma/tutorial.mp4" %}{% include "_tutorial.html" %}{% endwith %}
+{% endblock %}

@@ -141,6 +141,14 @@
     label.opcao:has(input:checked) { border-color: var(--marca); background: #f4f6ff; }
     label.opcao input { margin-top: 4px; }
     details summary { cursor: pointer; color: var(--marca); font-size: 13px; margin-top: 6px; }
+    .tutorial { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 18px; align-items: start; }
+    .tutorial-video video { display: block; width: 100%; aspect-ratio: 16 / 9; background: #000; border-radius: var(--raio); box-shadow: var(--sombra); }
+    .capitulos ol { list-style: none; margin: 0; padding: 0; }
+    .capitulos button { display: flex; gap: 10px; width: 100%; text-align: left; background: none; border: 0; border-radius: 8px; padding: 7px 8px; font: inherit; font-size: 14px; color: inherit; cursor: pointer; }
+    .capitulos button:hover, .capitulos button:focus-visible { background: var(--fundo); }
+    .capitulos .tempo { flex: none; min-width: 34px; font-variant-numeric: tabular-nums; font-weight: 600; color: var(--marca); }
+    header.topo .quem a { color: #fff; }
+    @media (max-width: 800px) { .tutorial { grid-template-columns: 1fr; } }
   </style>
 </head>
 <body>
@@ -150,7 +158,7 @@
       {% block menu %}
       {% if admin %}
       {% set caminho = request.url.path %}
-      {% set area = "financeiro" if caminho.startswith("/plataforma/financeiro") else ("comercial" if caminho.startswith("/plataforma/comercial") else "tecnologia") %}
+      {% set area = "financeiro" if caminho.startswith("/plataforma/financeiro") else ("comercial" if caminho.startswith("/plataforma/comercial") else ("" if caminho == "/plataforma/tutorial" else "tecnologia")) %}
       {% set grupos = [
         ("tecnologia", "Tecnologia", novas, [("/plataforma", "Imobiliárias", 0), ("/plataforma/solicitacoes", "Solicitações", novas), ("/plataforma/representantes", "Representantes", 0), ("/plataforma/infraestrutura", "Infraestrutura", 0)]),
         ("comercial", "Comercial", leads_novos, [("/plataforma/comercial", "Funil", 0), ("/plataforma/comercial/representantes", "Representantes", 0), ("/plataforma/comercial/receita", "Receita", 0), ("/plataforma/comercial/leads", "Leads do site", leads_novos)]),
@@ -176,6 +184,7 @@
         {% set g = grupos[1] %}{{ grupo(g[0], g[1], g[2], g[3], area, atual.destino) }}
       </nav>
       <div class="quem">
+        <a href="/plataforma/tutorial"{% if caminho == "/plataforma/tutorial" %} style="text-decoration: underline;"{% endif %}>Tutorial</a>
         <span>{{ admin.nome }}</span>
         <form method="post" action="/plataforma/sair"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="link" type="submit">Sair</button></form>
       </div>

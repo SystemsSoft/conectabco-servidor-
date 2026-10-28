@@ -1,0 +1,31 @@
+{# Vídeo tutorial com capítulos. Contexto: video (URL), capitulos [(segundo, título)]. #}
+<div class="tutorial">
+  <div class="tutorial-video">
+    <video id="video-tutorial" src="{{ video }}" controls preload="metadata" playsinline>
+      Seu navegador não reproduz vídeos. <a href="{{ video }}">Baixe o tutorial</a>.
+    </video>
+    <p class="ajuda" style="margin-top: 8px;">Narrado e com legendas.</p>
+  </div>
+  <div class="cartao capitulos">
+    <h2>Capítulos</h2>
+    <ol>
+      {% for segundo, titulo in capitulos %}
+      <li><button type="button" data-tempo="{{ segundo }}"><span class="tempo">{{ "%d:%02d" | format(segundo // 60, segundo % 60) }}</span> {{ titulo }}</button></li>
+      {% endfor %}
+    </ol>
+  </div>
+</div>
+<script>
+  (function () {
+    var video = document.getElementById('video-tutorial');
+    document.querySelectorAll('.capitulos [data-tempo]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var tempo = Number(b.dataset.tempo);
+        if (video.readyState > 0) video.currentTime = tempo;
+        else video.addEventListener('loadedmetadata', function () { video.currentTime = tempo; }, { once: true });
+        video.play();
+        video.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      });
+    });
+  })();
+</script>

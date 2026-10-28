@@ -4,6 +4,7 @@
 {% block menu %}
 {% if representante %}
 <div class="quem">
+  <a href="/representante/tutorial">Tutorial</a>
   <span>{{ representante.nome }}</span>
   <form method="post" action="/representante/sair"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="link" type="submit">Sair</button></form>
 </div>
