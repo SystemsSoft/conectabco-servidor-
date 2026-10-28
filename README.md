@@ -191,6 +191,34 @@ O botão **Contratar o sistema** do site institucional abre
 Para trocar o contrato, substitua `modelo.pdf` mantendo o quadro da página 1
 no mesmo lugar (ou ajuste as posições em `contrato_pdf._CELULAS`).
 
+#### E-mails (`/plataforma/emails`)
+
+A caixa `contato@associaçãoconectabci.com.br` (Hostinger) aparece no painel,
+no menu **E-mails**, com o número de não lidas. O servidor lê a caixa de
+entrada por IMAP sem marcar nada como lido lá, guarda cada mensagem no banco
+central (`emails_associacao`) e liga o remetente a um lead do site,
+representante ou solicitação quando o e-mail bate. As mensagens novas entram
+sozinhas a cada 2 minutos enquanto alguém usa o painel, ou na hora com
+**Atualizar agora**. Na primeira leitura, só as 200 mais recentes.
+
+- **Ler:** o HTML do e-mail abre num quadro isolado, sem scripts e sem imagens
+  de fora até clicar em "Mostrar imagens". Os anexos são baixados da caixa na
+  hora, sempre como download.
+- **Responder / escrever:** sai por SMTP de `contato@`, com a mensagem original
+  citada, e ganha uma cópia na pasta de enviados da caixa (aparece no webmail).
+- **Não lido:** marca só no painel.
+
+No `.env` do servidor (a senha da caixa fica só lá):
+
+```
+EMAIL_USUARIO=contato@associaçãoconectabci.com.br
+EMAIL_SENHA=...
+```
+
+Os servidores padrão são os da Hostinger (`EMAIL_IMAP_HOST=imap.hostinger.com`,
+porta 993, e `EMAIL_SMTP_HOST=smtp.hostinger.com`, porta 465); o nome que
+aparece para quem recebe é `EMAIL_NOME` ("Associação Conecta do Brasil").
+
 #### Vídeos tutoriais
 
 Os tutoriais ficam no S3, em `plataforma/tutoriais/` (o bucket não é público).

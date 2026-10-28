@@ -73,6 +73,16 @@ class Settings(BaseSettings):
     aws_bucket: str = "associacao-conecta"
     infra_cache: str = "dados/infraestrutura.json"
 
+    # Caixa de e-mail da associação (contato@...), lida no painel por IMAP e
+    # respondida por SMTP. Sem usuário e senha, a tela de e-mails só avisa.
+    email_usuario: str = ""
+    email_senha: str = ""
+    email_nome: str = "Associação Conecta do Brasil"
+    email_imap_host: str = "imap.hostinger.com"
+    email_imap_porta: int = 993
+    email_smtp_host: str = "smtp.hostinger.com"
+    email_smtp_porta: int = 465
+
     cors_origins: str = ""
     host: str = "0.0.0.0"
     port: int = 8000

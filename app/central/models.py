@@ -2,6 +2,7 @@ from datetime import date, datetime
 from decimal import Decimal
 
 import sqlalchemy as sa
+from sqlalchemy.dialects import mysql
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import BaseCentral
@@ -263,3 +264,42 @@ class ContratoDigital(BaseCentral):
     )
     criado_em: Mapped[datetime] = mapped_column(sa.DateTime)
     atualizado_em: Mapped[datetime] = mapped_column(sa.DateTime)
+
+
+# Corpo dos e-mails: no MySQL, TEXT para só 64 KB; MEDIUMTEXT vai a 16 MB.
+TextoLongo = sa.Text().with_variant(mysql.MEDIUMTEXT(), "mysql")
+
+
+class EmailAssociacao(BaseCentral):
+    """Mensagem da caixa de e-mail da associação: recebida (lida por IMAP) ou
+    enviada pelo painel (SMTP). As recebidas guardam o UID para baixar os
+    anexos do servidor de e-mail quando alguém abrir."""
+
+    __tablename__ = "emails_associacao"
+    __table_args__ = (sa.UniqueConstraint("pasta", "uidvalidity", "uid"),)
+
+    id: Mapped[str] = mapped_column(sa.String(36), primary_key=True)
+    # entrada (recebida) ou enviado.
+    pasta: Mapped[str] = mapped_column(sa.String(10), index=True)
+    uid: Mapped[int | None] = mapped_column(sa.BigInteger)
+    uidvalidity: Mapped[int | None] = mapped_column(sa.BigInteger)
+    message_id: Mapped[str] = mapped_column(sa.String(300), default="")
+    em_resposta_a: Mapped[str] = mapped_column(sa.String(300), default="")
+    de_nome: Mapped[str] = mapped_column(sa.String(200), default="")
+    de_email: Mapped[str] = mapped_column(sa.String(200), default="", index=True)
+    para: Mapped[str] = mapped_column(sa.Text, default="")
+    cc: Mapped[str] = mapped_column(sa.Text, default="")
+    assunto: Mapped[str] = mapped_column(sa.String(500), default="")
+    data: Mapped[datetime] = mapped_column(sa.DateTime, index=True)
+    texto: Mapped[str] = mapped_column(TextoLongo, default="")
+    html: Mapped[str] = mapped_column(TextoLongo, default="")
+    # [{"nome", "tipo", "tamanho"}], na ordem do e-mail.
+    anexos: Mapped[list] = mapped_column(sa.JSON, default=list)
+    lido: Mapped[bool] = mapped_column(sa.Boolean, default=False, index=True)
+    respondido_em: Mapped[datetime | None] = mapped_column(sa.DateTime)
+    enviado_por_id: Mapped[str | None] = mapped_column(
+        sa.ForeignKey("administradores.id", ondelete="SET NULL")
+    )
+    criado_em: Mapped[datetime] = mapped_column(sa.DateTime)
+
+    enviado_por: Mapped["Administrador | None"] = relationship()

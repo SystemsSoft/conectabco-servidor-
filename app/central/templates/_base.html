@@ -149,6 +149,18 @@
     .capitulos .tempo { flex: none; min-width: 34px; font-variant-numeric: tabular-nums; font-weight: 600; color: var(--marca); }
     header.topo .quem a { color: #fff; }
     @media (max-width: 800px) { .tutorial { grid-template-columns: 1fr; } }
+    table.emails { width: 100%; border-collapse: collapse; table-layout: fixed; }
+    table.emails td { padding: 11px 16px; border-bottom: 1px solid var(--linha); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; }
+    table.emails tr:last-child td { border-bottom: 0; }
+    table.emails td.quem { width: 24%; }
+    table.emails td.quando { width: 150px; text-align: right; color: var(--suave); font-size: 13px; }
+    table.emails a { color: inherit; text-decoration: none; display: block; overflow: hidden; text-overflow: ellipsis; }
+    table.emails strong { font-weight: 500; }
+    table.emails tr.nao-lido td.quem, table.emails tr.nao-lido strong { font-weight: 700; }
+    table.emails tr:hover td { background: var(--fundo); }
+    iframe.corpo-email { width: 100%; height: 65vh; min-height: 360px; border: 1px solid var(--linha); border-radius: 10px; background: #fff; }
+    .corpo-texto { white-space: pre-wrap; word-break: break-word; font-size: 15px; }
+    @media (max-width: 700px) { table.emails td.quem { width: 38%; } table.emails td.assunto .rotulo { display: none; } table.emails td.quando { width: 90px; } }
   </style>
 </head>
 <body>
@@ -158,7 +170,7 @@
       {% block menu %}
       {% if admin %}
       {% set caminho = request.url.path %}
-      {% set area = "financeiro" if caminho.startswith("/plataforma/financeiro") else ("comercial" if caminho.startswith("/plataforma/comercial") else ("" if caminho == "/plataforma/tutorial" else "tecnologia")) %}
+      {% set area = "financeiro" if caminho.startswith("/plataforma/financeiro") else ("comercial" if caminho.startswith("/plataforma/comercial") else ("emails" if caminho.startswith("/plataforma/emails") else ("" if caminho == "/plataforma/tutorial" else "tecnologia"))) %}
       {% set grupos = [
         ("tecnologia", "Tecnologia", novas, [("/plataforma", "Imobiliárias", 0), ("/plataforma/solicitacoes", "Solicitações", novas), ("/plataforma/representantes", "Representantes", 0), ("/plataforma/infraestrutura", "Infraestrutura", 0)]),
         ("comercial", "Comercial", leads_novos, [("/plataforma/comercial", "Funil", 0), ("/plataforma/comercial/representantes", "Representantes", 0), ("/plataforma/comercial/receita", "Receita", 0), ("/plataforma/comercial/leads", "Leads do site", leads_novos)]),
@@ -182,6 +194,7 @@
         {% set g = grupos[0] %}{{ grupo(g[0], g[1], g[2], g[3], area, atual.destino) }}
         <a href="/plataforma/financeiro"{% if area == "financeiro" %} class="atual"{% endif %}>Financeiro{% if pendentes %} <span class="contador">{{ pendentes }}</span>{% endif %}</a>
         {% set g = grupos[1] %}{{ grupo(g[0], g[1], g[2], g[3], area, atual.destino) }}
+        <a href="/plataforma/emails"{% if area == "emails" %} class="atual"{% endif %}>E-mails{% if emails_nao_lidos %} <span class="contador">{{ emails_nao_lidos }}</span>{% endif %}</a>
       </nav>
       <div class="quem">
         <a href="/plataforma/tutorial"{% if caminho == "/plataforma/tutorial" %} style="text-decoration: underline;"{% endif %}>Tutorial</a>

@@ -22,6 +22,7 @@ from app.central import contratante as ct
 from app.central import financeiro as fin
 from app.central import infraestrutura as infra
 from app.central import models as m
+from app.central import emails as em
 from app.central import representantes as rep
 from app.central import services as central
 from app.core.config import get_settings
@@ -153,14 +154,17 @@ def _ir(caminho: str, msg: str = "", erro: str = "") -> RedirectResponse:
 
 
 def _base(request: Request, admin: m.Administrador | None, **extra) -> dict:
-    novas = pendentes = leads_novos = 0
-    if admin:  # contadores nas abas: solicitações novas, pagamentos a confirmar e leads
+    novas = pendentes = leads_novos = emails_nao_lidos = 0
+    if admin:  # contadores nas abas: solicitações novas, pagamentos a confirmar, leads e e-mails
+        em.talvez_sincronizar()  # traz os e-mails novos em segundo plano (no máximo a cada 2 min)
         with central.sessao() as db:
             novas, pendentes = rep.contagem(db)["nova"], fin.contagem(db)["aguardando"]
             leads_novos = com.contagem_leads(db)["novo"]
+            emails_nao_lidos = em.nao_lidos(db)
     return {
         "pendentes": pendentes,
         "leads_novos": leads_novos,
+        "emails_nao_lidos": emails_nao_lidos,
         "admin": admin,
         "novas": novas,
         "csrf": acesso.token_csrf(admin) if admin else "",

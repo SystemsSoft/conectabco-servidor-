@@ -52,9 +52,12 @@ def create_app() -> FastAPI:
     app.include_router(portal_proprietario)
     app.include_router(relatorio_auditoria)
     app.mount("/estatico", StaticFiles(directory=PASTA / "static"), name="estatico")
-    # Painel da plataforma: cadastro das imobiliárias.
+    # Painel da plataforma: cadastro das imobiliárias. A caixa de e-mail vem
+    # antes, senão /plataforma/{slug} pegaria /plataforma/emails.
     from app.central.painel import router as painel
+    from app.central.painel_emails import router as painel_emails
 
+    app.include_router(painel_emails)
     app.include_router(painel)
     # Área do representante: envia corretores para implantação.
     from app.central.area_representante import router as area_representante
