@@ -1,0 +1,51 @@
+{% extends "_base.html" %}
+{% block titulo %}E-mails{% endblock %}
+{% block conteudo %}
+<div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 16px;">
+  <div>
+    <h1>E-mails</h1>
+    <p class="sub" style="margin: 0;">{% if configurado %}Caixa <strong>{{ endereco }}</strong>. As mensagens novas chegam sozinhas a cada 2 minutos, enquanto alguém usa o painel.{% else %}Caixa de e-mail da associação.{% endif %}</p>
+  </div>
+  {% if configurado %}
+  <div style="margin-left: auto; display: flex; gap: 8px;">
+    <form method="post" action="/plataforma/emails/atualizar" data-demora><input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit" class="secundario" data-enviando="Lendo...">Atualizar agora</button></form>
+    <a class="botao" href="/plataforma/emails/novo">+ Escrever</a>
+  </div>
+  {% endif %}
+</div>
+{% if not configurado %}
+<div class="cartao">
+  <h2>Caixa de e-mail não configurada</h2>
+  <p style="margin: 0;">No <code>.env</code> do servidor, informe <code>EMAIL_USUARIO</code> (ex.: <code>contato@associaçãoconectabci.com.br</code>) e <code>EMAIL_SENHA</code> e reinicie o serviço. O servidor de e-mail padrão é o da Hostinger (<code>imap.hostinger.com</code> e <code>smtp.hostinger.com</code>).</p>
+</div>
+{% else %}
+<nav class="filtros">
+  {% for chave, rotulo in filtros.items() %}
+  <a href="?filtro={{ chave }}"{% if filtro == chave %} class="atual"{% endif %}>{{ rotulo }}{% if chave == "nao_lidos" %} <span>{{ nao_lidos }}</span>{% endif %}</a>
+  {% endfor %}
+</nav>
+<div class="cartao" style="padding: 4px 0;">
+  {% if emails %}
+  <table class="emails">
+    <tbody>
+      {% for e in emails %}
+      <tr class="{{ '' if e.lido else 'nao-lido' }}">
+        <td class="quem"><a href="/plataforma/emails/{{ e.id }}">{% if e.pasta == "enviado" %}Para: {{ e.para }}{% else %}{{ e.de_nome or e.de_email }}{% endif %}</a></td>
+        <td class="assunto"><a href="/plataforma/emails/{{ e.id }}"><strong>{{ e.assunto }}</strong> <span class="rotulo">{{ (e.texto or "")[:140] | replace("\n", " ") }}</span></a></td>
+        <td class="quando">{% if e.anexos %}<span title="{{ e.anexos | length }} anexo(s)">📎</span> {% endif %}{% if e.respondido_em %}<span class="selo ok">Respondido</span> {% endif %}{{ e.data.strftime("%d/%m %H:%M") }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="vazio">{{ "Nenhum e-mail enviado pelo painel ainda." if filtro == "enviados" else ("Nenhum e-mail não lido." if filtro == "nao_lidos" else "Nenhum e-mail na caixa de entrada ainda.") }}</div>
+  {% endif %}
+</div>
+{% if pagina > 1 or mais %}
+<div class="acoes">
+  {% if pagina > 1 %}<a class="botao secundario" href="?filtro={{ filtro }}&pagina={{ pagina - 1 }}">← Mais recentes</a>{% endif %}
+  {% if mais %}<a class="botao secundario" href="?filtro={{ filtro }}&pagina={{ pagina + 1 }}">Mais antigos →</a>{% endif %}
+</div>
+{% endif %}
+{% endif %}
+{% endblock %}

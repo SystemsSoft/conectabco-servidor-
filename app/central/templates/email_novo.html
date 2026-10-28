@@ -1,0 +1,20 @@
+{% extends "_base.html" %}
+{% block titulo %}Novo e-mail{% endblock %}
+{% block conteudo %}
+<p><a href="/plataforma/emails">← E-mails</a></p>
+<h1>Novo e-mail</h1>
+{% if not configurado %}
+<div class="cartao"><p style="margin: 0;">A caixa de e-mail não está configurada no servidor (<code>EMAIL_USUARIO</code> e <code>EMAIL_SENHA</code> no <code>.env</code>).</p></div>
+{% else %}
+<p class="sub">Sai de <strong>{{ endereco }}</strong>.</p>
+<form class="cartao" method="post" action="/plataforma/emails/novo" data-demora>
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <div class="grade">
+    <div><label for="para">Para</label><input type="text" id="para" name="para" value="{{ dados.para }}" required placeholder="nome@exemplo.com"><span class="ajuda">Vários? Separe por vírgula.</span></div>
+    <div><label for="assunto">Assunto</label><input type="text" id="assunto" name="assunto" value="{{ dados.assunto }}" required maxlength="500"></div>
+  </div>
+  <div style="margin-top: 14px;"><label for="mensagem">Mensagem</label><textarea id="mensagem" name="mensagem" rows="10" required>{{ dados.mensagem }}</textarea></div>
+  <div class="acoes"><button type="submit" data-enviando="Enviando...">Enviar</button><a href="/plataforma/emails">Cancelar</a></div>
+</form>
+{% endif %}
+{% endblock %}

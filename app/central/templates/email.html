@@ -1,0 +1,48 @@
+{% extends "_base.html" %}
+{% block titulo %}{{ e.assunto }} · E-mails{% endblock %}
+{% block conteudo %}
+<p><a href="/plataforma/emails{{ '?filtro=enviados' if e.pasta == 'enviado' else '' }}">← E-mails</a></p>
+<div class="cartao">
+  <div style="display: flex; gap: 12px; align-items: flex-start; flex-wrap: wrap;">
+    <div style="flex: 1 1 360px;">
+      <h1 style="margin: 0 0 6px; font-size: 22px;">{{ e.assunto }}</h1>
+      <div class="rotulo">
+        {% if e.pasta == "enviado" %}De {{ endereco }}{% if e.enviado_por %} (por {{ e.enviado_por.nome }}){% endif %} para {{ e.para }}
+        {% else %}De <strong>{{ e.de_nome or e.de_email }}</strong>{% if e.de_nome %} &lt;{{ e.de_email }}&gt;{% endif %}{% if e.cc %} · Cc: {{ e.cc }}{% endif %}{% endif %}
+        · {{ e.data.strftime("%d/%m/%Y %H:%M") }}{% if e.respondido_em %} · <span class="selo ok">Respondido em {{ e.respondido_em.strftime("%d/%m %H:%M") }}</span>{% endif %}
+      </div>
+      {% if vinculos %}<div style="margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap;">{% for rotulo, link in vinculos %}<a class="selo atencao" href="{{ link }}">{{ rotulo }}</a>{% endfor %}</div>{% endif %}
+    </div>
+    {% if e.pasta == "entrada" %}
+    <form method="post" action="/plataforma/emails/{{ e.id }}/nao-lido"><input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit" class="secundario">Marcar como não lido</button></form>
+    {% endif %}
+  </div>
+  {% if e.anexos %}
+  <div style="margin-top: 14px; display: flex; gap: 8px; flex-wrap: wrap;">
+    {% for a in e.anexos %}<a class="botao secundario" href="/plataforma/emails/{{ e.id }}/anexos/{{ loop.index0 }}">📎 {{ a.nome }} <span class="rotulo">{{ a.tamanho | tamanho }}</span></a>{% endfor %}
+  </div>
+  {% endif %}
+  <div style="margin-top: 16px;">
+    {% if html %}
+    {% if not imagens %}<p class="ajuda" style="margin: 0 0 8px;">Imagens de fora bloqueadas para proteger a privacidade. <a href="?imagens=1">Mostrar imagens</a></p>{% endif %}
+    {# sandbox sem allow-scripts nem allow-same-origin: o HTML do e-mail não roda código nem alcança o painel #}
+    <iframe class="corpo-email" sandbox="allow-popups allow-popups-to-escape-sandbox" srcdoc="{{ html }}" title="Conteúdo do e-mail" referrerpolicy="no-referrer"></iframe>
+    {% else %}
+    <div class="corpo-texto">{{ e.texto }}</div>
+    {% endif %}
+  </div>
+</div>
+{% if configurado %}
+<form class="cartao" method="post" action="/plataforma/emails/{{ e.id }}/responder" data-demora>
+  <h2>{{ "Responder" if e.pasta == "entrada" else "Escrever de novo" }}</h2>
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <div class="grade">
+    <div><label for="para">Para</label><input type="text" id="para" name="para" value="{{ resposta.para }}" required></div>
+    <div><label for="assunto">Assunto</label><input type="text" id="assunto" name="assunto" value="{{ resposta.assunto }}" required maxlength="500"></div>
+  </div>
+  <div style="margin-top: 14px;"><label for="mensagem">Mensagem</label><textarea id="mensagem" name="mensagem" rows="7" required></textarea>
+    <span class="ajuda">{% if e.pasta == "entrada" %}A mensagem original vai citada abaixo da resposta. {% endif %}Sai de {{ endereco }}.</span></div>
+  <div class="acoes"><button type="submit" data-enviando="Enviando...">Enviar</button></div>
+</form>
+{% endif %}
+{% endblock %}
