@@ -6,6 +6,8 @@ para um link assinado (vale 6 horas).
 - internos, só com login: /representante/tutorial.mp4 e /plataforma/tutorial.mp4
 """
 
+import logging
+
 from fastapi import APIRouter, Depends
 from fastapi.responses import FileResponse, RedirectResponse, Response
 
@@ -13,6 +15,7 @@ from app.central.painel import _so_pelo_servidor
 from app.core.armazenamento import armazenamento
 from app.core.errors import NaoEncontrado
 
+log = logging.getLogger(__name__)
 PREFIXO = "plataforma/tutoriais/"
 
 # Só os vídeos destas listas: o nome na URL nunca vira chave do bucket.
@@ -38,17 +41,25 @@ CAPITULOS_PLATAFORMA = [
 ]  # fmt: skip
 
 
+def disponivel(chave: str) -> bool:
+    """O vídeo já foi enviado? (Com o S3 fora do ar, mostra o player assim mesmo.)"""
+    try:
+        return armazenamento().existe(chave)
+    except Exception:  # noqa: BLE001
+        log.warning("Não deu para conferir o tutorial %s no armazenamento", chave, exc_info=True)
+        return True
+
+
 def entregar(chave: str, publico: bool = False) -> Response:
     """Link assinado do S3 ou, no disco (desenvolvimento), o próprio arquivo."""
+    if not disponivel(chave):  # sem isso, o link assinado levaria a um 404 do S3 e o player só ficaria parado
+        raise NaoEncontrado("Vídeo não encontrado.")
     loja = armazenamento()
     visibilidade = "public" if publico else "private"
     if url := loja.link(chave, "video/mp4", chave.rsplit("/", 1)[-1], True, f"{visibilidade}, max-age=86400"):
         # O redirecionamento expira antes do link (6 h), para o navegador não reusar um vencido.
         return RedirectResponse(url, status_code=307, headers={"Cache-Control": f"{visibilidade}, max-age=3600"})
-    caminho = loja.caminho(chave)
-    if not caminho.is_file():
-        raise NaoEncontrado("Vídeo não encontrado.")
-    return FileResponse(caminho, media_type="video/mp4")
+    return FileResponse(loja.caminho(chave), media_type="video/mp4")
 
 
 router = APIRouter(prefix="/associacao/tutoriais", include_in_schema=False, dependencies=[Depends(_so_pelo_servidor)])

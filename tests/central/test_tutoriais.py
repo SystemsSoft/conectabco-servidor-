@@ -27,6 +27,9 @@ def test_no_s3_redireciona_para_link_assinado(plataforma, monkeypatch):
     pedidos = []
 
     class S3Falso:
+        def existe(self, chave):
+            return True
+
         def link(self, chave, tipo, nome, inline, cache):
             pedidos.append((chave, tipo, inline))
             return "https://associacao-conecta.s3.amazonaws.com/assinado"
@@ -55,10 +58,14 @@ def test_tutorial_do_representante_so_com_login(painel):  # noqa: F811
     _entrar_representante(painel)
     assert 'href="/representante/tutorial">Tutorial' in painel.get("/representante").text
     assert "Assistir ao tutorial" in painel.get("/representante").text
+    # Antes do envio: aviso no lugar do player, e o vídeo dá 404 (em vez de um link do S3 que não toca).
+    pagina = painel.get("/representante/tutorial").text
+    assert "estará disponível em breve" in pagina and "<video" not in pagina
+    assert painel.get("/representante/tutorial.mp4").status_code == 404
+    _video_no_disco(tutoriais.REPRESENTANTE)
     pagina = painel.get("/representante/tutorial").text
     assert 'src="/representante/tutorial.mp4"' in pagina and "Contrato: gerar link ou anexar" in pagina
-    assert 'data-tempo="112"' in pagina and ">1:52</span>" in pagina
-    _video_no_disco(tutoriais.REPRESENTANTE)
+    assert 'data-tempo="112"' in pagina and ">1:52</span>" in pagina and "disponível em breve" not in pagina
     assert painel.get("/representante/tutorial.mp4").headers["content-type"] == "video/mp4"
 
 
@@ -68,9 +75,11 @@ def test_tutorial_da_plataforma_so_com_login(painel):  # noqa: F811
     _entrar(painel)
     assert 'href="/plataforma/tutorial"' in painel.get("/plataforma").text
     pagina = painel.get("/plataforma/tutorial").text
-    assert 'src="/plataforma/tutorial.mp4"' in pagina and "Confirmar o 1º pagamento" in pagina
+    assert "enviar_tutorial.sh tutorial/fluxo-de-implantacao-no-painel.mp4" in pagina and "<video" not in pagina
     assert painel.get("/plataforma/tutorial.mp4").status_code == 404  # ainda não enviado
     _video_no_disco(tutoriais.PLATAFORMA)
+    pagina = painel.get("/plataforma/tutorial").text
+    assert 'src="/plataforma/tutorial.mp4"' in pagina and "Confirmar o 1º pagamento" in pagina
     assert painel.get("/plataforma/tutorial.mp4").headers["content-type"] == "video/mp4"
 
 

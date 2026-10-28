@@ -1,4 +1,8 @@
-{# Vídeo tutorial com capítulos. Contexto: video (URL), capitulos [(segundo, título)]. #}
+{# Vídeo tutorial com capítulos. Contexto: video (URL), capitulos [(segundo, título)],
+   disponivel (já enviado) e aviso_indisponivel. #}
+{% if not disponivel %}
+<div class="aviso" style="background: var(--aviso-fundo); color: var(--aviso);">{{ aviso_indisponivel }}</div>
+{% else %}
 <div class="tutorial">
   <div class="tutorial-video">
     <video id="video-tutorial" src="{{ video }}" controls preload="metadata" playsinline>
@@ -29,3 +33,4 @@
     });
   })();
 </script>
+{% endif %}

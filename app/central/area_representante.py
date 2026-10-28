@@ -96,7 +96,8 @@ def inicio(request: Request, db: Db, r: Logado):
 
 @router.get("/tutorial")
 def tutorial_pagina(request: Request, r: Logado):
-    return _pagina(request, "representante/tutorial.html", _ctx(request, r, capitulos=tut.CAPITULOS_REPRESENTANTE))
+    ctx = _ctx(request, r, capitulos=tut.CAPITULOS_REPRESENTANTE, disponivel=tut.disponivel(tut.REPRESENTANTE))
+    return _pagina(request, "representante/tutorial.html", ctx)
 
 
 @router.get("/tutorial.mp4")

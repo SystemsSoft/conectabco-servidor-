@@ -590,7 +590,9 @@ def _aponta(dominio: str, ip: str) -> bool:
 def tutorial_pagina(request: Request, admin: Admin):
     from app.central import tutoriais as tut  # aqui: tutoriais importa o painel
 
-    return _pagina(request, "tutorial.html", _base(request, admin, capitulos=tut.CAPITULOS_PLATAFORMA))
+    ctx = _base(request, admin, capitulos=tut.CAPITULOS_PLATAFORMA, disponivel=tut.disponivel(tut.PLATAFORMA),
+                arquivo=tut.PLATAFORMA.rsplit("/", 1)[-1])  # fmt: skip
+    return _pagina(request, "tutorial.html", ctx)
 
 
 @router.get("/tutorial.mp4")
