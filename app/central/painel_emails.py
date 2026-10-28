@@ -6,7 +6,7 @@ Rotas registradas antes das do painel: senão /plataforma/{slug} pegaria
 from typing import Annotated
 from urllib.parse import quote
 
-from fastapi import APIRouter, Depends, Form, Request
+from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
 from fastapi.responses import RedirectResponse, Response
 
 from app.central import emails as em
@@ -22,9 +22,28 @@ MENSAGENS = {
 }
 
 
+# Campo de arquivo sem nada escolhido pode chegar como texto vazio.
+Anexos = Annotated[list[UploadFile | str], File()]
+
+
+def _arquivos(anexos: list[UploadFile | str]) -> list[tuple[str, str, bytes]]:
+    """Lê os arquivos escolhidos (até o limite + 1 byte, para o limite ser conferido)."""
+    lidos, total = [], 0
+    for a in anexos or []:
+        if isinstance(a, str) or not a.filename:
+            continue
+        conteudo = a.file.read(em.LIMITE_ANEXOS + 1 - total)
+        total += len(conteudo)
+        lidos.append((a.filename, a.content_type or "", conteudo))
+        if total > em.LIMITE_ANEXOS:
+            break
+    return lidos
+
+
 def _ctx(request: Request, admin, **extra) -> dict:
     ctx = _base(request, admin, configurado=em.configurado(),
-                endereco=em.exibir_endereco(em.endereco()) if em.configurado() else "", **extra)  # fmt: skip
+                endereco=em.exibir_endereco(em.endereco()) if em.configurado() else "",
+                max_anexos=em.MAX_ANEXOS, limite_anexos=em.LIMITE_ANEXOS // (1024 * 1024), **extra)  # fmt: skip
     if msg := MENSAGENS.get(request.query_params.get("msg", "")):
         ctx["msg"] = msg
     return ctx
@@ -57,12 +76,14 @@ def novo_pagina(request: Request, admin: Admin, para: str = "", assunto: str = "
 @router.post("/novo")
 def novo(request: Request, db: Db, admin: Admin, csrf: Annotated[str, Form()] = "",
          para: Annotated[str, Form()] = "", assunto: Annotated[str, Form()] = "",
-         mensagem: Annotated[str, Form()] = ""):  # fmt: skip
+         mensagem: Annotated[str, Form()] = "", anexos: Anexos = []):  # fmt: skip
     _conferir(admin, csrf)
+    arquivos = _arquivos(anexos)
     try:
-        enviado = em.enviar(db, admin, para, assunto, mensagem)
+        enviado = em.enviar(db, admin, para, assunto, mensagem, anexos=arquivos)
     except RegraNegocio as e:
-        ctx = _ctx(request, admin, dados={"para": para, "assunto": assunto, "mensagem": mensagem}, erro=e.mensagem)
+        ctx = _ctx(request, admin, dados={"para": para, "assunto": assunto, "mensagem": mensagem}, erro=e.mensagem,
+                   escolha_de_novo=bool(arquivos))  # fmt: skip
         return _pagina(request, "email_novo.html", ctx, 422)
     return _ir(f"/plataforma/emails/{enviado.id}", "enviado")
 
@@ -83,11 +104,11 @@ def ver(id_: str, request: Request, db: Db, admin: Admin, imagens: bool = False)
 @router.post("/{id_}/responder")
 def responder(id_: str, request: Request, db: Db, admin: Admin, csrf: Annotated[str, Form()] = "",
               para: Annotated[str, Form()] = "", assunto: Annotated[str, Form()] = "",
-              mensagem: Annotated[str, Form()] = ""):  # fmt: skip
+              mensagem: Annotated[str, Form()] = "", anexos: Anexos = []):  # fmt: skip
     _conferir(admin, csrf)
     e = em.mensagem(db, id_)
     try:
-        em.enviar(db, admin, para, assunto, mensagem, resposta_a=e)
+        em.enviar(db, admin, para, assunto, mensagem, resposta_a=e, anexos=_arquivos(anexos))
     except RegraNegocio as erro:
         return _ir(f"/plataforma/emails/{id_}", erro=erro.mensagem)
     return _ir(f"/plataforma/emails/{id_}", "enviado")

@@ -33,7 +33,7 @@
   </div>
 </div>
 {% if configurado %}
-<form class="cartao" method="post" action="/plataforma/emails/{{ e.id }}/responder" data-demora>
+<form class="cartao" method="post" action="/plataforma/emails/{{ e.id }}/responder" enctype="multipart/form-data" data-demora>
   <h2>{{ "Responder" if e.pasta == "entrada" else "Escrever de novo" }}</h2>
   <input type="hidden" name="csrf" value="{{ csrf }}">
   <div class="grade">
@@ -42,6 +42,9 @@
   </div>
   <div style="margin-top: 14px;"><label for="mensagem">Mensagem</label><textarea id="mensagem" name="mensagem" rows="7" required></textarea>
     <span class="ajuda">{% if e.pasta == "entrada" %}A mensagem original vai citada abaixo da resposta. {% endif %}Sai de {{ endereco }}.</span></div>
+  <div style="margin-top: 14px;"><label for="anexos">Anexos <span style="font-weight: 400; color: var(--suave);">(opcional)</span></label>
+    <input type="file" id="anexos" name="anexos" multiple>
+    <span class="ajuda">Até {{ max_anexos }} arquivos, {{ limite_anexos }} MB somados.{% if escolha_de_novo %} <strong>Escolha os anexos de novo.</strong>{% endif %}</span></div>
   <div class="acoes"><button type="submit" data-enviando="Enviando...">Enviar</button></div>
 </form>
 {% endif %}

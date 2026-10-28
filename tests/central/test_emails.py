@@ -190,3 +190,69 @@ def test_endereco_com_acento_vira_ascii():
     assert em.exibir_endereco("contato@xn--associaoconectabci-7sb3f.com.br") == "contato@associaçãoconectabci.com.br"
     assert email.message_from_bytes(_mensagem(), policy=politica)["Subject"] == "Quero saber do sistema"
     assert agora()
+
+
+def _arquivos_guardados():
+    from pathlib import Path
+
+    pasta = Path(get_settings().arquivos_dir) / "plataforma" / "emails"
+    return sorted(p for p in pasta.rglob("*") if p.is_file()) if pasta.exists() else []
+
+
+def test_enviar_com_anexos_e_baixar_depois(painel, caixa):  # noqa: F811
+    csrf = _entrar(painel)
+    assert 'enctype="multipart/form-data"' in painel.get("/plataforma/emails/novo").text
+    r = painel.post("/plataforma/emails/novo", data={"csrf": csrf, "para": "ricardo@mendesimoveis.com.br", "assunto": "Contrato",
+                                                     "mensagem": "Segue o contrato e a logo."},
+                    files=[("anexos", ("contrato.pdf", b"%PDF-1.7 contrato", "application/pdf")),
+                           ("anexos", ("logo.png", b"\x89PNG\r\n\x1a\nlogo", "image/png")),
+                           ("anexos", ("", b"", "application/octet-stream"))])  # campo vazio do formulário  # fmt: skip
+    assert r.status_code == 303, r.text
+    enviada = SmtpFalso.enviadas[-1]
+    anexos = {p.get_filename(): (p.get_content_type(), p.get_payload(decode=True)) for p in enviada.iter_attachments()}
+    assert anexos == {"contrato.pdf": ("application/pdf", b"%PDF-1.7 contrato"), "logo.png": ("image/png", b"\x89PNG\r\n\x1a\nlogo")}
+    assert len(_arquivos_guardados()) == 2
+    # A cópia nos enviados do webmail leva os anexos também.
+    copia = email.message_from_bytes(caixa["enviados"][-1][1], policy=politica)
+    assert [p.get_filename() for p in copia.iter_attachments()] == ["contrato.pdf", "logo.png"]
+
+    eid = r.headers["location"].split("/")[-1].split("?")[0]
+    pagina = painel.get(f"/plataforma/emails/{eid}").text
+    assert "contrato.pdf" in pagina and "logo.png" in pagina
+    baixado = painel.get(f"/plataforma/emails/{eid}/anexos/0")
+    assert baixado.content == b"%PDF-1.7 contrato" and "contrato.pdf" in baixado.headers["content-disposition"]
+
+
+def test_responder_com_anexo(painel, caixa):  # noqa: F811
+    caixa["mensagens"][1] = _mensagem(mid="<pergunta@exemplo.com>")
+    em.sincronizar()
+    csrf = _entrar(painel)
+    with central.sessao() as db:
+        e = db.query(m.EmailAssociacao).one()
+    r = painel.post(f"/plataforma/emails/{e.id}/responder",
+                    data={"csrf": csrf, "para": e.de_email, "assunto": "Re: Quero saber", "mensagem": "Segue a apresentação."},
+                    files={"anexos": ("apresentacao.pdf", b"%PDF-1.4 apresentacao", "application/pdf")})  # fmt: skip
+    assert r.headers["location"].endswith("?msg=enviado")
+    assert [p.get_filename() for p in SmtpFalso.enviadas[-1].iter_attachments()] == ["apresentacao.pdf"]
+
+
+def test_limites_dos_anexos(painel, caixa, monkeypatch):  # noqa: F811
+    csrf = _entrar(painel)
+    dados = {"csrf": csrf, "para": "a@exemplo.com", "assunto": "Oi", "mensagem": "x"}
+    r = painel.post("/plataforma/emails/novo", data=dados, files={"anexos": ("instalar.exe", b"MZ...", "application/octet-stream")})
+    assert r.status_code == 422 and "programas e scripts" in r.text and "Escolha os anexos de novo" in r.text
+    monkeypatch.setattr(em, "LIMITE_ANEXOS", 10)
+    r = painel.post("/plataforma/emails/novo", data=dados, files={"anexos": ("grande.pdf", b"%PDF" + b"x" * 20, "application/pdf")})
+    assert r.status_code == 422 and "grandes demais" in r.text
+    assert SmtpFalso.enviadas == [] and _arquivos_guardados() == []
+
+
+def test_smtp_fora_do_ar_nao_deixa_anexo_guardado(painel, caixa, monkeypatch):  # noqa: F811
+    def falha():
+        raise OSError("sem rede")
+
+    monkeypatch.setattr(em, "_smtp", falha)
+    csrf = _entrar(painel)
+    r = painel.post("/plataforma/emails/novo", data={"csrf": csrf, "para": "a@exemplo.com", "assunto": "Oi", "mensagem": "x"},
+                    files={"anexos": ("contrato.pdf", b"%PDF-1.7", "application/pdf")})  # fmt: skip
+    assert r.status_code == 422 and _arquivos_guardados() == []

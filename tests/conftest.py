@@ -19,6 +19,14 @@ from app.main import create_app
 ADMIN = {"usuario": "Admin", "senha": "senha-forte-123"}
 
 
+@pytest.fixture(autouse=True)
+def sem_caixa_de_email_real(monkeypatch):
+    """Nenhum teste lê nem envia pela caixa de e-mail configurada no .env local."""
+    s = get_settings()
+    monkeypatch.setattr(s, "email_usuario", "")
+    monkeypatch.setattr(s, "email_senha", "")
+
+
 @pytest.fixture
 def plataforma(monkeypatch, tmp_path) -> Iterator[None]:
     s = get_settings()

@@ -9,6 +9,7 @@ por SMTP e ganham uma cópia na pasta de enviados da caixa."""
 import email
 import imaplib
 import logging
+import mimetypes
 import re
 import smtplib
 import ssl
@@ -17,6 +18,7 @@ import time
 import uuid
 from datetime import datetime
 from email.message import EmailMessage
+from pathlib import Path
 from email.policy import default as politica
 from email.utils import formataddr, formatdate, getaddresses, make_msgid, parseaddr, parsedate_to_datetime
 
@@ -26,9 +28,11 @@ from sqlalchemy.orm import Session
 
 from app.central import models as m
 from app.central import services as central
+from app.core.armazenamento import ArmazenamentoIndisponivel, armazenamento, temporario
 from app.core.config import get_settings
 from app.core.errors import NaoEncontrado, RegraNegocio
 from app.core.tempo import agora
+from app.core.ulid import novo_ulid
 
 log = logging.getLogger(__name__)
 
@@ -38,6 +42,13 @@ POR_PAGINA = 50
 MAX_TEXTO = 2_000_000
 _EMAIL = re.compile(r"^[^@\s,;<>]+@[^@\s,;<>]+\.[^@\s,;<>]+$")
 FILTROS = {"entrada": "Caixa de entrada", "nao_lidos": "Não lidos", "enviados": "Enviados"}
+
+# Anexos enviados pelo painel: guardados no S3 (plataforma/emails/<id do e-mail>/<ULID>)
+# para baixar depois em "Enviados". Os recebidos ficam no servidor de e-mail.
+MAX_ANEXOS = 10
+LIMITE_ANEXOS = 20 * 1024 * 1024  # somados; a maioria dos provedores recusa acima de 25 MB
+_PREFIXO_ANEXOS = "plataforma/emails"
+_BLOQUEADOS = {"exe", "bat", "cmd", "com", "scr", "msi", "js", "vbs", "jar", "ps1", "sh"}
 
 _trava = threading.Lock()
 _ultima_leitura = 0.0
@@ -210,8 +221,20 @@ def talvez_sincronizar() -> None:
 
 
 def anexo(e: m.EmailAssociacao, indice: int) -> tuple[str, str, bytes]:
-    if e.pasta != "entrada" or not 0 <= indice < len(e.anexos or []):
+    if not 0 <= indice < len(e.anexos or []):
         raise NaoEncontrado("Anexo não encontrado.")
+    if e.pasta == "enviado":
+        a = e.anexos[indice]
+        if not a.get("chave"):
+            raise NaoEncontrado("Anexo não encontrado.")
+        try:
+            with armazenamento().local(a["chave"]) as caminho:
+                return a["nome"], a["tipo"], caminho.read_bytes()
+        except FileNotFoundError:
+            raise NaoEncontrado("Anexo não encontrado.") from None
+        except Exception:
+            log.exception("E-mail: não leu o anexo %s", a["chave"])
+            raise ArmazenamentoIndisponivel() from None
     try:
         c = _imap()
     except Exception as erro:  # noqa: BLE001
@@ -284,6 +307,50 @@ def _destinatarios(texto: str) -> list[str]:
     return lista
 
 
+def conferir_anexos(arquivos: list[tuple[str, str, bytes]]) -> list[tuple[str, str, bytes]]:
+    """(nome, tipo, conteúdo) de cada arquivo escolhido; os vazios do formulário ficam de fora."""
+    lista = [(Path(nome).name.strip()[:200], tipo, conteudo) for nome, tipo, conteudo in arquivos if nome and conteudo]
+    if len(lista) > MAX_ANEXOS:
+        raise RegraNegocio(f"No máximo {MAX_ANEXOS} anexos por e-mail.")
+    if sum(len(c) for _, _, c in lista) > LIMITE_ANEXOS:
+        raise RegraNegocio("Anexos grandes demais: no máximo 20 MB somados.")
+    conferidos = []
+    for nome, tipo, conteudo in lista:
+        if nome.rsplit(".", 1)[-1].lower() in _BLOQUEADOS:
+            raise RegraNegocio(f"{nome}: programas e scripts não podem ir como anexo.")
+        if not re.match(r"^[\w.+-]+/[\w.+-]+$", tipo or "") or tipo == "application/octet-stream":
+            tipo = mimetypes.guess_type(nome)[0] or "application/octet-stream"
+        conferidos.append((nome, tipo, conteudo))
+    return conferidos
+
+
+def _guardar_anexos(email_id: str, anexos: list[tuple[str, str, bytes]]) -> list[dict]:
+    loja, guardados = armazenamento(), []
+    try:
+        for nome, tipo, conteudo in anexos:
+            chave = f"{_PREFIXO_ANEXOS}/{email_id}/{novo_ulid()}"
+            provisorio = temporario()
+            provisorio.write_bytes(conteudo)
+            try:
+                loja.gravar(chave, provisorio, tipo, {"origem": "plataforma", "email": email_id})
+            finally:
+                provisorio.unlink(missing_ok=True)
+            guardados.append({"nome": nome, "tipo": tipo, "tamanho": len(conteudo), "chave": chave})
+    except Exception:
+        log.exception("E-mail: não guardou os anexos de %s", email_id)
+        _apagar_anexos(guardados)
+        raise ArmazenamentoIndisponivel() from None
+    return guardados
+
+
+def _apagar_anexos(guardados: list[dict]) -> None:
+    for a in guardados:
+        try:
+            armazenamento().apagar(a["chave"])
+        except Exception:  # noqa: BLE001
+            log.warning("E-mail: sobrou o anexo %s no armazenamento", a["chave"])
+
+
 def _citacao(original: m.EmailAssociacao) -> str:
     quando = original.data.strftime("%d/%m/%Y às %H:%M")
     quem = f"{original.de_nome} <{original.de_email}>" if original.de_nome else original.de_email
@@ -310,10 +377,12 @@ def _guardar_nos_enviados(msg: EmailMessage) -> None:
 
 
 def enviar(db: Session, admin: m.Administrador, para: str, assunto: str, corpo: str,
-           resposta_a: m.EmailAssociacao | None = None) -> m.EmailAssociacao:  # fmt: skip
+           resposta_a: m.EmailAssociacao | None = None,
+           anexos: list[tuple[str, str, bytes]] = ()) -> m.EmailAssociacao:  # fmt: skip
     if not configurado():
         raise RegraNegocio("A caixa de e-mail não está configurada no servidor.")
     destinatarios = _destinatarios(para)
+    anexos = conferir_anexos(list(anexos))
     assunto, corpo = assunto.strip(), corpo.strip()
     if not assunto:
         raise RegraNegocio("Informe o assunto.")
@@ -333,6 +402,11 @@ def enviar(db: Session, admin: m.Administrador, para: str, assunto: str, corpo: 
             msg["References"] = resposta_a.message_id
         texto += _citacao(resposta_a)
     msg.set_content(texto)
+    for nome, tipo, conteudo in anexos:
+        principal, _, sub = tipo.partition("/")
+        msg.add_attachment(conteudo, maintype=principal, subtype=sub, filename=nome)
+    email_id = str(uuid.uuid4())
+    guardados = _guardar_anexos(email_id, anexos)  # antes de enviar: se o S3 falhar, nada sai
     try:
         c = _smtp()
         try:
@@ -344,13 +418,14 @@ def enviar(db: Session, admin: m.Administrador, para: str, assunto: str, corpo: 
                 pass
     except (smtplib.SMTPException, OSError) as e:
         log.warning("E-mail: SMTP falhou: %s", e)
+        _apagar_anexos(guardados)
         raise EmailIndisponivel("enviar o e-mail") from e
     _guardar_nos_enviados(msg)
     momento = agora()
     enviado = m.EmailAssociacao(
-        id=str(uuid.uuid4()), pasta="enviado", message_id=str(msg["Message-ID"]),
+        id=email_id, pasta="enviado", message_id=str(msg["Message-ID"]),
         em_resposta_a=resposta_a.message_id if resposta_a else "", de_nome=s.email_nome, de_email=endereco(),
-        para=", ".join(destinatarios), cc="", assunto=assunto[:500], data=momento, texto=texto, html="", anexos=[],
+        para=", ".join(destinatarios), cc="", assunto=assunto[:500], data=momento, texto=texto, html="", anexos=guardados,
         lido=True, enviado_por_id=admin.id, criado_em=momento,
     )  # fmt: skip
     db.add(enviado)

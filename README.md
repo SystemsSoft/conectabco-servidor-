@@ -206,6 +206,10 @@ sozinhas a cada 2 minutos enquanto alguém usa o painel, ou na hora com
   hora, sempre como download.
 - **Responder / escrever:** sai por SMTP de `contato@`, com a mensagem original
   citada, e ganha uma cópia na pasta de enviados da caixa (aparece no webmail).
+- **Anexos ao enviar:** até 10 arquivos, 20 MB somados (programas e scripts,
+  como `.exe` e `.js`, são recusados). Ficam guardados no S3 em
+  `plataforma/emails/<id do e-mail>/<ULID>` para baixar depois em "Enviados";
+  se o envio falhar, são apagados.
 - **Não lido:** marca só no painel.
 
 No `.env` do servidor (a senha da caixa fica só lá):
