@@ -42,6 +42,28 @@ def test_no_s3_redireciona_para_link_assinado(plataforma, monkeypatch):
     assert pedidos == [("plataforma/tutoriais/como-contratar-o-sistema.mp4", "video/mp4", True)]
 
 
+def test_videos_dos_modulos_na_subpasta(plataforma, monkeypatch):
+    pedidos = []
+
+    class S3Falso:
+        def existe(self, chave):
+            return True
+
+        def link(self, chave, tipo, nome, inline, cache):
+            pedidos.append(chave)
+            return "https://associacao-conecta.s3.amazonaws.com/assinado"
+
+    monkeypatch.setattr(tutoriais, "armazenamento", S3Falso)
+    assert len(tutoriais.MODULOS) == 11
+    with TestClient(create_app()) as c:
+        for nome in tutoriais.MODULOS:
+            r = c.get(f"/associacao/tutoriais/{nome}.mp4", follow_redirects=False)
+            assert r.status_code == 307
+        # Fora da lista, mesmo que pareça um módulo: 404, sem consultar o bucket.
+        assert c.get("/associacao/tutoriais/modulo-inexistente.mp4").status_code == 404
+    assert pedidos == [f"plataforma/tutoriais/modulos/{n}.mp4" for n in tutoriais.MODULOS]
+
+
 def _video_no_disco(chave):
     arquivo = Path(get_settings().arquivos_dir) / chave
     arquivo.parent.mkdir(parents=True, exist_ok=True)

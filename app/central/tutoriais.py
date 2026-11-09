@@ -18,9 +18,19 @@ from app.core.errors import NaoEncontrado
 log = logging.getLogger(__name__)
 PREFIXO = "plataforma/tutoriais/"
 
+# Vídeos de cada módulo do sistema (landing page, seção "Vídeos por módulo"),
+# na subpasta modulos/ do bucket.
+MODULOS = [
+    "modulo-cadastros-e-crm", "modulo-administracao-de-locacao", "modulo-administracao-de-vendas",
+    "modulo-locacao-por-temporada", "modulo-auditorias", "modulo-financeiro", "modulo-fiscal",
+    "modulo-contratos-e-relatorios", "modulo-equipe-e-seguranca", "modulo-site-e-leads",
+    "modulo-personalizacao",
+]  # fmt: skip
+
 # Só os vídeos destas listas: o nome na URL nunca vira chave do bucket.
 TUTORIAIS = {
     "como-contratar-o-sistema": PREFIXO + "como-contratar-o-sistema.mp4",
+    **{nome: f"{PREFIXO}modulos/{nome}.mp4" for nome in MODULOS},
 }
 REPRESENTANTE = PREFIXO + "como-o-representante-cadastra-o-corretor.mp4"
 PLATAFORMA = PREFIXO + "fluxo-de-implantacao-no-painel.mp4"

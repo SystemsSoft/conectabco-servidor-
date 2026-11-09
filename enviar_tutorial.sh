@@ -2,8 +2,11 @@
 # Envia vídeos tutoriais para o S3 (plataforma/tutoriais/<nome>.mp4), pelo
 # servidor, que é onde ficam as chaves da AWS. O nome do arquivo vira o nome
 # no bucket; para o vídeo aparecer, ele precisa estar em app/central/tutoriais.py.
+# Arquivos de uma subpasta de tutorial/ vão para a mesma subpasta no bucket
+# (tutorial/modulos/x.mp4 -> plataforma/tutoriais/modulos/x.mp4).
 #
 #   ./enviar_tutorial.sh tutorial/a.mp4 [tutorial/b.mp4 ...]
+#   ./enviar_tutorial.sh tutorial/modulos/*.mp4
 #
 # CHAVE e HOST podem vir do ambiente (padrão: key_aws.pem e o servidor de produção).
 set -euo pipefail
@@ -16,13 +19,20 @@ SSH="ssh -i $CHAVE -o BatchMode=yes"
 for arquivo in "$@"; do
   nome=$(basename "$arquivo")
   [[ $nome =~ ^[a-z0-9-]+\.mp4$ ]] || { echo "$nome: use letras minúsculas, números e hífen, terminando em .mp4" >&2; exit 1; }
-  echo "Enviando $nome..."
+  pasta=$(basename "$(dirname "$arquivo")")
+  if [ "$pasta" = tutorial ] || [ "$pasta" = . ]; then
+    pasta=""
+  else
+    [[ $pasta =~ ^[a-z0-9-]+$ ]] || { echo "$pasta: a subpasta usa letras minúsculas, números e hífen" >&2; exit 1; }
+    pasta="$pasta/"
+  fi
+  echo "Enviando $pasta$nome..."
   scp -i "$CHAVE" -o BatchMode=yes "$arquivo" "$HOST:/tmp/$nome"
-  $SSH "$HOST" NOME="$nome" 'bash -s' <<'REMOTO'
+  $SSH "$HOST" NOME="$nome" PASTA="$pasta" 'bash -s' <<'REMOTO'
 set -euo pipefail
 sudo chown marceloimob "/tmp/$NOME"
 cd /opt/marceloimob
-sudo -u marceloimob NOME="$NOME" .venv/bin/python - <<'PY'
+sudo -u marceloimob NOME="$NOME" PASTA="$PASTA" .venv/bin/python - <<'PY'
 import os
 from pathlib import Path
 
@@ -30,7 +40,7 @@ from app.core.armazenamento import armazenamento, no_s3
 
 assert no_s3(), "ARQUIVOS_ARMAZENAMENTO não é s3"
 nome = os.environ["NOME"]
-chave = f"plataforma/tutoriais/{nome}"
+chave = f"plataforma/tutoriais/{os.environ['PASTA']}{nome}"
 loja = armazenamento()
 loja.gravar(chave, Path(f"/tmp/{nome}"), "video/mp4", {"categoria": "tutorial"})
 r = loja.cliente.head_object(Bucket=loja.bucket, Key=chave)

@@ -235,12 +235,18 @@ funcionam:
 | `como-contratar-o-sistema.mp4` | Landing page, seção "Tutorial em vídeo" | `/associacao/tutoriais/como-contratar-o-sistema.mp4` (público) |
 | `como-o-representante-cadastra-o-corretor.mp4` | Área do representante → Tutorial | `/representante/tutorial.mp4` (com login de representante) |
 | `fluxo-de-implantacao-no-painel.mp4` | Plataforma → Tutorial (no topo, ao lado do nome) | `/plataforma/tutorial.mp4` (com login da plataforma) |
+| `modulos/modulo-<nome>.mp4` (11 vídeos, um por módulo) | Landing page, seção "Vídeos por módulo" | `/associacao/tutoriais/modulo-<nome>.mp4` (público) |
 
-Os originais ficam na pasta `tutorial/`, que o `deploy.sh` não envia ao
-servidor. Para enviar (ou substituir) um vídeo no S3:
+Os vídeos dos módulos ficam na subpasta `plataforma/tutoriais/modulos/` do
+bucket; a lista dos nomes está em `MODULOS`, em `tutoriais.py`.
+
+Os originais ficam na pasta `tutorial/` (os dos módulos, em `tutorial/modulos/`),
+que o `deploy.sh` não envia ao servidor. Para enviar (ou substituir) um vídeo
+no S3 (um arquivo de uma subpasta vai para a mesma subpasta no bucket):
 
 ```bash
 ./enviar_tutorial.sh tutorial/como-o-representante-cadastra-o-corretor.mp4 tutorial/fluxo-de-implantacao-no-painel.mp4
+./enviar_tutorial.sh tutorial/modulos/*.mp4
 ```
 
 Vídeo novo: envie e acrescente o nome em `tutoriais.py` (e os capítulos, se for interno).
