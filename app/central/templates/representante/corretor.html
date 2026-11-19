@@ -30,7 +30,12 @@
     .botao.whatsapp { background: #25D366; color: #06371C; }
     .botao.whatsapp:hover { background: #1EBE5A; color: #fff; }
     @media (max-width: 760px) {
-      .perfil .selo { margin-left: 0; }
+      .perfil { display: grid; grid-template-columns: 48px minmax(0, 1fr); gap: 4px 14px; align-items: center; }
+      .perfil .avatar { width: 48px; height: 48px; font-size: 16px; }
+      .perfil h1 { font-size: 22px; }
+      .perfil .selo { margin-left: 0; grid-column: 2; justify-self: start; }
+      .dados { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 16px; }
+      .dados .inteiro { grid-column: 1 / -1; }
       .etapas { grid-template-columns: 1fr; gap: 0; }
       .etapas li { padding: 0 0 22px 46px; text-align: left; min-height: 54px; }
       .etapas li::before { top: -22px; bottom: auto; left: 15px; right: auto; width: 3px; height: 22px; }
@@ -54,11 +59,11 @@
       <h1>{{ s.nome }}</h1>
       <p class="sub">{{ s.nome_imobiliaria }} · {{ s.cidade }}/{{ s.uf }}</p>
     </div>
-    <span class="selo {{ {'nova': 'off', 'em_andamento': 'atencao', 'implantada': 'ok', 'recusada': 'erro'}[s.situacao] }}">{{ situacoes[s.situacao] }}</span>
+    <span class="selo {{ {'nova': 'neutro', 'em_andamento': 'off', 'implantada': 'ok', 'recusada': 'erro'}[s.situacao] }}">{{ situacoes[s.situacao] }}</span>
   </div>
   <dl class="dados">
     <div><dt>CRECI</dt><dd>{{ s.creci }}</dd></div>
-    <div><dt>E-mail</dt><dd>{{ s.email }}</dd></div>
+    <div class="inteiro"><dt>E-mail</dt><dd>{{ s.email }}</dd></div>
     <div><dt>Telefone</dt><dd>{{ s.telefone }}</dd></div>
     <div><dt>Enviado em</dt><dd>{{ s.criada_em.strftime("%d/%m/%Y") }}</dd></div>
   </dl>
