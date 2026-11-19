@@ -91,6 +91,10 @@ class Representante(BaseCentral):
     bloqueado_ate: Mapped[datetime | None] = mapped_column(sa.DateTime)
     criado_em: Mapped[datetime] = mapped_column(sa.DateTime)
     ultimo_acesso: Mapped[datetime | None] = mapped_column(sa.DateTime)
+    # Conta Google conectada (uid do Firebase): depois do 1º acesso com
+    # usuário e senha, o representante pode entrar com ela.
+    google_uid: Mapped[str | None] = mapped_column(sa.String(128), unique=True)
+    google_email: Mapped[str] = mapped_column(sa.String(200), default="")
 
 
 class SolicitacaoImplantacao(BaseCentral):

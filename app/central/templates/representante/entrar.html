@@ -1,4 +1,5 @@
 {% extends "representante/_base.html" %}
+{% import "representante/_google.html" as g %}
 {% block titulo %}Área do representante{% endblock %}
 {% block conteudo %}
 <div class="cartao" style="max-width: 400px; margin: 40px auto;">
@@ -15,6 +16,12 @@
     </div>
     <div class="acoes"><button type="submit" style="width: 100%; justify-content: center;">Entrar</button></div>
   </form>
+  {% if firebase %}
+  <p class="ajuda" style="text-align: center; margin: 18px 0 12px;">ou</p>
+  {{ g.botao("/representante/entrar/google", "Entrar com Google") }}
+  <p class="ajuda">No primeiro acesso, entre com usuário e senha e conecte sua conta Google em "Minha conta".</p>
+  {% endif %}
   <p class="ajuda" style="margin-top: 16px;">Não tem acesso? Fale com a associação.</p>
 </div>
+{{ g.script(firebase, firebase_sdk) }}
 {% endblock %}

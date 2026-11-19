@@ -83,6 +83,15 @@ class Settings(BaseSettings):
     email_smtp_host: str = "smtp.hostinger.com"
     email_smtp_porta: int = 465
 
+    # Firebase (projeto associacaoconectabrasil): "Entrar com Google" na área
+    # do representante. São os dados públicos do app Web (vão para o
+    # navegador); sem FIREBASE_API_KEY o botão some. O domínio do servidor
+    # precisa estar em Authentication > Configurações > Domínios autorizados.
+    firebase_api_key: str = "AIzaSyD5Prgodoyc2RUEHITnGpI3428GV1b2aK0"
+    firebase_auth_domain: str = "associacaoconectabrasil.firebaseapp.com"
+    firebase_project_id: str = "associacaoconectabrasil"
+    firebase_app_id: str = "1:697093298218:web:16ae406d666f9ef173cb53"
+
     cors_origins: str = ""
     host: str = "0.0.0.0"
     port: int = 8000

@@ -1,6 +1,7 @@
 """Área do representante (/representante): com login e senha cadastrados no
 painel da plataforma, o representante envia os corretores para implantação e
-acompanha a situação de cada um. Só abre pelo endereço do servidor."""
+acompanha a situação de cada um. Em "Minha conta" ele pode conectar a conta
+Google e, daí em diante, entrar com ela. Só abre pelo endereço do servidor."""
 
 from typing import Annotated
 
@@ -9,7 +10,10 @@ from fastapi.responses import RedirectResponse
 from starlette.datastructures import UploadFile as ArquivoEnviado
 from sqlalchemy.orm import Session
 
+import sqlalchemy as sa
+
 from app.central import acesso
+from app.central import google
 from app.central import models as m
 from app.central import contratacao as cc
 from app.central import representantes as rep
@@ -26,6 +30,8 @@ Db = Annotated[Session, Depends(_db)]
 MENSAGENS = {
     "enviada": "Corretor enviado para implantação, com o contrato assinado. A associação vai entrar em contato.",
     "link": "Corretor enviado. Agora envie o link abaixo para ele assinar o contrato.",
+    "google-conectado": "Conta Google conectada. Nos próximos acessos, use \"Entrar com Google\".",
+    "google-desconectado": "Conta Google desconectada. Entre com usuário e senha.",
 }
 
 
@@ -49,6 +55,8 @@ def _ctx(request: Request, r: m.Representante | None, **extra) -> dict:
         "ufs": rep.UFS,
         "metodos": cc.METODOS,
         "subdominio_base": central.exibir_dominio(base) if (base := central.subdominio_base()) else "",
+        "firebase": google.configuracao(),
+        "firebase_sdk": google.SDK,
     } | extra
 
 
@@ -71,6 +79,10 @@ def entrar(request: Request, db: Db, login: Annotated[str, Form()] = "",
         r = acesso.autenticar(db, login, senha, m.Representante)
     except RegraNegocio as e:
         return _pagina(request, "representante/entrar.html", _ctx(request, None, erro=e.mensagem, login=login), 422)
+    return _abrir_sessao(request, r)
+
+
+def _abrir_sessao(request: Request, r: m.Representante) -> RedirectResponse:
     resposta = RedirectResponse("/representante", status_code=303)
     resposta.set_cookie(
         acesso.COOKIE_REPRESENTANTE, acesso.criar_token(r), max_age=acesso.SESSAO_HORAS * 3600,
@@ -79,12 +91,60 @@ def entrar(request: Request, db: Db, login: Annotated[str, Form()] = "",
     return resposta
 
 
+@router.post("/entrar/google")
+def entrar_google(request: Request, db: Db, id_token: Annotated[str, Form()] = ""):
+    """Só para quem já conectou a conta Google em "Minha conta" (depois de
+    entrar com usuário e senha): uma conta desconhecida não cria acesso."""
+    try:
+        uid, _ = google.conta_do_token(id_token)
+        r = db.scalar(sa.select(m.Representante).where(m.Representante.google_uid == uid))
+        if r is None:
+            raise RegraNegocio("Esta conta Google não está conectada a nenhum representante. "
+                               "Entre com usuário e senha e conecte-a em \"Minha conta\".")  # fmt: skip
+        if not r.ativo:
+            raise RegraNegocio("Seu acesso está desativado.")
+    except RegraNegocio as e:
+        return _pagina(request, "representante/entrar.html", _ctx(request, None, erro=e.mensagem), 422)
+    r.ultimo_acesso = agora()
+    db.commit()
+    return _abrir_sessao(request, r)
+
+
 @router.post("/sair")
 def sair(r: Logado, csrf: Annotated[str, Form()] = ""):
     _conferir(r, csrf)
     resposta = RedirectResponse("/representante/entrar", status_code=303)
     resposta.delete_cookie(acesso.COOKIE_REPRESENTANTE, path="/representante")
     return resposta
+
+
+@router.get("/conta")
+def conta(request: Request, r: Logado):
+    return _pagina(request, "representante/conta.html", _ctx(request, r))
+
+
+@router.post("/conta/google")
+def conectar_google(request: Request, db: Db, r: Logado, csrf: Annotated[str, Form()] = "",
+                    id_token: Annotated[str, Form()] = ""):  # fmt: skip
+    _conferir(r, csrf)
+    try:
+        uid, email = google.conta_do_token(id_token)
+        outro = db.scalar(sa.select(m.Representante).where(m.Representante.google_uid == uid))
+        if outro is not None and outro.id != r.id:
+            raise RegraNegocio("Esta conta Google já está conectada a outro representante.")
+    except RegraNegocio as e:
+        return _pagina(request, "representante/conta.html", _ctx(request, r, erro=e.mensagem), 422)
+    r.google_uid, r.google_email = uid, email
+    db.commit()
+    return RedirectResponse("/representante/conta?msg=google-conectado", status_code=303)
+
+
+@router.post("/conta/google/desconectar")
+def desconectar_google(db: Db, r: Logado, csrf: Annotated[str, Form()] = ""):
+    _conferir(r, csrf)
+    r.google_uid, r.google_email = None, ""
+    db.commit()
+    return RedirectResponse("/representante/conta?msg=google-desconectado", status_code=303)
 
 
 @router.get("")

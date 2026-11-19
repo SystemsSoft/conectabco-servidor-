@@ -121,6 +121,20 @@ erradas, sessão de 8 h, CSRF) com um cookie próprio: um login não abre a
 área do outro. Ficam no banco central (`representantes` e
 `solicitacoes_implantacao`).
 
+**Entrar com Google** (Firebase Authentication, projeto
+`associacaoconectabrasil`): o 1º acesso é sempre com usuário e senha; em
+**Minha conta** (`/representante/conta`) o representante conecta a conta
+Google (popup do Google) e, daí em diante, usa "Entrar com Google" na tela de
+entrada. Conta Google não conectada não cria acesso, cada conta conecta a um
+só representante, e desativar o representante também bloqueia o Google. O
+servidor confere o ID token com as chaves públicas do Firebase (sem conta de
+serviço). Os dados públicos do app Web estão em `FIREBASE_API_KEY`,
+`FIREBASE_AUTH_DOMAIN`, `FIREBASE_PROJECT_ID` e `FIREBASE_APP_ID` (padrão já
+no código; `FIREBASE_API_KEY=` vazio esconde o botão). No console do Firebase:
+**Authentication → Sign-in method → Google** ativado e o domínio do servidor
+(`api.xn--associaoconectabci-7sb3f.com.br`) em **Authentication →
+Configurações → Domínios autorizados**. Migração do banco central: `c0012`.
+
 #### Financeiro (`/plataforma/financeiro`)
 
 Toda solicitação de implantação aparece no Financeiro assim que entra como
