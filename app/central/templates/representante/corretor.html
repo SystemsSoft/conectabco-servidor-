@@ -1,13 +1,80 @@
 {% extends "representante/_base.html" %}
+{% import "representante/_icones.html" as ic %}
 {% block titulo %}{{ s.nome }}{% endblock %}
+{% block estilo %}
+    .perfil { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+    .perfil .avatar { width: 56px; height: 56px; font-size: 18px; background: var(--green-50); color: var(--green-700); }
+    .perfil h1 { margin: 0; }
+    .perfil .sub { margin: 2px 0 0; }
+    .perfil .selo { margin-left: auto; font-size: 13px; padding: 5px 12px; }
+    .dados { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 14px 20px; margin: 20px 0 0; padding: 18px 0 0; border-top: 1px solid var(--line-2); }
+    .dados dt { color: var(--muted); font-size: 12.5px; }
+    .dados dd { margin: 2px 0 0; color: var(--ink); font-weight: 500; word-break: break-word; }
+    .etapas { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, 1fr); }
+    .etapas li { position: relative; padding-top: 42px; text-align: center; font-size: 13.5px; color: var(--muted); }
+    .etapas li::before { content: ""; position: absolute; top: 15px; left: -50%; right: 50%; height: 3px; background: var(--line); }
+    .etapas li:first-child::before { display: none; }
+    .etapas .marcador { position: absolute; top: 0; left: 50%; transform: translateX(-50%); z-index: 1; display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; background: #fff; border: 2px solid var(--line); color: var(--muted); font: 700 13px var(--head); }
+    .etapas strong { display: block; color: var(--ink); font-weight: 600; font-size: 14px; }
+    .etapas li.feito::before, .etapas li.atual::before { background: var(--green-500); }
+    .etapas li.feito .marcador { background: var(--green-500); border-color: var(--green-500); color: #fff; }
+    .etapas li.atual .marcador { border-color: var(--green-500); color: var(--green-600); box-shadow: 0 0 0 5px rgba(20, 184, 124, .15); }
+    .etapas li.recusado .marcador { background: var(--err); border-color: var(--err); color: #fff; }
+    .etapas li.recusado::before { background: var(--err); }
+    .link-campo { display: flex; gap: 8px; align-items: center; padding: 6px 6px 6px 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--bg); }
+    .link-campo input { border: 0; background: transparent; min-height: 40px; padding: 0; font-family: ui-monospace, Menlo, monospace; font-size: 13px; color: var(--text); }
+    .link-campo input:focus { box-shadow: none; }
+    .link-campo button { min-height: 40px; padding: 8px 14px; font-size: 14px; flex: none; }
+    .compartilhar { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 14px; }
+    .compartilhar .botao { min-height: 48px; font-size: 14.5px; }
+    .botao.whatsapp { background: #25D366; color: #06371C; }
+    .botao.whatsapp:hover { background: #1EBE5A; color: #fff; }
+    @media (max-width: 760px) {
+      .perfil .selo { margin-left: 0; }
+      .etapas { grid-template-columns: 1fr; gap: 0; }
+      .etapas li { padding: 0 0 22px 46px; text-align: left; min-height: 54px; }
+      .etapas li::before { top: -22px; bottom: auto; left: 15px; right: auto; width: 3px; height: 22px; }
+      .etapas li:last-child { padding-bottom: 0; min-height: 0; }
+      .etapas .marcador { left: 0; transform: none; }
+      .compartilhar { grid-template-columns: 1fr; }
+      .link-campo { flex-wrap: wrap; padding: 10px; }
+      .link-campo button { width: 100%; }
+    }
+{% endblock %}
 {% block conteudo %}
-<p><a href="/representante">← Meus corretores</a></p>
-<div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 6px;">
-  <h1 style="margin: 0;">{{ s.nome }}</h1>
-  <span class="selo {{ {'nova': 'off', 'em_andamento': 'atencao', 'implantada': 'ok', 'recusada': 'erro'}[s.situacao] }}">{{ situacoes[s.situacao] }}</span>
+{% set recusada = s.situacao == "recusada" %}
+{% set assinado = not contrato or contrato.situacao == "assinado" %}
+{% set em_implantacao = s.situacao in ("em_andamento", "implantada") %}
+<a class="voltar" href="/representante">{{ ic.i("voltar", 18) }} Meus corretores</a>
+
+<div class="cartao">
+  <div class="perfil">
+    <span class="avatar" aria-hidden="true">{{ ic.iniciais(s.nome) }}</span>
+    <div style="min-width: 0;">
+      <h1>{{ s.nome }}</h1>
+      <p class="sub">{{ s.nome_imobiliaria }} · {{ s.cidade }}/{{ s.uf }}</p>
+    </div>
+    <span class="selo {{ {'nova': 'off', 'em_andamento': 'atencao', 'implantada': 'ok', 'recusada': 'erro'}[s.situacao] }}">{{ situacoes[s.situacao] }}</span>
+  </div>
+  <dl class="dados">
+    <div><dt>CRECI</dt><dd>{{ s.creci }}</dd></div>
+    <div><dt>E-mail</dt><dd>{{ s.email }}</dd></div>
+    <div><dt>Telefone</dt><dd>{{ s.telefone }}</dd></div>
+    <div><dt>Enviado em</dt><dd>{{ s.criada_em.strftime("%d/%m/%Y") }}</dd></div>
+  </dl>
 </div>
-<p class="sub">{{ s.nome_imobiliaria }} · {{ s.cidade }}/{{ s.uf }} · enviado em {{ s.criada_em.strftime("%d/%m/%Y") }}</p>
-{% if s.resposta %}<div class="aviso atencao"><strong>Associação:</strong> {{ s.resposta }}</div>{% endif %}
+
+{% if s.resposta %}<div class="aviso atencao"><span><strong>Associação:</strong> {{ s.resposta }}</span></div>{% endif %}
+
+<div class="cartao">
+  <h2>Andamento</h2>
+  <ol class="etapas">
+    <li class="feito"><span class="marcador">{{ ic.i("check", 16) }}</span><strong>Enviado</strong>{{ s.criada_em.strftime("%d/%m") }}</li>
+    <li class="{{ 'feito' if assinado else 'atual' }}"><span class="marcador">{% if assinado %}{{ ic.i("check", 16) }}{% else %}2{% endif %}</span><strong>Contrato</strong>{% if not contrato %}Sem contrato digital{% elif assinado %}Assinado{% else %}Aguardando assinatura{% endif %}</li>
+    <li class="{{ 'recusado' if recusada else ('feito' if s.situacao == 'implantada' else ('atual' if s.situacao == 'em_andamento' else '')) }}"><span class="marcador">{% if recusada %}×{% elif s.situacao == "implantada" %}{{ ic.i("check", 16) }}{% else %}3{% endif %}</span><strong>{{ "Recusada" if recusada else "Implantação" }}</strong>{% if recusada %}Veja a resposta da associação{% elif em_implantacao %}Com a associação{% else %}Aguardando a associação{% endif %}</li>
+    <li class="{{ 'feito' if s.situacao == 'implantada' else '' }}"><span class="marcador">{% if s.situacao == "implantada" %}{{ ic.i("check", 16) }}{% else %}4{% endif %}</span><strong>Sistema no ar</strong>{{ "Implantado" if s.situacao == "implantada" else "—" }}</li>
+  </ol>
+</div>
 
 <div class="cartao">
   <h2>Contrato</h2>
@@ -18,26 +85,27 @@
   {% elif expirado %}
   <div class="aviso erro" style="margin: 0;">O link de assinatura expirou (vale 30 dias). Fale com a associação para gerar outro.</div>
   {% else %}
-  <p style="margin-top: 0;"><span class="selo atencao">Aguardando assinatura</span> Envie o link abaixo para o corretor. Ele lê o contrato preenchido e assina eletronicamente ou com a conta gov.br (vale 30 dias).</p>
-  <div class="linha" style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
-    <input type="text" id="link" value="{{ link }}" readonly style="flex: 1 1 320px; font-family: ui-monospace, Menlo, monospace; font-size: 13px;">
-    <button type="button" class="secundario" id="copiar">Copiar link</button>
+  <p style="margin-top: 0;"><span class="selo atencao">Aguardando assinatura</span></p>
+  <p class="rotulo" style="margin: 0 0 14px;">Envie o link abaixo para o corretor. Ele lê o contrato preenchido e assina eletronicamente ou com a conta gov.br (vale 30 dias).</p>
+  <div class="link-campo">
+    <input type="text" id="link" value="{{ link }}" readonly aria-label="Link de assinatura">
+    <button type="button" class="secundario" id="copiar">{{ ic.i("copiar", 16) }} <span>Copiar link</span></button>
   </div>
-  <div class="acoes">
-    <a class="botao" href="https://wa.me/55{{ s.telefone | digitos }}?text={{ ('Olá, ' ~ s.nome.split()[0] ~ '! Segue o contrato do sistema imobiliário da Associação Conecta do Brasil para você ler e assinar: ' ~ link) | urlencode }}" target="_blank" rel="noopener">Enviar pelo WhatsApp</a>
-    <a class="botao secundario" href="mailto:{{ s.email }}?subject={{ 'Contrato - Associação Conecta do Brasil' | urlencode }}&body={{ ('Olá, ' ~ s.nome.split()[0] ~ '! Segue o link para ler e assinar o contrato do sistema imobiliário: ' ~ link) | urlencode }}">Enviar por e-mail</a>
-    <a class="botao secundario" href="{{ link }}" target="_blank" rel="noopener">Abrir para assinar agora</a>
+  <div class="compartilhar">
+    <a class="botao whatsapp" href="https://wa.me/55{{ s.telefone | digitos }}?text={{ ('Olá, ' ~ s.nome.split()[0] ~ '! Segue o contrato do sistema imobiliário da Associação Conecta do Brasil para você ler e assinar: ' ~ link) | urlencode }}" target="_blank" rel="noopener">{{ ic.i("whatsapp", 18) }} Enviar pelo WhatsApp</a>
+    <a class="botao secundario" href="mailto:{{ s.email }}?subject={{ 'Contrato - Associação Conecta do Brasil' | urlencode }}&body={{ ('Olá, ' ~ s.nome.split()[0] ~ '! Segue o link para ler e assinar o contrato do sistema imobiliário: ' ~ link) | urlencode }}">{{ ic.i("email", 18) }} Enviar por e-mail</a>
+    <a class="botao secundario" href="{{ link }}" target="_blank" rel="noopener">{{ ic.i("externo", 18) }} Abrir para assinar agora</a>
   </div>
   {% endif %}
 </div>
 <script>
   var botao = document.getElementById('copiar');
   if (botao) botao.addEventListener('click', function () {
-    var campo = document.getElementById('link');
+    var campo = document.getElementById('link'), texto = botao.querySelector('span');
     campo.select();
     (navigator.clipboard ? navigator.clipboard.writeText(campo.value) : Promise.reject()).catch(function () { document.execCommand('copy'); });
-    botao.textContent = 'Link copiado!';
-    setTimeout(function () { botao.textContent = 'Copiar link'; }, 2500);
+    texto.textContent = 'Link copiado!';
+    setTimeout(function () { texto.textContent = 'Copiar link'; }, 2500);
   });
 </script>
 {% endblock %}

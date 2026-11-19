@@ -1,36 +1,165 @@
 {% extends "representante/_base.html" %}
+{% import "representante/_icones.html" as ic %}
 {% block titulo %}Meus corretores{% endblock %}
+{% block estilo %}
+    .cabeca { display: flex; align-items: flex-end; gap: 16px; flex-wrap: wrap; margin-bottom: 22px; }
+    .cabeca .sub { margin: 0; }
+    .cabeca .botao { margin-left: auto; }
+    .numeros { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-bottom: 18px; }
+    .numero { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 16px 18px; box-shadow: var(--shadow); }
+    .numero strong { display: block; font: 800 28px/1.1 var(--head); color: var(--ink); letter-spacing: -.02em; margin-top: 6px; }
+    .numero span { display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: 13px; font-weight: 500; }
+    .numero span::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--cor, var(--navy-700)); }
+    .tutorial-chamada { display: flex; gap: 16px; align-items: center; padding: 16px 18px; margin-bottom: 18px; border-radius: 18px; color: #fff;
+      background: radial-gradient(400px 160px at 100% 0, rgba(20, 184, 124, .35), transparent 70%), var(--navy-900); }
+    .tutorial-chamada .icone { width: 44px; height: 44px; padding: 10px; border-radius: 14px; background: rgba(255, 255, 255, .1); color: #5BE3AE; }
+    .tutorial-chamada p { margin: 0; color: rgba(255, 255, 255, .75); font-size: 14px; }
+    .tutorial-chamada strong { color: #fff; display: block; font-family: var(--head); }
+    .tutorial-chamada .botao { margin-left: auto; background: #fff; color: var(--navy-900); min-height: 40px; padding: 8px 16px; font-size: 14px; }
+    .tutorial-chamada .botao:hover { background: var(--green-50); }
+    .painel-lista { padding: 0; overflow: hidden; }
+    .ferramentas { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding: 16px 18px; border-bottom: 1px solid var(--line-2); }
+    .busca { position: relative; flex: 1 1 240px; max-width: 360px; }
+    .busca .icone { position: absolute; left: 13px; top: 50%; transform: translateY(-50%); color: var(--muted); }
+    .busca input { padding-left: 40px; min-height: 42px; background: var(--bg); border-color: transparent; }
+    .filtros { display: flex; gap: 6px; flex-wrap: wrap; }
+    .filtros button { min-height: 36px; padding: 6px 13px; font-size: 13px; font-weight: 600; background: var(--bg); color: var(--text); border: 1px solid transparent; }
+    .filtros button:hover { background: var(--line-2); color: var(--ink); }
+    .filtros button.atual { background: var(--navy-900); color: #fff; }
+    .lista { list-style: none; margin: 0; padding: 0; }
+    .lista li + li { border-top: 1px solid var(--line-2); }
+    .item { display: grid; grid-template-columns: 44px minmax(0, 1fr) 150px 170px 20px; gap: 14px; align-items: center; padding: 16px 18px; color: inherit; transition: background .12s; }
+    .item:hover { background: #FAFBFD; color: inherit; }
+    .item .avatar { width: 44px; height: 44px; font-size: 14px; background: var(--green-50); color: var(--green-700); }
+    .item .nome { display: block; color: var(--ink); font-weight: 600; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .item .detalhe { display: block; color: var(--muted); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .item .onde { font-size: 13.5px; color: var(--text); }
+    .item .onde small { display: block; color: var(--muted); font-size: 12.5px; }
+    .item .estados { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+    .item > .icone { color: #A0AEC0; }
+    .resposta { grid-column: 2 / -1; margin-top: -4px; padding: 10px 12px; border-radius: 12px; background: var(--bg); font-size: 13.5px; color: var(--text); }
+    .resposta strong { color: var(--ink); }
+    .sem-resultado { padding: 32px 18px; text-align: center; color: var(--muted); }
+    @media (max-width: 900px) { .numeros { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    @media (max-width: 760px) {
+      .cabeca .botao { display: none; }
+      .numeros { gap: 10px; }
+      .numero { padding: 13px 14px; border-radius: 16px; }
+      .numero strong { font-size: 24px; }
+      .tutorial-chamada { flex-wrap: wrap; }
+      .tutorial-chamada .botao { margin-left: 0; width: 100%; }
+      .ferramentas { padding: 12px; }
+      .busca { max-width: none; flex-basis: 100%; }
+      .filtros { flex-wrap: nowrap; overflow-x: auto; margin: 0 -12px; padding: 0 12px; scrollbar-width: none; }
+      .filtros::-webkit-scrollbar { display: none; }
+      .filtros button { flex: none; }
+      .item { grid-template-columns: 40px minmax(0, 1fr) 16px; gap: 4px 12px; padding: 14px; }
+      .item .avatar { width: 40px; height: 40px; grid-row: span 2; align-self: start; }
+      .item .onde { display: none; }
+      .item .estados { grid-column: 2; grid-row: 2; flex-direction: row; flex-wrap: wrap; }
+      .item > .icone { grid-column: 3; grid-row: 1 / span 2; }
+      .resposta { grid-column: 1 / -1; margin-top: 8px; }
+    }
+{% endblock %}
 {% block conteudo %}
-<div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 20px;">
+{% set ns = namespace(aguardando=0, andamento=0, implantadas=0) %}
+{% for s in solicitacoes %}
+  {% set c = contratos[s.id] %}
+  {% if c and c.situacao != "assinado" %}{% set ns.aguardando = ns.aguardando + 1 %}{% endif %}
+  {% if s.situacao == "em_andamento" %}{% set ns.andamento = ns.andamento + 1 %}{% endif %}
+  {% if s.situacao == "implantada" %}{% set ns.implantadas = ns.implantadas + 1 %}{% endif %}
+{% endfor %}
+<div class="cabeca">
   <div>
-    <h1>Meus corretores</h1>
-    <p class="sub" style="margin: 0;">Corretores que você enviou para a implantação do sistema.</p>
+    <h1>Olá, {{ representante.nome.split()[0] }}</h1>
+    <p class="sub">Corretores que você enviou para a implantação do sistema.</p>
   </div>
-  <a class="botao" href="/representante/novo" style="margin-left: auto;">+ Cadastrar corretor</a>
+  <a class="botao" href="/representante/novo">{{ ic.i("mais", 18) }} Cadastrar corretor</a>
 </div>
-<div class="aviso" style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap; background: var(--cartao); border: 1px solid var(--linha);">
-  <span><strong>Primeira vez?</strong> Veja em 3 minutos como cadastrar um corretor e enviar o contrato para ele assinar.</span>
-  <a class="botao secundario" href="/representante/tutorial" style="margin-left: auto;">Assistir ao tutorial</a>
+
+<div class="numeros">
+  <div class="numero" style="--cor: var(--navy-700);"><span>Enviados</span><strong>{{ solicitacoes | length }}</strong></div>
+  <div class="numero" style="--cor: #E0A100;"><span>Aguardando assinatura</span><strong>{{ ns.aguardando }}</strong></div>
+  <div class="numero" style="--cor: var(--info);"><span>Em implantação</span><strong>{{ ns.andamento }}</strong></div>
+  <div class="numero" style="--cor: var(--green-500);"><span>Implantados</span><strong>{{ ns.implantadas }}</strong></div>
 </div>
-<div class="cartao" style="padding: 8px 14px;">
+
+{% if solicitacoes | length < 3 %}
+<div class="tutorial-chamada">
+  {{ ic.i("play") }}
+  <div><strong>Primeira vez?</strong><p>Veja em 3 minutos como cadastrar um corretor e enviar o contrato para ele assinar.</p></div>
+  <a class="botao" href="/representante/tutorial">Assistir ao tutorial</a>
+</div>
+{% else %}
+<p class="rotulo" style="margin: -4px 0 16px;">Dúvidas? <a href="/representante/tutorial">Assistir ao tutorial</a> (3 min).</p>
+{% endif %}
+
+<div class="cartao painel-lista">
   {% if solicitacoes %}
-  <table>
-    <thead><tr><th>Corretor / imobiliária</th><th class="esconder-celular">Cidade</th><th class="esconder-celular">Enviado em</th><th>Contrato</th><th>Situação</th></tr></thead>
-    <tbody>
-      {% for s in solicitacoes %}
-      <tr>
-        <td><a href="/representante/corretores/{{ s.id }}"><strong>{{ s.nome }}</strong></a><br><span class="rotulo">{{ s.nome_imobiliaria }} · CRECI {{ s.creci }}</span>
-          {% if s.resposta %}<div class="ajuda" style="margin-top: 6px;"><strong>Associação:</strong> {{ s.resposta }}</div>{% endif %}</td>
-        <td class="esconder-celular">{{ s.cidade }}/{{ s.uf }}</td>
-        <td class="esconder-celular">{{ s.criada_em.strftime("%d/%m/%Y") }}</td>
-        <td>{% set c = contratos[s.id] %}{% if not c %}<span class="rotulo">—</span>{% elif c.situacao == "assinado" %}<span class="selo ok">Assinado</span>{% else %}<a class="selo atencao" href="/representante/corretores/{{ s.id }}">Aguardando · ver link</a>{% endif %}</td>
-        <td><span class="selo {{ {'nova': 'off', 'em_andamento': 'atencao', 'implantada': 'ok', 'recusada': 'erro'}[s.situacao] }}">{{ situacoes[s.situacao] }}</span></td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+  <div class="ferramentas">
+    <label class="busca" aria-label="Buscar corretor">{{ ic.i("busca", 18) }}<input type="search" id="busca" placeholder="Buscar por nome, imobiliária ou cidade" autocomplete="off"></label>
+    <div class="filtros" role="group" aria-label="Filtrar">
+      <button type="button" class="atual" data-filtro="">Todos</button>
+      <button type="button" data-filtro="aguardando">Aguardando assinatura</button>
+      <button type="button" data-filtro="em_andamento">Em implantação</button>
+      <button type="button" data-filtro="implantada">Implantados</button>
+    </div>
+  </div>
+  <ul class="lista" id="lista">
+    {% for s in solicitacoes %}
+    {% set c = contratos[s.id] %}
+    <li data-situacao="{{ s.situacao }}{% if c and c.situacao != 'assinado' %} aguardando{% endif %}" data-texto="{{ (s.nome ~ ' ' ~ s.nome_imobiliaria ~ ' ' ~ s.cidade ~ ' ' ~ s.creci) | lower }}">
+      <a class="item" href="/representante/corretores/{{ s.id }}">
+        <span class="avatar" aria-hidden="true">{{ ic.iniciais(s.nome) }}</span>
+        <span>
+          <span class="nome">{{ s.nome }}</span>
+          <span class="detalhe">{{ s.nome_imobiliaria }} · CRECI {{ s.creci }}</span>
+          <span class="detalhe so-celular">{{ s.cidade }}/{{ s.uf }} · {{ s.criada_em.strftime("%d/%m/%Y") }}</span>
+        </span>
+        <span class="onde">{{ s.cidade }}/{{ s.uf }}<small>Enviado em {{ s.criada_em.strftime("%d/%m/%Y") }}</small></span>
+        <span class="estados">
+          <span class="selo {{ {'nova': 'off', 'em_andamento': 'atencao', 'implantada': 'ok', 'recusada': 'erro'}[s.situacao] }}">{{ situacoes[s.situacao] }}</span>
+          {% if not c %}<span class="selo neutro">Sem contrato digital</span>{% elif c.situacao == "assinado" %}<span class="selo ok">Assinado</span>{% else %}<span class="selo atencao">Aguardando · ver link</span>{% endif %}
+        </span>
+        {{ ic.i("seta", 18) }}
+        {% if s.resposta %}<span class="resposta"><strong>Associação:</strong> {{ s.resposta }}</span>{% endif %}
+      </a>
+    </li>
+    {% endfor %}
+  </ul>
+  <div class="sem-resultado" id="sem-resultado" hidden>Nenhum corretor encontrado.</div>
   {% else %}
-  <div class="vazio">Você ainda não enviou nenhum corretor. <a href="/representante/novo">Cadastre o primeiro</a>.</div>
+  <div class="vazio">
+    {{ ic.i("corretores", 40) }}
+    <strong>Nenhum corretor ainda</strong>
+    Cadastre o primeiro corretor e acompanhe a implantação por aqui.
+    <div class="acoes" style="justify-content: center;"><a class="botao" href="/representante/novo">{{ ic.i("mais", 18) }} Cadastrar o primeiro</a></div>
+  </div>
   {% endif %}
 </div>
+{% if solicitacoes %}
+<script>
+  (function () {
+    var busca = document.getElementById('busca'), itens = document.querySelectorAll('#lista > li');
+    var vazio = document.getElementById('sem-resultado'), filtro = '';
+    function aplicar() {
+      var termo = busca.value.trim().toLowerCase(), algum = false;
+      itens.forEach(function (li) {
+        var ok = (!filtro || li.dataset.situacao.split(' ').indexOf(filtro) >= 0) && (!termo || li.dataset.texto.indexOf(termo) >= 0);
+        li.hidden = !ok;
+        algum = algum || ok;
+      });
+      vazio.hidden = algum;
+    }
+    busca.addEventListener('input', aplicar);
+    document.querySelectorAll('[data-filtro]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        document.querySelectorAll('[data-filtro]').forEach(function (x) { x.classList.toggle('atual', x === b); });
+        filtro = b.dataset.filtro;
+        aplicar();
+      });
+    });
+  })();
+</script>
+{% endif %}
 {% endblock %}

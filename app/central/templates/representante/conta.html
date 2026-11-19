@@ -1,32 +1,60 @@
 {% extends "representante/_base.html" %}
 {% import "representante/_google.html" as g %}
+{% import "representante/_icones.html" as ic %}
 {% block titulo %}Minha conta{% endblock %}
+{% block estilo %}
+    .perfil { display: flex; gap: 16px; align-items: center; }
+    .perfil .avatar { width: 60px; height: 60px; font-size: 20px; background: linear-gradient(135deg, var(--green-500), #3ED6A0); color: var(--navy-900); }
+    .perfil strong { display: block; font: 700 18px var(--head); color: var(--ink); }
+    .linhas { margin: 20px 0 0; padding: 0; }
+    .linhas div { display: flex; justify-content: space-between; gap: 16px; padding: 12px 0; border-top: 1px solid var(--line-2); font-size: 14.5px; }
+    .linhas dt { color: var(--muted); }
+    .linhas dd { margin: 0; color: var(--ink); font-weight: 500; text-align: right; word-break: break-word; }
+    .google-topo { display: flex; gap: 14px; align-items: center; margin-bottom: 14px; }
+    .google-topo .g { display: grid; place-items: center; width: 44px; height: 44px; flex: none; border-radius: 14px; background: var(--bg); }
+    .google-topo h2 { margin: 0; }
+    .sair-celular { margin-top: 8px; }
+{% endblock %}
 {% block conteudo %}
 <h1>Minha conta</h1>
 <p class="sub">Seus dados de acesso à área do representante.</p>
 <div class="duas">
   <div class="cartao">
-    <h2>Dados</h2>
-    <p style="margin: 0 0 6px;"><strong>{{ representante.nome }}</strong></p>
-    <p class="ajuda" style="margin: 0;">Usuário: {{ representante.login }}{% if representante.email %} · {{ representante.email }}{% endif %}</p>
-    <p class="ajuda">Para trocar a senha ou os dados, fale com a associação.</p>
+    <div class="perfil">
+      <span class="avatar" aria-hidden="true">{{ ic.iniciais(representante.nome) }}</span>
+      <div><strong>{{ representante.nome }}</strong><span class="rotulo">Representante da associação</span></div>
+    </div>
+    <dl class="linhas">
+      <div><dt>Usuário</dt><dd>{{ representante.login }}</dd></div>
+      {% if representante.email %}<div><dt>E-mail</dt><dd>{{ representante.email }}</dd></div>{% endif %}
+      {% if representante.telefone %}<div><dt>Telefone</dt><dd>{{ representante.telefone }}</dd></div>{% endif %}
+      {% if representante.regiao %}<div><dt>Região</dt><dd>{{ representante.regiao }}</dd></div>{% endif %}
+    </dl>
+    <p class="ajuda" style="margin-top: 14px;">Para trocar a senha ou os dados, fale com a associação.</p>
   </div>
   <div class="cartao" id="google">
-    <h2>Conta Google</h2>
+    <div class="google-topo">
+      <span class="g"><svg width="22" height="22" viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 13 4 4 13 4 24s9 20 20 20 20-9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg></span>
+      <div><h2>Conta Google</h2><span class="rotulo">Entre sem digitar usuário e senha.</span></div>
+    </div>
     {% if representante.google_uid %}
-    <p style="margin: 0 0 6px;"><span class="selo ok">Conectada</span> {{ representante.google_email }}</p>
+    <p style="margin: 0 0 6px;"><span class="selo ok">Conectada</span> <strong style="color: var(--ink);">{{ representante.google_email }}</strong></p>
     <p class="ajuda">Na tela de entrada, use "Entrar com Google". Usuário e senha continuam valendo.</p>
     <form method="post" action="/representante/conta/google/desconectar" class="acoes">
       <input type="hidden" name="csrf" value="{{ csrf }}">
       <button type="submit" class="perigo">Desconectar conta Google</button>
     </form>
     {% elif firebase %}
-    <p class="ajuda" style="margin: 0 0 14px;">Conecte sua conta Google para entrar com ela nos próximos acessos, sem digitar usuário e senha.</p>
+    <p class="ajuda" style="margin: 0 0 16px;">Conecte sua conta Google para entrar com ela nos próximos acessos.</p>
     {{ g.botao("/representante/conta/google", "Conectar conta Google", csrf) }}
     {% else %}
     <p class="ajuda">O login com Google não está disponível no momento.</p>
     {% endif %}
   </div>
 </div>
+<form method="post" action="/representante/sair" class="so-celular sair-celular">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <button type="submit" class="secundario largo">{{ ic.i("sair", 18) }} Sair da conta</button>
+</form>
 {{ g.script(firebase, firebase_sdk) }}
 {% endblock %}

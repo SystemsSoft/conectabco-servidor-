@@ -1,17 +1,37 @@
 {% extends "representante/_base.html" %}
+{% import "representante/_icones.html" as ic %}
 {% block titulo %}Cadastrar corretor{% endblock %}
+{% block estilo %}
+    .formulario { max-width: 860px; }
+    .etapa > h2 { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
+    .etapa > h2 .n { display: grid; place-items: center; width: 30px; height: 30px; flex: none; border-radius: 10px; background: var(--navy-900); color: #fff; font-size: 14px; }
+    .etapa > h2 small { font: 400 13.5px var(--body); color: var(--muted); }
+    .lgpd { display: flex; gap: 10px; align-items: flex-start; margin-top: 18px; padding: 14px 16px; border-radius: var(--r-md); background: var(--bg); font-weight: 400; color: var(--text); font-size: 14px; }
+    .lgpd input { margin-top: 2px; }
+    .barra-envio { position: sticky; bottom: calc(var(--abas) + 12px); z-index: 10; display: flex; gap: 12px; align-items: center; padding: 12px 12px 12px 20px; border-radius: 999px; background: rgba(255, 255, 255, .94); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 1px solid var(--line); box-shadow: var(--shadow-lg); }
+    .barra-envio .rotulo { flex: 1; }
+    .barra-envio a { color: var(--muted); font-weight: 500; }
+    @media (max-width: 760px) {
+      .barra-envio { border-radius: 18px; padding: 10px; }
+      .barra-envio .rotulo { display: none; }
+      .barra-envio button { flex: 1; }
+      .barra-envio a { padding: 0 10px; }
+      #campo-anexo { margin-left: 0 !important; }
+    }
+{% endblock %}
 {% block conteudo %}
-<p><a href="/representante">← Meus corretores</a></p>
+<a class="voltar" href="/representante">{{ ic.i("voltar", 18) }} Meus corretores</a>
+<div class="formulario">
 <h1>Cadastrar corretor</h1>
 <p class="sub">Os mesmos dados do contrato de prestação de serviços. Campos com * são obrigatórios. <a href="/contratar/modelo.pdf" target="_blank" rel="noopener">Ver o contrato em branco</a>.</p>
 <form method="post" action="/representante/novo" enctype="multipart/form-data" data-demora>
   <input type="hidden" name="csrf" value="{{ csrf }}">
-  <div class="cartao">
-    <h2>Contratante</h2>
+  <div class="cartao etapa">
+    <h2><span class="n">1</span> Contratante</h2>
     {% include "_contratante_campos.html" %}
   </div>
-  <div class="cartao">
-    <h2>Tamanho da operação <span style="font-weight: 400; color: var(--suave); font-size: 14px;">(aproximado, opcional)</span></h2>
+  <div class="cartao etapa">
+    <h2><span class="n">2</span><span>Tamanho da operação <small>(aproximado, opcional)</small></span></h2>
     <div class="grade">
       <div><label for="imoveis">Imóveis na carteira</label><input type="text" id="imoveis" name="imoveis" value="{{ dados.imoveis or '' }}" inputmode="numeric" maxlength="9"></div>
       <div><label for="contratos">Contratos de locação ativos</label><input type="text" id="contratos" name="contratos" value="{{ dados.contratos or '' }}" inputmode="numeric" maxlength="9"></div>
@@ -19,20 +39,25 @@
     </div>
     <div style="margin-top: 14px;"><label for="observacoes">Observações</label><textarea id="observacoes" name="observacoes" rows="3" maxlength="2000" placeholder="Melhor horário para contato, sistema que usa hoje, migração de dados...">{{ dados.observacoes or '' }}</textarea></div>
   </div>
-  <div class="cartao">
-    <h2>Contrato</h2>
+  <div class="cartao etapa">
+    <h2><span class="n">3</span> Contrato</h2>
     <label class="opcao"><input type="radio" name="contrato" value="link"{% if dados.contrato != "anexo" %} checked{% endif %}>
-      <span><strong>Gerar link para o corretor assinar</strong><br><span class="ajuda" style="margin: 0;">Você recebe um link para enviar por WhatsApp ou e-mail (ou abrir agora, com o corretor). Ele assina eletronicamente ou com a conta gov.br, e o contrato assinado entra nesta solicitação.</span></span></label>
+      <span><strong>Gerar link para o corretor assinar</strong><br><span class="ajuda" style="margin: 2px 0 0;">Você recebe um link para enviar por WhatsApp ou e-mail (ou abrir agora, com o corretor). Ele assina eletronicamente ou com a conta gov.br, e o contrato assinado entra nesta solicitação.</span></span></label>
     <label class="opcao"><input type="radio" name="contrato" value="anexo"{% if dados.contrato == "anexo" %} checked{% endif %}>
-      <span><strong>Anexar o contrato já assinado</strong><br><span class="ajuda" style="margin: 0;">PDF assinado pelo corretor (gov.br ou digitalizado), até 10 MB.</span></span></label>
+      <span><strong>Anexar o contrato já assinado</strong><br><span class="ajuda" style="margin: 2px 0 0;">PDF assinado pelo corretor (gov.br ou digitalizado), até 10 MB.</span></span></label>
     <div id="campo-anexo" style="margin: 6px 0 0 30px;"{% if dados.contrato != "anexo" %} hidden{% endif %}>
       <input type="file" name="contrato_assinado" accept="application/pdf,.pdf">
       {% if erro and dados.contrato == "anexo" %}<span class="ajuda">Selecione o arquivo de novo.</span>{% endif %}
     </div>
-    <label style="display: flex; gap: 8px; align-items: flex-start; margin-top: 18px; font-weight: 400;"><input type="checkbox" name="lgpd" required{% if dados.lgpd %} checked{% endif %}> O corretor autorizou o uso dos dados dele para a contratação e a implantação do sistema (LGPD).</label>
+    <label class="lgpd"><input type="checkbox" name="lgpd" required{% if dados.lgpd %} checked{% endif %}> O corretor autorizou o uso dos dados dele para a contratação e a implantação do sistema (LGPD).</label>
   </div>
-  <div class="acoes"><button type="submit" data-enviando="Enviando...">Enviar para implantação</button><a href="/representante">Cancelar</a></div>
+  <div class="barra-envio">
+    <span class="rotulo">Confira os dados antes de enviar.</span>
+    <a href="/representante">Cancelar</a>
+    <button type="submit" data-enviando="Enviando...">Enviar para implantação</button>
+  </div>
 </form>
+</div>
 <script>
   document.querySelectorAll('input[name=contrato]').forEach(function (r) {
     r.addEventListener('change', function () {

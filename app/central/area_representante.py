@@ -48,6 +48,7 @@ Logado = Annotated[m.Representante, Depends(representante_logado)]
 def _ctx(request: Request, r: m.Representante | None, **extra) -> dict:
     return {
         "representante": r,
+        "caminho": request.url.path,
         "csrf": acesso.token_csrf(r) if r else "",
         "msg": MENSAGENS.get(request.query_params.get("msg", ""), ""),
         "erro": request.query_params.get("erro", ""),

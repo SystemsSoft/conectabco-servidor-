@@ -1,27 +1,99 @@
 {% extends "representante/_base.html" %}
 {% import "representante/_google.html" as g %}
-{% block titulo %}Área do representante{% endblock %}
-{% block conteudo %}
-<div class="cartao" style="max-width: 400px; margin: 40px auto;">
-  <h1>Área do representante</h1>
-  <p class="sub">Envie corretores para a implantação do sistema e acompanhe cada um.</p>
-  <form method="post" action="/representante/entrar">
-    <div style="margin-bottom: 14px;">
-      <label for="login">Usuário</label>
-      <input type="text" id="login" name="login" value="{{ login or '' }}" autocomplete="username" autofocus required>
-    </div>
+{% import "representante/_icones.html" as ic %}
+{% block titulo %}Entrar{% endblock %}
+{% block estilo %}
+    body { background: var(--navy-950); }
+    .entrada { min-height: 100vh; display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); }
+    .vitrine { position: relative; overflow: hidden; color: #fff; padding: 48px clamp(28px, 5vw, 72px); display: flex; flex-direction: column; justify-content: space-between; gap: 40px;
+      background: radial-gradient(900px 500px at -10% 110%, rgba(20, 184, 124, .35), transparent 60%), radial-gradient(700px 420px at 110% -10%, rgba(35, 70, 194, .45), transparent 60%), var(--navy-900); }
+    .vitrine::after { content: ""; position: absolute; inset: 0; background-image: radial-gradient(rgba(255, 255, 255, .07) 1px, transparent 1px); background-size: 22px 22px; mask-image: linear-gradient(180deg, #000, transparent 85%); -webkit-mask-image: linear-gradient(180deg, #000, transparent 85%); pointer-events: none; }
+    .vitrine > * { position: relative; z-index: 1; }
+    .vitrine h1 { color: #fff; font-size: clamp(28px, 3.6vw, 42px); line-height: 1.12; letter-spacing: -.025em; margin: 0 0 14px; max-width: 520px; }
+    .vitrine h1 em { font-style: normal; color: #5BE3AE; }
+    .vitrine p { color: rgba(255, 255, 255, .72); font-size: 16px; max-width: 460px; margin: 0; }
+    .vantagens { list-style: none; margin: 30px 0 0; padding: 0; display: grid; gap: 14px; }
+    .vantagens li { display: flex; gap: 12px; align-items: center; color: rgba(255, 255, 255, .88); }
+    .vantagens .icone { width: 36px; height: 36px; padding: 8px; border-radius: 11px; background: rgba(255, 255, 255, .08); color: #5BE3AE; }
+    .rodape-vitrine { color: rgba(255, 255, 255, .45); font-size: 13px; }
+    .lado-form { background: var(--bg); display: grid; place-items: center; padding: 40px 24px; }
+    .caixa { width: 100%; max-width: 410px; }
+    .caixa .cartao { padding: 32px; border-radius: 24px; box-shadow: var(--shadow-lg); border: 0; }
+    .caixa h2 { font-size: 24px; margin: 0 0 4px; letter-spacing: -.02em; }
+    .campo { margin-bottom: 14px; }
+    .ou { display: flex; align-items: center; gap: 12px; color: var(--muted); font-size: 13px; margin: 20px 0 16px; }
+    .ou::before, .ou::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+    .senha { position: relative; }
+    .senha input { padding-right: 76px; }
+    .senha button { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); min-height: 34px; padding: 4px 12px; font-size: 13px; background: transparent; color: var(--muted); border: 0; }
+    .senha button:hover { background: var(--bg); color: var(--ink); }
+    .ajuda-final { text-align: center; color: var(--muted); font-size: 13.5px; margin: 18px 0 0; }
+    @media (max-width: 860px) {
+      .entrada { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+      .vitrine { padding: calc(28px + env(safe-area-inset-top)) 22px 76px; gap: 18px; }
+      .vitrine h1 { font-size: 27px; margin-bottom: 8px; }
+      .vitrine p { font-size: 15px; }
+      .vantagens, .rodape-vitrine { display: none; }
+      .lado-form { place-items: start center; padding: 0 16px 32px; }
+      .caixa { margin-top: -52px; }
+      .caixa .cartao { padding: 24px 20px; border-radius: 20px; }
+    }
+{% endblock %}
+{% block corpo %}
+<div class="entrada">
+  <section class="vitrine">
+    <a class="marca" href="/representante/entrar"><span class="selo-marca">C</span><span>Associação Conecta<small>Área do representante</small></span></a>
     <div>
-      <label for="senha">Senha</label>
-      <input type="password" id="senha" name="senha" autocomplete="current-password" required>
+      <h1>Leve o sistema da associação <em>a mais corretores</em>.</h1>
+      <p>Cadastre corretores para a implantação, envie o contrato para assinatura e acompanhe cada etapa.</p>
+      <ul class="vantagens">
+        <li>{{ ic.i("contrato") }} Contrato preenchido e assinado pelo celular ou gov.br</li>
+        <li>{{ ic.i("relogio") }} Situação de cada corretor em tempo real</li>
+        <li>{{ ic.i("escudo") }} Acesso seguro, com sua conta Google se preferir</li>
+      </ul>
     </div>
-    <div class="acoes"><button type="submit" style="width: 100%; justify-content: center;">Entrar</button></div>
-  </form>
-  {% if firebase %}
-  <p class="ajuda" style="text-align: center; margin: 18px 0 12px;">ou</p>
-  {{ g.botao("/representante/entrar/google", "Entrar com Google") }}
-  <p class="ajuda">No primeiro acesso, entre com usuário e senha e conecte sua conta Google em "Minha conta".</p>
-  {% endif %}
-  <p class="ajuda" style="margin-top: 16px;">Não tem acesso? Fale com a associação.</p>
+    <p class="rodape-vitrine">Associação Conecta do Brasil</p>
+  </section>
+  <section class="lado-form">
+    <div class="caixa">
+      <div class="cartao">
+        <h2>Entrar</h2>
+        <p class="sub" style="margin-bottom: 22px;">Use o acesso enviado pela associação.</p>
+        {% if erro %}<div class="aviso erro" role="alert">{{ erro }}</div>{% endif %}
+        <form method="post" action="/representante/entrar">
+          <div class="campo">
+            <label for="login">Usuário</label>
+            <input type="text" id="login" name="login" value="{{ login or '' }}" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" autofocus required>
+          </div>
+          <div class="campo">
+            <label for="senha">Senha</label>
+            <div class="senha">
+              <input type="password" id="senha" name="senha" autocomplete="current-password" required>
+              <button type="button" id="ver-senha" aria-controls="senha">Mostrar</button>
+            </div>
+          </div>
+          <button type="submit" class="largo" style="margin-top: 6px;">Entrar</button>
+        </form>
+        {% if firebase %}
+        <div class="ou">ou</div>
+        {{ g.botao("/representante/entrar/google", "Entrar com Google") }}
+        <p class="ajuda" style="text-align: center;">No primeiro acesso, entre com usuário e senha e conecte sua conta Google em "Minha conta".</p>
+        {% endif %}
+      </div>
+      <p class="ajuda-final">Não tem acesso? Fale com a associação.</p>
+    </div>
+  </section>
 </div>
+<script>
+  (function () {
+    var b = document.getElementById('ver-senha'), campo = document.getElementById('senha');
+    b.addEventListener('click', function () {
+      var ver = campo.type === 'password';
+      campo.type = ver ? 'text' : 'password';
+      b.textContent = ver ? 'Ocultar' : 'Mostrar';
+      campo.focus();
+    });
+  })();
+</script>
 {{ g.script(firebase, firebase_sdk) }}
 {% endblock %}
