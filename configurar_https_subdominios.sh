@@ -15,7 +15,7 @@ set -euo pipefail
 cd "$(dirname "$0")"
 EMAIL=${1:-}
 CHAVE=${2:-key_aws.pem}
-HOST=${3:-ec2-user@44.223.83.147}
+HOST=${3:-ec2-user@32.192.43.203}
 DOMINIO=${4:-xn--associaoconectabci-7sb3f.com.br}
 SSH="ssh -i $CHAVE -o BatchMode=yes"
 

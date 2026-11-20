@@ -18,7 +18,7 @@ set -euo pipefail
 cd "$(dirname "$0")"
 EMAIL=${1:-}
 CHAVE=${2:-key_aws.pem}
-HOST=${3:-ec2-user@44.223.83.147}
+HOST=${3:-ec2-user@32.192.43.203}
 DOMINIO=${4:-api.xn--associaoconectabci-7sb3f.com.br}
 IMOBILIARIA=${5:-}
 # Domínio principal (exemplo.app) também atende pelo www; subdomínio não.

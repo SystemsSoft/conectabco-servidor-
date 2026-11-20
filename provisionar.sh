@@ -18,7 +18,7 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 CHAVE=${1:-key_aws.pem}
-HOST=${2:-ec2-user@44.223.83.147}
+HOST=${2:-ec2-user@32.192.43.203}
 ENV_LOCAL=${3:-}
 SSH="ssh -i $CHAVE -o BatchMode=yes"
 

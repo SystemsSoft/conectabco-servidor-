@@ -12,7 +12,7 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 CHAVE=${CHAVE:-key_aws.pem}
-HOST=${HOST:-ec2-user@44.223.83.147}
+HOST=${HOST:-ec2-user@32.192.43.203}
 SSH="ssh -i $CHAVE -o BatchMode=yes"
 [ $# -gt 0 ] || { echo "Uso: $0 arquivo.mp4 [...]" >&2; exit 1; }
 
