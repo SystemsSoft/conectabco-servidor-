@@ -72,13 +72,18 @@
 <div class="cartao">
   <h2>Domínios</h2>
   <p class="sub" style="margin-top: -6px;">Para trocar entre domínio próprio e subdomínio da associação: adicione o novo, torne-o <strong>principal</strong> (o endereço do site, dos links e dos QR codes) e, se quiser, remova o anterior.</p>
+  {% set lista_dominios = r.dominios | map(attribute="dominio") | list %}
+  {% if principal and principal not in lista_dominios %}
+  <div class="aviso atencao">O endereço do site (links e QR codes) é <a href="{{ r.site_url }}" target="_blank" rel="noopener">{{ r.site_url }}</a>, que não está entre os domínios abaixo. Para usar um deles, clique em <strong>Tornar principal</strong>.</div>
+  {% endif %}
   {% for d in r.dominios %}
   {% set da_associacao = base_associacao and d.dominio.endswith("." ~ base_associacao) %}
   <div class="dominio">
     <strong>{{ d.dominio | exibir_dominio }}</strong>
     {% if d.dominio == principal %}<span class="selo ok">Principal</span>{% endif %}
-    {% if da_associacao %}<span class="selo ok">Subdomínio da associação · HTTPS automático</span>{% endif %}
+    {% if da_associacao %}<span class="selo off">Subdomínio da associação</span>{% endif %}
     {% if dns[d.dominio] %}<span class="selo ok">DNS aponta para este servidor</span>{% else %}<span class="selo atencao">DNS ainda não aponta para {{ ip or "este servidor" }}</span>{% endif %}
+    {% if https[d.dominio] is not none %}{% if https[d.dominio] %}<span class="selo ok">HTTPS ligado</span>{% else %}<span class="selo atencao">HTTPS não ligado</span>{% endif %}{% endif %}
     <div style="margin-left: auto; display: flex; gap: 8px;">
       {% if d.dominio != principal %}
       <form method="post" action="/plataforma/{{ r.slug }}/dominios/principal">
@@ -91,10 +96,16 @@
         <button type="submit" class="perigo"{% if d.dominio == principal and r.dominios | length > 1 %} onclick="return confirm('Este é o endereço principal: o próximo domínio passa a ser o principal. Remover?')"{% endif %}>Remover</button>
       </form>
     </div>
-    {% if da_associacao %}
-    <p class="ajuda" style="flex-basis: 100%; margin: 0;">O DNS (registro curinga) e o certificado HTTPS curinga da associação já cobrem este endereço: abre em <a href="https://{{ d.dominio }}/" target="_blank" rel="noopener">https://{{ d.dominio | exibir_dominio }}</a>. Nada a configurar.</p>
+    {% if da_associacao and dns[d.dominio] and https[d.dominio] %}
+    <p class="ajuda" style="flex-basis: 100%; margin: 0;">Coberto pelo DNS curinga e pelo certificado curinga da associação: abre em <a href="https://{{ d.dominio }}/" target="_blank" rel="noopener">https://{{ d.dominio | exibir_dominio }}</a>. Nada a configurar.</p>
+    {% elif da_associacao %}
+    <details style="flex-basis: 100%;" open>
+      <summary>Falta ligar os subdomínios da associação neste servidor</summary>
+      <p style="margin: 8px 0 0;">Enquanto isso, <strong>{{ d.dominio | exibir_dominio }}</strong> não abre.</p>
+      {% include "_curinga.html" %}
+    </details>
     {% else %}
-    <details style="flex-basis: 100%;">
+    <details style="flex-basis: 100%;"{% if not dns[d.dominio] or https[d.dominio] == false %} open{% endif %}>
       <summary>Como ligar este domínio</summary>
       <p style="margin: 8px 0 0;">1. No DNS do domínio, crie um registro <strong>A</strong> → <code>{{ ip or "IP do servidor" }}</code> (no domínio principal, também o <code>www</code>).<br>
       2. Com o DNS apontando, ligue o HTTPS (na pasta do servidor):</p>
@@ -124,6 +135,12 @@
       <label style="display: flex; gap: 6px; font-weight: 400; align-self: center;"><input type="checkbox" name="principal" value="1"> Usar como principal</label>
       <button type="submit" class="secundario">Adicionar</button>
     </div>
+    {% if subdominio_base and curinga and not (curinga.dns and curinga.https) %}
+    <div class="aviso atencao" id="aviso-curinga" hidden style="margin: 14px 0 0;">
+      <strong>Os subdomínios da associação ainda não estão ligados neste servidor:</strong> um subdomínio novo só abre depois disto.
+      {% include "_curinga.html" %}
+    </div>
+    {% endif %}
   </form>
   <script>
     document.querySelectorAll('input[name=tipo]').forEach(function (o) {
@@ -131,6 +148,8 @@
         var sub = document.querySelector('input[name=tipo]:checked').value === 'associacao';
         document.getElementById('add-sub').hidden = !sub;
         document.getElementById('add-proprio').hidden = sub;
+        var aviso = document.getElementById('aviso-curinga');
+        if (aviso) aviso.hidden = !sub;
       });
     });
   </script>
@@ -158,7 +177,9 @@
 
 <div class="cartao">
   <h2>Acesso</h2>
-  <p style="margin: 0 0 6px;">App de gestão: cabeçalho <code>X-Imobiliaria: {{ r.slug }}</code> em todas as chamadas à API.</p>
+  {% set dominio_app = principal if principal in lista_dominios else (lista_dominios[0] if lista_dominios else "") %}
+  {% if dominio_app %}<p style="margin: 0 0 6px;">App de gestão no navegador: <a href="https://{{ dominio_app }}/gestao/" target="_blank" rel="noopener">https://{{ dominio_app | exibir_dominio }}/gestao/</a> (já abre com a marca dela).</p>{% endif %}
+  <p style="margin: 0 0 6px;">App instalado ou fora do domínio dela: código <code>{{ r.slug }}</code> (cabeçalho <code>X-Imobiliaria: {{ r.slug }}</code> nas chamadas à API).</p>
   <p style="margin: 0 0 6px;">Marca para o app (público): <a href="{{ endereco }}/api/v1/marca?imob={{ r.slug }}" target="_blank" rel="noopener"><code>/api/v1/marca?imob={{ r.slug }}</code></a></p>
   {% if r.site_url %}<p style="margin: 0;">Site: <a href="{{ r.site_url }}" target="_blank" rel="noopener">{{ r.site_url }}</a></p>{% endif %}
   <form method="post" action="/plataforma/{{ r.slug }}/situacao" style="margin-top: 18px;">

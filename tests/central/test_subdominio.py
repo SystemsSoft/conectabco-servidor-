@@ -59,15 +59,72 @@ def test_dominio_proprio_continua_igual(painel, associacao):  # noqa: F811
     assert imobiliarias.buscar("joao").dominios == ("joaoimoveis.com.br",)
 
 
-def test_pagina_mostra_https_automatico_no_subdominio(painel, associacao):  # noqa: F811
+IP = "32.192.43.203"
+
+
+def _no_servidor(monkeypatch, dns: bool, https: bool):
+    """Como se o painel rodasse no servidor (com IP), com o DNS e o HTTPS
+    de todos os nomes no estado pedido (sem rede nem nginx de verdade)."""
+    from app.central import painel as p
+
+    monkeypatch.setattr(p, "_ip_do_servidor", lambda request: IP)
+    monkeypatch.setattr(p, "_aponta", lambda dominio, ip: dns)
+    monkeypatch.setattr(p, "_https_ok", lambda dominio: https)
+
+
+def test_pagina_mostra_o_estado_real_do_subdominio(painel, associacao):  # noqa: F811
     csrf = _entrar(painel)
     _nova(painel, csrf, tipo_dominio="associacao", subdominio="lima")
     painel.post("/plataforma/joao/dominios", data={"csrf": csrf, "dominio": "limaimoveis.com.br"})
+    # Fora do servidor não dá para conferir o HTTPS: sem selo, e o subdomínio
+    # não promete "nada a configurar".
     pagina = painel.get("/plataforma/joao").text
-    assert "lima.associaçãoconectabci.com.br" in pagina and "HTTPS automático" in pagina
-    # O domínio próprio continua com o passo a passo do HTTPS; o subdomínio, não.
+    assert "lima.associaçãoconectabci.com.br" in pagina and "Nada a configurar" not in pagina
+    assert "HTTPS ligado" not in pagina and "HTTPS não ligado" not in pagina
+    # O domínio próprio continua com o passo a passo do HTTPS.
     assert pagina.count("Como ligar este domínio") == 1 and "configurar_https.sh" in pagina
     assert f"configurar_https.sh \"\" key_aws.pem ec2-user@" in pagina and f"lima.{BASE} joao" not in pagina
+    assert "https://lima.associaçãoconectabci.com.br/gestao/" in pagina
+
+
+def test_curinga_ainda_nao_ligado(painel, associacao, monkeypatch):  # noqa: F811
+    _no_servidor(monkeypatch, dns=False, https=False)
+    csrf = _entrar(painel)
+    nova = painel.get("/plataforma/nova").text
+    assert "ainda não estão ligados neste servidor" in nova and f"ec2-user@{IP}" in nova
+    _nova(painel, csrf, tipo_dominio="associacao", subdominio="lima")
+    pagina = painel.get("/plataforma/joao").text
+    assert f"DNS ainda não aponta para {IP}" in pagina and "HTTPS não ligado" in pagina
+    assert "Falta ligar os subdomínios da associação" in pagina and "Nada a configurar" not in pagina
+    assert f"configurar_https_subdominios.sh \"\" key_aws.pem ec2-user@{IP}" in pagina
+    assert f"apontando para <code>{IP}</code>" in pagina and 'id="aviso-curinga"' in pagina
+
+    # Só o DNS já criado: o passo 1 aparece como feito.
+    _no_servidor(monkeypatch, dns=True, https=False)
+    pagina = painel.get("/plataforma/joao").text
+    assert "DNS aponta para este servidor" in pagina and "HTTPS não ligado" in pagina
+    assert pagina.count('<span class="selo ok">Feito</span>') == 2  # no domínio e no aviso do formulário
+
+
+def test_curinga_ligado(painel, associacao, monkeypatch):  # noqa: F811
+    _no_servidor(monkeypatch, dns=True, https=True)
+    csrf = _entrar(painel)
+    assert "ainda não estão ligados" not in painel.get("/plataforma/nova").text
+    _nova(painel, csrf, tipo_dominio="associacao", subdominio="lima")
+    pagina = painel.get("/plataforma/joao").text
+    assert "HTTPS ligado" in pagina and "Nada a configurar" in pagina
+    assert "Falta ligar" not in pagina and 'id="aviso-curinga"' not in pagina
+
+
+def test_endereco_do_site_fora_dos_dominios(painel, associacao):  # noqa: F811
+    csrf = _entrar(painel)
+    _nova(painel, csrf, tipo_dominio="associacao", subdominio="lima")
+    with central.sessao() as db:
+        central.obter(db, "joao").site_url = "https://joao.netlify.app"
+        db.commit()
+    pagina = painel.get("/plataforma/joao").text
+    assert "https://joao.netlify.app</a>, que não está entre os domínios abaixo" in pagina
+    assert 'class="selo ok">Principal' not in pagina
 
 
 def test_contratar_com_subdominio_e_implantar_ja_escolhido(painel, associacao):  # noqa: F811

@@ -52,6 +52,12 @@
         <code style="color: var(--suave);">.{{ subdominio_base }}</code>
       </div>
       <span class="ajuda">Letras, números e hífen. O site e o sistema abrem em <strong>https://<span id="previa-subdominio">{{ dados.subdominio or "nome" }}</span>.{{ subdominio_base }}</strong></span>
+      {% if curinga and not (curinga.dns and curinga.https) %}
+      <div class="aviso atencao" style="margin: 12px 0 0;">
+        <strong>Os subdomínios da associação ainda não estão ligados neste servidor:</strong> a imobiliária é criada, mas o endereço só abre depois disto.
+        {% include "_curinga.html" %}
+      </div>
+      {% endif %}
     </div>
     {% endif %}
     <div class="grade" id="bloco-proprio"{% if associacao %} hidden{% endif %} style="margin-top: 8px;">

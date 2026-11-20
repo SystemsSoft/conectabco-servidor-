@@ -51,7 +51,7 @@ class Falso:
         Falso.lightsail.append(instanceName)
         assert instanceName == "AssociacaoServer"
         return {"instance": {
-            "name": instanceName, "state": {"name": "running"}, "publicIpAddress": "44.223.83.147",
+            "name": instanceName, "state": {"name": "running"}, "publicIpAddress": "32.192.43.203",
             "isStaticIp": True, "location": {"availabilityZone": "us-east-1a"},
             "blueprintName": "Amazon Linux 2023", "bundleId": "small_3_0",
             "hardware": {"cpuCount": 2, "ramSizeInGb": 2.0, "disks": [{"sizeInGb": 60}]},
@@ -108,7 +108,7 @@ def test_pagina_mostra_gasto_servidor_bucket_e_banco(painel, aws):  # noqa: F811
     assert "US$ 30,00" in pagina and "US$ 15,00" in pagina  # previsão e mês passado
     assert "Amazon Lightsail" in pagina and "Key Management" not in pagina
     assert "3,0 GB" in pagina and "1.234" in pagina and "sa-east-1" in pagina
-    assert "AssociacaoServer" in pagina and "44.223.83.147" in pagina and "Ligada" in pagina
+    assert "AssociacaoServer" in pagina and "32.192.43.203" in pagina and "Ligada" in pagina
     assert "small_3_0" in pagina and "US$ 12,00/mês" in pagina and "37%" in pagina and "81%" in pagina
     assert "AssociacaoDatabase" in pagina and "US$ 15,00/mês" in pagina and "mysql 8.4.5" in pagina
     assert "10,0 GB de 40,0 GB (25%)" in pagina and "até 24/10 15:00" in pagina

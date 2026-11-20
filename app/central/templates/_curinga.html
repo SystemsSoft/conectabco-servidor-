@@ -1,0 +1,13 @@
+{# Como ligar (uma vez só) os subdomínios da associação neste servidor: o registro A "*"
+   no DNS da Netlify e o certificado curinga. Espera curinga ({dns, https} ou None),
+   ip_servidor e subdominio_base (forma com acentos). #}
+<ol style="margin: 8px 0 0; padding-left: 20px;">
+  <li style="margin-bottom: 8px;">{% if curinga and curinga.dns %}<span class="selo ok">Feito</span> {% endif %}No DNS da Netlify
+    (app.netlify.com → Domains → {{ subdominio_base }} → DNS settings), crie um registro <strong>A</strong> com nome
+    <code>*</code> apontando para <code>{{ ip_servidor or "o IP do servidor" }}</code>. Os nomes que já têm registro
+    próprio (<code>api</code>, <code>www</code>, o domínio principal) continuam como estão.</li>
+  <li>{% if curinga and curinga.https %}<span class="selo ok">Feito</span> {% endif %}Com o DNS apontando, ligue o HTTPS
+    curinga (na pasta do servidor, com um token pessoal da Netlify):
+    <pre>NETLIFY_TOKEN=... ./configurar_https_subdominios.sh "" key_aws.pem ec2-user@{{ ip_servidor or "IP" }}</pre></li>
+</ol>
+<p class="ajuda" style="margin-top: 6px;">É uma vez só: depois, todo subdomínio da associação abre com HTTPS.</p>

@@ -4,6 +4,7 @@ cada uma. Só abre pelo endereço do servidor, nunca pelo domínio de uma
 imobiliária."""
 
 import socket
+import ssl
 from dataclasses import fields
 from pathlib import Path
 from typing import Annotated
@@ -227,9 +228,16 @@ def lista(request: Request, db: Db, admin: Admin):
     return _pagina(request, "lista.html", _base(request, admin, imobiliarias=imobiliarias))
 
 
-def _ctx_subdominio() -> dict:
+def _ctx_subdominio(ip: str = "") -> dict:
+    """Domínio-base dos subdomínios da associação e, no servidor (com o IP
+    dele), se o curinga já está ligado: registro A "*" apontando para cá e
+    certificado *.base no nginx. curinga None = não deu para conferir."""
     base = central.subdominio_base()
-    return {"subdominio_base": central.exibir_dominio(base) if base else ""}
+    curinga = None
+    if base and ip:
+        teste = f"teste-curinga.{base}"
+        curinga = {"dns": _aponta(teste, ip), "https": _https_ok(teste)}
+    return {"subdominio_base": central.exibir_dominio(base) if base else "", "curinga": curinga, "ip_servidor": ip}
 
 
 @router.get("/nova")
@@ -255,7 +263,8 @@ def nova_pagina(request: Request, db: Db, admin: Admin, solicitacao: str = ""):
                  else rep.sugestao_de_slug(s.nome_imobiliaria).replace("-", ""),
                  "admin_nome": s.nome, "admin_login": s.email.split("@")[0]}  # fmt: skip
     return _pagina(request, "nova.html", _base(request, admin, dados=dados, contrato=contrato, ufs=rep.UFS,
-                                               logo_enviado=logo_enviado, **_ctx_subdominio()))  # fmt: skip
+                                               logo_enviado=logo_enviado,
+                                               **_ctx_subdominio(_ip_do_servidor(request))))  # fmt: skip
 
 
 @router.post("/nova")
@@ -311,7 +320,8 @@ def nova(
             criar_administrador(db, admin_nome, admin_login, admin_senha)
     except RegraNegocio as e:
         return _pagina(request, "nova.html", _base(request, admin, dados=dados, contrato=contrato, ufs=rep.UFS,
-                                                   erro=e.mensagem, **_ctx_subdominio()), 422)  # fmt: skip
+                                                   erro=e.mensagem, **_ctx_subdominio(_ip_do_servidor(request))),
+                             422)  # fmt: skip
     with central.sessao() as db:
         ct.salvar(db, imob.slug, valores_contrato)
         com.definir_plano(db, imob.slug, *plano)
@@ -590,6 +600,17 @@ def _aponta(dominio: str, ip: str) -> bool:
         return False
 
 
+def _https_ok(dominio: str) -> bool:
+    """Se o nginx deste servidor já atende o nome com um certificado válido.
+    Confere na porta 443 local, com o nome no SNI: não depende do DNS."""
+    try:
+        with socket.create_connection(("127.0.0.1", 443), timeout=2) as conexao:
+            with ssl.create_default_context().wrap_socket(conexao, server_hostname=dominio):
+                return True
+    except (OSError, ValueError):  # recusado, sem certificado para o nome, expirado...
+        return False
+
+
 @router.get("/tutorial")
 def tutorial_pagina(request: Request, admin: Admin):
     from app.central import tutoriais as tut  # aqui: tutoriais importa o painel
@@ -629,10 +650,12 @@ def detalhe(slug: str, request: Request, db: Db, admin: Admin):
     ctx = _base(
         request, admin, r=r, imob=imob, ip=ip, admins=admins, tem_logo=tem_logo,
         erro_banco=erro_banco, dns={d.dominio: _aponta(d.dominio, ip) for d in r.dominios},
+        # Fora do servidor (sem o IP dele) não dá para conferir o HTTPS: None.
+        https={d.dominio: _https_ok(d.dominio) if ip else None for d in r.dominios},
         endereco=f"{request.url.scheme}://{request.url.netloc}",
         contrato=ct.DadosContrato.do_registro(salvo := ct.obter(db, slug)), contrato_salvo=salvo is not None,
         ufs=rep.UFS, base_associacao=central.subdominio_base(), principal=central.dominio_principal(r),
-        **_ctx_subdominio(),
+        **_ctx_subdominio(ip),
     )  # fmt: skip
     return _pagina(request, "imobiliaria.html", ctx)
 

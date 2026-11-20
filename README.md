@@ -74,7 +74,7 @@ Quem entra no painel são os administradores da plataforma (banco central),
 separados dos usuários das imobiliárias. Crie o primeiro no servidor:
 
 ```bash
-ssh -i key_aws.pem ec2-user@44.223.83.147
+ssh -i key_aws.pem ec2-user@32.192.43.203
 cd /opt/marceloimob && sudo -u marceloimob .venv/bin/python gerenciar.py plataforma criar-admin
 ```
 
@@ -344,7 +344,7 @@ cadastro a cada 30 s, sem reiniciar):
 .venv/bin/python gerenciar.py imobiliaria criar --slug joao --nome "João Imóveis" \
     --dominio joaoimoveis.com.br
 .venv/bin/python gerenciar.py imobiliaria listar
-.venv/bin/python gerenciar.py imobiliaria dominio joao --adicionar joao.inovacloud.app
+.venv/bin/python gerenciar.py imobiliaria dominio joao --adicionar www.joaoimoveis.com.br
 .venv/bin/python gerenciar.py imobiliaria editar joao --site-url https://joaoimoveis.com.br
 .venv/bin/python gerenciar.py imobiliaria desativar joao      # dados ficam no banco
 .venv/bin/python gerenciar.py migrar                          # central + todas
@@ -412,7 +412,7 @@ Documentação interativa (Swagger): **http://localhost:8000/docs**
 
 ## Produção (AWS EC2)
 
-Servidor **https://api.xn--associaoconectabci-7sb3f.com.br** — `api.associaçãoconectabci.com.br` (IP `44.223.83.147`, Amazon Linux
+Servidor **https://api.xn--associaoconectabci-7sb3f.com.br** — `api.associaçãoconectabci.com.br` (IP `32.192.43.203`, Amazon Linux
 2023, usuário SSH `ec2-user`). Acessos por HTTP ou pelo IP são
 redirecionados para o domínio com HTTPS.
 
@@ -432,7 +432,7 @@ usuário `marceloimob`, pastas, `.venv`, serviços, nginx, cron e swap — e
 envie o `.env` de produção (só se o servidor ainda não tiver um):
 
 ```bash
-./provisionar.sh key_aws.pem ec2-user@44.223.83.147 caminho/do/.env-producao
+./provisionar.sh key_aws.pem ec2-user@32.192.43.203 caminho/do/.env-producao
 ```
 
 Para publicar uma nova versão (envia o código, instala dependências, aplica
@@ -453,7 +453,7 @@ os passos 2 e 3, cerca de um minuto):
    da imobiliária `marcelo`, e o app atual, que ainda não manda
    `X-Imobiliaria`, continua funcionando:
    ```bash
-   ssh -i key_aws.pem ec2-user@44.223.83.147 \
+   ssh -i key_aws.pem ec2-user@32.192.43.203 \
        "printf '\nIMOBILIARIA_PADRAO=marcelo\n' | sudo tee -a /opt/marceloimob/.env"
    ```
 2. Publique: `./deploy.sh` (cria o banco central).
@@ -476,7 +476,7 @@ acessado (`proxy_set_header Host $host;` no snippet).
 O domínio está registrado na Hostinger, mas o **DNS é gerenciado pela
 Netlify** (nameservers `dnsN.p01.nsone.net`): os registros ficam em
 app.netlify.com → Domains → DNS settings. Registro **A** `api` →
-`44.223.83.147`; a porta 443 está liberada no Security Group da EC2. Por
+`32.192.43.203`; a porta 443 está liberada no Security Group da EC2. Por
 causa do "ç" e do "ã", use sempre a forma `xn--` do domínio
 (`api.xn--associaoconectabci-7sb3f.com.br`). O HTTPS foi configurado com:
 
@@ -492,7 +492,7 @@ o 5º argumento é o slug dela — o domínio é cadastrado para a imobiliária 
 `SITE_URL` do servidor não muda:
 
 ```bash
-./configurar_https.sh "" key_aws.pem ec2-user@44.223.83.147 joaoimoveis.com.br joao
+./configurar_https.sh "" key_aws.pem ec2-user@32.192.43.203 joaoimoveis.com.br joao
 ```
 
 ### Subdomínio da associação (imobiliária sem domínio próprio)
@@ -519,7 +519,7 @@ A escolha entre domínio próprio e subdomínio aparece em três momentos:
   assume). Domínio próprio novo: só torne principal depois de ligar o HTTPS.
 
 DNS (uma vez só), em app.netlify.com → Domains → associaçãoconectabci.com.br →
-DNS settings: registro **A** com nome **`*`** apontando para `44.223.83.147`.
+DNS settings: registro **A** com nome **`*`** apontando para `32.192.43.203`.
 Os nomes que já têm registro próprio (`api`, `www`, o domínio principal)
 continuam como estão. Se a Netlify não aceitar o `*`, crie um registro A por
 subdomínio.
@@ -538,25 +538,30 @@ root), instala o auxiliar `/usr/local/bin/netlify-dns-hook` (cria e apaga o TXT
 `_acme-challenge` na Netlify), emite o certificado `curinga.<domínio>` e cria o
 bloco do nginx `subdominios.<domínio>.conf`. A renovação é automática
 (`certbot-renew.timer`, com os mesmos hooks). Depois disso, cada imobiliária
-cadastrada com subdomínio já abre com HTTPS — no painel aparece "HTTPS
-automático". Os nomes com bloco próprio (como o `api`) continuam no deles.
+cadastrada com subdomínio já abre com HTTPS. Os nomes com bloco próprio (como
+o `api`) continuam no deles.
+
+No painel (Imobiliárias → a imobiliária → Domínios), cada endereço mostra se o
+DNS aponta para o servidor e se o HTTPS está ligado — conferido na hora, no
+próprio servidor. Enquanto o registro `*` ou o certificado curinga faltarem, os
+subdomínios da associação aparecem com o passo a passo para ligar, e a
+implantação com subdomínio avisa que o endereço ainda não abre.
 
 ## App Flutter
 
-O app de gestão deve usar `https://api.xn--associaoconectabci-7sb3f.com.br` (`API_URL`, padrão em
-`lib/core/api/api_config.dart`; o app ainda aponta para o servidor antigo,
-`https://api.inovacloud.app`). Para o servidor local:
+O app de gestão usa `https://api.xn--associaoconectabci-7sb3f.com.br` (`API_URL`, padrão em
+`lib/core/api/api_config.dart`). Para o servidor local:
 
 ```bash
 flutter run -d chrome --dart-define=API_URL=http://localhost:8000
 ```
 
-Publicando o app web em outro endereço (ex.: `https://gestao.inovacloud.app`),
+Publicando o app web em outro endereço (ex.: um site da Netlify),
 inclua esse endereço em `CORS_ORIGINS` no `.env`.
 
-O app deve mandar o cabeçalho `X-Imobiliaria: <slug>` em toda chamada à API
-(e manter o token por imobiliária). Enquanto não manda, as chamadas vão para
-a `IMOBILIARIA_PADRAO`.
+O app manda o cabeçalho `X-Imobiliaria: <slug>` em toda chamada à API (e
+mantém o token por imobiliária). Chamadas sem o cabeçalho, fora do domínio de
+uma imobiliária, vão para a `IMOBILIARIA_PADRAO`.
 
 ## Testes
 
